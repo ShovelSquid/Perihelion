@@ -1,0 +1,96 @@
+{ "dialogue_tree": [
+{
+"id": "text effects_001",
+"sequence": [
+    {
+        "actor": "Narrator",
+        "lines": [
+            "You descend down the stairs and <red|slow|bold>slip</> down a <darkpurple|slow|italic>DEEP, DARK</> <purple|slow|wavy|font:weird>chasm</>",
+            "You feel your bones begin to break, and you <yellow> cry out </> for <redOrange|font:mercy>Mercy</>",
+            "From the heavens, an <gold|bold|slow|font:angelic> angelic figure </> descends and floats above you."
+        ]
+    },
+    {
+        "actor": "Angel",
+        "lines": [
+            "<blue|bold|font:serene>Precious little one. You have seen much <darkpurple|bold|italic>suffering.</> If only I could offer you peace and salvation.</>",
+            "oh wait. I <yellow|italic> totally can </> do that.",
+            "mm, I dunno. sounds kinda boring tbh.",
+            "How about we do something...",
+            "a little more fun?"
+        ]
+    }
+],
+"choices": {
+    "killfamily_001": "<red|bold|font:violent>kill your family</>",
+    "sparefamily_001": "<green|bold|font:merciful>spare your family</>",
+    "consumefamily_001": "<yellow|bold|font:gluttonous>consume your family</>"
+}
+},
+
+
+{
+"id": "killfamily_001",
+"sequence": [
+    {
+
+    },
+    {
+
+    }
+],
+"choices": "end"
+},
+
+{
+"id": "sparefamily_001",
+"sequence": {
+}
+},
+
+
+{
+"id": "consumefamily_001",
+"sequence": {
+}
+}
+
+
+],
+
+"enter_barks": {
+    "actor": "Jeffrey Epstein",
+    "1": {
+        "lines": [
+            "What's up?",
+            "Yo lil man",
+            "Hey hey hey"
+        ],
+        "cooldown": 4,
+        "interval": 6,
+        "threshold": 2
+    },
+    "2": {
+        "lines": [
+            "What",
+            "What is it",
+            "Hello?"
+        ],
+        "interval": 7,
+        "chance": 0.5,
+        "threshold": 4
+    },
+    "3": {
+        "lines": [
+            "I'm getting uncomfortable.",
+            "I don't... feel safe.",
+            "Please go away."
+        ],
+        "interval": 15,
+        "chance": 0.7,
+        "threshold": 6
+    }
+}
+
+
+}

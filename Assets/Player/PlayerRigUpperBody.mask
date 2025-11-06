@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!319 &31900000
+AvatarMask:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: PlayerRigUpperBody
+  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  m_Elements:
+  - m_Path: 
+    m_Weight: 1
+  - m_Path: Hips
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/Cube.019
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/L Thigh
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/L Thigh/Cube.015
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/L Thigh/L Calf
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/L Thigh/L Calf/Cube.016
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/L Thigh/L Calf/L Foot
+    m_Weight: 0
+  - m_Path: Hips/L Buttcheek/L Thigh/L Calf/L Foot/Cube.017
+    m_Weight: 0
+  - m_Path: Hips/Lower Waist
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Cube.008
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/Cube.001
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/Head
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/Head/Cube
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/Cube.002
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/L UpperArm
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/L UpperArm/Cube.005
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/L UpperArm/L Forearm
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/L UpperArm/L Forearm/Cube.006
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/L UpperArm/L Forearm/L Hand
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/L Shoulder/L UpperArm/L Forearm/L Hand/Cube.007
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/Cube.003
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/R UpperArm
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/R UpperArm/Cube.009
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/R UpperArm/R Forearm
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/R UpperArm/R Forearm/Cube.010
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/R UpperArm/R Forearm/R Hand
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Chest/R Shoulder/R UpperArm/R Forearm/R Hand/Cube.011
+    m_Weight: 1
+  - m_Path: Hips/Lower Waist/Waist/Cube.004
+    m_Weight: 1
+  - m_Path: Hips/R Buttcheek
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/Cube.018
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/R Thigh
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/R Thigh/Cube.012
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/R Thigh/R Calf
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/R Thigh/R Calf/Cube.013
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/R Thigh/R Calf/R Foot
+    m_Weight: 0
+  - m_Path: Hips/R Buttcheek/R Thigh/R Calf/R Foot/Cube.014
+    m_Weight: 0

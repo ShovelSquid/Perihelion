@@ -1,0 +1,66 @@
+{
+  "mobs": [
+    {
+      "reference_number": 101,
+      "mobName": "Goblin",
+      "stats": [
+        {
+          "statName": "Health",
+          "baseValue": 50
+        },
+        {
+          "statName": "Strength",
+          "baseValue": 8
+        },
+        {
+          "statName": "Speed",
+          "baseValue": 12
+        }
+      ]
+    },
+    {
+      "reference_number": 205,
+      "mobName": "Ogre",
+      "stats": [
+        {
+          "statName": "Health",
+          "baseValue": 200
+        },
+        {
+          "statName": "Strength",
+          "baseValue": 25
+        },
+        {
+          "statName": "Armor",
+          "baseValue": 15
+        }
+      ]
+    },
+    {
+      "reference_number": 309,
+      "mobName": "Dragon",
+      "stats": [
+        {
+          "statName": "Health",
+          "baseValue": 500
+        },
+        {
+          "statName": "Strength",
+          "baseValue": 50
+        },
+        {
+          "statName": "Fire Resistance",
+          "baseValue": 30
+        },
+        {
+          "statName": "Ground Acceleration",
+          "baseValue": 5
+        },
+        {
+          "statName": "Ground Speed",
+          "baseValue": 1
+        }
+      ]
+    }
+  ]
+}
