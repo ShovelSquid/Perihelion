@@ -15,6 +15,7 @@ public class CameraController : MonoBehaviour
     public float baseHeight;
     public float height;
     public float heightMax;
+    public float heightMin;
     // clamp this to be normalized
     public float angle;
     public float lerpSpeed;
@@ -27,6 +28,13 @@ public class CameraController : MonoBehaviour
     public bool rotateLeft;
     public bool rotateRight;
     public float rotateSpeed;
+    [Range(0.01f, 300f)]
+    public float lookSensitivity;
+    [Range(0.01f, 300f)]
+    public float controllerLookSensitivity;
+    public bool controller = true;
+    public Vector2 lookDirection;
+    public bool looking;
     public float terminalVelocity;
 
     void Start()
@@ -78,6 +86,10 @@ public class CameraController : MonoBehaviour
         if (attachToPlayer && attachToPlat)
         {
             playerWeight = Mathf.Clamp(Mathf.InverseLerp(0f, platformRadius, Vector3.Distance(platform.position, player.transform.position)), 0.5f, 1f);
+        }
+        if (looking)
+        {
+            DoLook();
         }
         lerpTarget.position = Vector3.Lerp(platPos, playerPos, playerWeight);
         lerpTarget.rotation = Quaternion.Slerp(platRot, playerRot, playerWeight);
@@ -138,6 +150,35 @@ public class CameraController : MonoBehaviour
         this.platform = null;
         playerWeight = 1f;
         CalculateLerpTarget();
+    }
+
+    public void OnLook(Vector2 lookInput, bool isController)
+    {
+        lookDirection = lookInput;
+        if (lookDirection != Vector2.zero)
+        {
+            looking = true;
+            controller = isController;
+        }
+        else
+        {
+            looking = false;
+        }
+    }
+
+    private void DoLook()
+    {
+        float sensitivity = lookSensitivity;
+        if (controller)
+        {
+            sensitivity = controllerLookSensitivity;
+        }
+        angle += lookDirection.x * sensitivity * Time.deltaTime;
+        baseHeight -= lookDirection.y * sensitivity * Time.deltaTime;
+        baseHeight = Mathf.Clamp(baseHeight, heightMin, heightMax);
+        if (angle < 0) angle += 360;
+        if (angle >= 360) angle -= 360;
+
     }
     
     public void OnRotateLeft(bool on)

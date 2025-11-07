@@ -8,6 +8,7 @@ TagManager:
   - Platform
   - Lifeform
   - Dialogue
+  - Button
   layers:
   - Default
   - TransparentFX
@@ -21,7 +22,7 @@ TagManager:
   - Events
   - UIText
   - WorldText
-  - 
+  - Menu
   - 
   - 
   - 
