@@ -88,12 +88,12 @@ public class PlayerManager : MonoBehaviour
         else
         {
             menu.Pause();
-
         }
     }
     
     public void OnSubmit(InputAction.CallbackContext submitContext)
     {
+        Debug.Log("SUBMITTING SUBMITTING");
         if (menu.paused && submitContext.performed)
         {
             menu.Select();

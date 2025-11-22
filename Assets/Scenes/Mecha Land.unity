@@ -472,10 +472,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Settings
-
-
-'
+  m_text: Settings
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05d54df684a357940bb54e0750d12a04, type: 2}
   m_sharedMaterial: {fileID: -8119634857392654783, guid: 05d54df684a357940bb54e0750d12a04, type: 2}
@@ -800,9 +797,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Quit
-
-'
+  m_text: Quit
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05d54df684a357940bb54e0750d12a04, type: 2}
   m_sharedMaterial: {fileID: -8119634857392654783, guid: 05d54df684a357940bb54e0750d12a04, type: 2}
@@ -3177,6 +3172,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a2a2f55b477fbe4b9b6dfa3442db68a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MenuScript
+  man: {fileID: 222627274}
   controller: 0
   paused: 0
   selectedIndex: 0
@@ -3641,9 +3637,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Continue
-
-'
+  m_text: Continue
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05d54df684a357940bb54e0750d12a04, type: 2}
   m_sharedMaterial: {fileID: -8119634857392654783, guid: 05d54df684a357940bb54e0750d12a04, type: 2}
@@ -5398,7 +5392,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1228999717
 RectTransform:
   m_ObjectHideFlags: 0

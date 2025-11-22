@@ -5,6 +5,7 @@ using TMPro;
 
 public class MenuScript : MonoBehaviour
 {
+    public PlayerManager man;
     public bool controller = false;
     public bool paused = false;
     public int selectedIndex = 0;
@@ -63,6 +64,7 @@ public class MenuScript : MonoBehaviour
             obj.SetActive(true);
         }
         RefreshMenuObjects();
+        man.playerInputEnabled = false;
     }
 
     public void Resume()
@@ -73,15 +75,22 @@ public class MenuScript : MonoBehaviour
         {
             obj.SetActive(false);
         }
+        man.playerInputEnabled = true;
     }
 
     public void Quit()
     {
         Application.Quit();
+
+        #if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+        #endif
     }
 
     public void Select()
     {
+        if (selectedText == null) return;
+        Debug.Log("who shall I choose?");
         if (selectedText.text == "Continue")
         {
             Resume();
