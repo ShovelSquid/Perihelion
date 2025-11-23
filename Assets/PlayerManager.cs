@@ -6,7 +6,26 @@ public class PlayerManager : MonoBehaviour
     public GameObject player;
     public MenuScript menu;
     public CameraController cam;
+    private bool cursorLocked = false;
     public bool playerInputEnabled = true;
+
+    void LockCursor()
+    {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+            // On WebGL, just hide cursor, don't lock
+            Cursor.visible = false;
+        #else
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            cursorLocked = true;
+        #endif
+    }
+    void UnlockCursor()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        cursorLocked = false;
+    }
 
     public void OnMove(InputAction.CallbackContext moveInputContext)
     {
@@ -57,6 +76,17 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
+    public void OnClick(InputAction.CallbackContext clickInputContext)
+    {
+        if (!playerInputEnabled) return;
+        // Debug.Log("Click input detected");
+        // bool clickPressed = clickInputContext.started;
+        // if (clickPressed)
+        // {
+        //     player.GetComponent<Attack>().ClickAttack();
+        // }
+    }
+
     public void OnLook(InputAction.CallbackContext lookInputContext)
     {
         if (!playerInputEnabled) return;
@@ -83,10 +113,12 @@ public class PlayerManager : MonoBehaviour
         menu.controller = isController;
         if (menu.paused)
         {
+            LockCursor();
             menu.Resume();
         }
         else
         {
+            UnlockCursor();
             menu.Pause();
         }
     }
