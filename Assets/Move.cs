@@ -37,6 +37,7 @@ public class Move : MonoBehaviour
     public float maxSpeedForceAir;
 
     [Header("Jumping")]
+    public float jumpforce;
     public float jumpForceGround;
     public float jumpForceAir;
     [Range(1f, 100f)]
@@ -282,7 +283,7 @@ public class Move : MonoBehaviour
             jump = false;
             mob.anim.SetTrigger("Jump");
             mob.adio.PlayOneShot(jumpSound);
-            var jumpforce = jumpForceGround;
+            jumpforce = jumpForceGround;
             mob.anim.SetFloat("Flip", 0);
             ParticleSystem jumpParticle = mob.groundJumpParticle;
             horizontalWeight = math.clamp(math.remap(0f, maxGroundSpeed, 0f, horizontalWeightMax, rb.linearVelocity.magnitude), 0f, horizontalWeightMax);

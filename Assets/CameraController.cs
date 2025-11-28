@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using JetBrains.Annotations;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -8,6 +9,14 @@ public class CameraController : MonoBehaviour
     public Transform platform;
     public List<Transform> highlights;     // use this later
     public Transform lerpTarget;
+    [Header("Third Person Mode")]
+    public bool thirdPersonMode;
+    public bool weirdThirdPersonMode;
+    public float thirdPersonDistance;
+    public Quaternion thirdPersonRotation;
+    private float yawAngle = 0f;   // Horizontal rotation
+    private float pitchAngle = 0f; // Vertical rotation
+    [Header("Camera Settings")]
     public float platformRadius;
     public float distance;
     public float distanceMax;
@@ -37,8 +46,18 @@ public class CameraController : MonoBehaviour
     public bool looking;
     public float terminalVelocity;
 
+    [Header("Camera Collision")]
+    public LayerMask collisionLayers; // Set this to what the camera should collide with (e.g., walls, terrain)
+    public float collisionRadius = 0.3f; // Sphere radius for collision detection
+    public float collisionPadding = 0.2f; // Extra distance to keep from walls
+    public float collisionHeightOffset = 1.0f; // Height offset from the player position
+    public float collisionSmoothSpeed = 10f; // How fast camera moves when avoiding collision
+    
+    private float currentDistance; // The actual distance after collision adjustment
+    
     void Start()
     {
+        currentDistance = distance;
         CalculateLerpTarget();
         if (player != null)
         {
@@ -58,12 +77,21 @@ public class CameraController : MonoBehaviour
 
     public void CalculateLerpTarget()
     {
+        if (weirdThirdPersonMode)
+        {
+            CalculateThirdPersonLerpTarget();
+            return;
+        }
+        if (thirdPersonMode)
+        {
+            CalculateThirdPersonLerpTarget();
+            return;
+        }
         lerping = true;
         Vector3 platPos = Vector3.zero;
         Quaternion platRot = Quaternion.identity;
         if (attachToPlat && platform != null)
         {
-            // Vector3 directionToCamera = (platform.position - transform.position).normalized;
             platPos = platform.position + (Quaternion.Euler(0, angle, 0) * Vector3.forward * distance) + (Vector3.up * height);
             platRot = Quaternion.LookRotation(platform.position - platPos, Vector3.up);
         }
@@ -80,12 +108,21 @@ public class CameraController : MonoBehaviour
             {
                 height = baseHeight;
             }
+            if (attachToPlayer && attachToPlat)
+            {
+                playerWeight = Mathf.Clamp(Mathf.InverseLerp(0f, platformRadius, Vector3.Distance(platform.position, player.transform.position)), 0.5f, 1f);
+            }
+
+            
+            // Calculate desired camera position
+            // Vector3 desiredPosition = player.transform.position + (Quaternion.Euler(0, angle, 0) * Vector3.forward * distance) + (Vector3.up * height);
+            
+            // Check for collisions and adjust distance
+            // currentDistance = CheckCameraCollision(player.transform.position + (Vector3.up * height), desiredPosition);
+            
+            // Use adjusted distance
             playerPos = player.transform.position + (Quaternion.Euler(0, angle, 0) * Vector3.forward * distance) + (Vector3.up * height);
             playerRot = Quaternion.LookRotation(player.transform.position - playerPos, Vector3.up);
-        }
-        if (attachToPlayer && attachToPlat)
-        {
-            playerWeight = Mathf.Clamp(Mathf.InverseLerp(0f, platformRadius, Vector3.Distance(platform.position, player.transform.position)), 0.5f, 1f);
         }
         if (looking)
         {
@@ -95,6 +132,49 @@ public class CameraController : MonoBehaviour
         lerpTarget.rotation = Quaternion.Slerp(platRot, playerRot, playerWeight);
     }
 
+    public void CalculateThirdPersonLerpTarget()
+    {
+        lerping = true;
+        Vector3 playerPos = player.transform.position;
+        Quaternion playerRot = Quaternion.identity;
+        if (player != null)
+        {
+            playerPos = player.transform.position - (thirdPersonRotation * Vector3.forward * thirdPersonDistance);
+            // playerRot = Quaternion.LookRotation(player.transform.position - playerPos, Vector3.up);
+        }
+        if (looking)
+        {
+            DoLook();
+        }
+        lerpTarget.position = playerPos;
+        lerpTarget.rotation = thirdPersonRotation;
+    }
+
+
+    
+    private float CheckCameraCollision(Vector3 targetPoint, Vector3 desiredCameraPos)
+    {
+        // Direction from target (player) to camera
+        Vector3 direction = (desiredCameraPos - targetPoint).normalized;
+        float desiredDistance = Vector3.Distance(targetPoint, desiredCameraPos);
+        
+        // Perform a spherecast from player to camera position
+        RaycastHit hit;
+        if (Physics.SphereCast(targetPoint, collisionRadius, direction, out hit, desiredDistance, collisionLayers))
+        {
+            // Something is blocking the camera, move it closer
+            float adjustedDistance = hit.distance - collisionPadding;
+            
+            // Smoothly transition to the new distance
+            return Mathf.Lerp(currentDistance, Mathf.Max(distanceMin, adjustedDistance), collisionSmoothSpeed * Time.deltaTime);
+        }
+        else
+        {
+            // Nothing blocking, smoothly return to desired distance
+            return Mathf.Lerp(currentDistance, distance, collisionSmoothSpeed * Time.deltaTime);
+        }
+    }
+    
     void FixedUpdate()
     {
         CalculateLerpTarget();
@@ -173,14 +253,52 @@ public class CameraController : MonoBehaviour
         {
             sensitivity = controllerLookSensitivity;
         }
+        if (weirdThirdPersonMode)
+        {
+            // Rotate the third person rotation by look input
+            float yaw = lookDirection.x * sensitivity * Time.deltaTime;   // Horizontal rotation
+            float pitch = -lookDirection.y * sensitivity * Time.deltaTime; // Vertical rotation (inverted)
+            
+            // Apply rotation: yaw around world up, pitch around local right
+            thirdPersonRotation *= Quaternion.Euler(pitch, yaw, 0f);
+            
+            // Optional: Clamp pitch to prevent camera from flipping upside down
+            Vector3 euler = thirdPersonRotation.eulerAngles;
+            euler.x = ClampAngle(euler.x, -80f, 80f);
+            thirdPersonRotation = Quaternion.Euler(euler);
+            return;
+        }
+        if (thirdPersonMode)
+        {
+            // Accumulate angles independently
+            yawAngle += lookDirection.x * sensitivity * Time.deltaTime;
+            pitchAngle -= lookDirection.y * sensitivity * Time.deltaTime;
+            
+            // Clamp pitch to prevent flipping
+            pitchAngle = Mathf.Clamp(pitchAngle, -80f, 80f);
+            
+            // Wrap yaw
+            if (yawAngle < 0) yawAngle += 360;
+            if (yawAngle >= 360) yawAngle -= 360;
+            
+            // Build rotation: yaw around WORLD up, then pitch around local right
+            thirdPersonRotation = Quaternion.Euler(pitchAngle, yawAngle, 0f);
+            return;
+        }
         angle += lookDirection.x * sensitivity * Time.deltaTime;
         baseHeight -= lookDirection.y * sensitivity * Time.deltaTime;
         baseHeight = Mathf.Clamp(baseHeight, heightMin, heightMax);
         if (angle < 0) angle += 360;
         if (angle >= 360) angle -= 360;
-
     }
-    
+
+    // Helper method to properly clamp euler angles
+    private float ClampAngle(float angle, float min, float max)
+    {
+        if (angle > 180f) angle -= 360f;
+        return Mathf.Clamp(angle, min, max);
+    }
+
     public void OnRotateLeft(bool on)
     {
         Debug.Log("camera working");

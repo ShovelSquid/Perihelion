@@ -43,7 +43,7 @@ ParticleSystem:
   serializedVersion: 8
   lengthInSec: 0.5
   simulationSpeed: 1
-  stopAction: 0
+  stopAction: 2
   cullingMode: 0
   ringBufferMode: 0
   ringBufferLoopRange: {x: 0, y: 1}
@@ -5029,6 +5029,7 @@ MonoBehaviour:
   healthbar: {fileID: 0}
   spawnPoint: {fileID: 0}
   dead: 0
+  respawn: 0
   xp: 0
   xp_base: 0
   level: 0
@@ -5039,11 +5040,21 @@ MonoBehaviour:
   fallDamageSpeedMin: 130
   fallDamagePct: 0.135
   fallDamageExp: 3.8
+  attackAnimations: []
   damage: 5
+  attackSpeed: 0
+  attackReady: 0
   takeDamage: 0
   giveHeal: 0
   takeFallDamage: 0
   fallSpeedTest: 0
+  invincible: 0
+  stamina: 100
+  maxStamina: 100
+  staminaRegen: 5
+  staminaRegenDelay: 2
+  staminaRegenCooldown: 3
+  staminaRegenAmount: 1
   healthRegenDamageCooldown: 3
   healthRegenCooldown: 1
   healthRegenAmount: 0.02
@@ -5090,6 +5101,7 @@ MonoBehaviour:
   airRotationSpeed: 3
   maxSpeedForceGround: 400
   maxSpeedForceAir: 400
+  jumpforce: 0
   jumpForceGround: 80
   jumpForceAir: 60
   jumpForceMoveMult: 1

@@ -42,6 +42,17 @@ public class Mob : MonoBehaviour
     public bool giveHeal;
     public bool takeFallDamage;
     public int fallSpeedTest;
+    public bool invincible = false;
+    [Header("Stamina")]
+    public float stamina = 100f;
+    public float maxStamina = 100f;
+    public float staminaRegen = 5f;
+    public float staminaRegenDelay = 2f;
+    public float staminaRegenCooldown = 3f;
+    public float staminaRegenAmount = 1f;
+    private bool isRegeneratingStamina = false;
+    private Coroutine staminaRegenCoroutine;
+
     [Header("Health Regen")]
     public float healthRegenDamageCooldown = 5f;
     public float healthRegenCooldown = 3f;
@@ -120,6 +131,7 @@ public class Mob : MonoBehaviour
 
     public void Damage(float damage)
     {
+        if (invincible) return;
         hp -= damage;
         if (hp < 1)
         {
@@ -219,6 +231,21 @@ public class Mob : MonoBehaviour
             yield return new WaitForSeconds(healthRegenCooldown);
             Heal(healthRegenAmount);
         }
+    }
+
+    public IEnumerator StaminaRegen(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        while (isRegeneratingStamina && stamina < maxStamina)
+        {
+            yield return new WaitForSeconds(staminaRegenCooldown);
+            stamina += staminaRegenAmount;
+            if (stamina > maxStamina)
+            {
+                stamina = maxStamina;
+            }
+        }
+        isRegeneratingStamina = false;
     }
 
     private IEnumerator DelayAction(float delay, Action action)

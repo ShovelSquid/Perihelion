@@ -8,6 +8,17 @@ public class PlayerManager : MonoBehaviour
     public CameraController cam;
     private bool cursorLocked = false;
     public bool playerInputEnabled = true;
+    [Header("Ability References")]
+    private AbilityManager abilities;
+    
+    void Awake()
+    {
+        if (player != null)
+        {
+            abilities = player.GetComponent<AbilityManager>();
+        }
+    }
+
 
     void LockCursor()
     {
@@ -96,14 +107,23 @@ public class PlayerManager : MonoBehaviour
         cam.OnLook(lookInput, isController);
     }
 
-    public void OnJump(InputAction.CallbackContext jumpInput)
+    public void OnJump(InputAction.CallbackContext jumpContext)
     {
         if (!playerInputEnabled) return;
-        Debug.Log("Jump input detected");
-        bool jumpPressed = jumpInput.started;
-        if (jumpPressed)
+        Move move = player.GetComponent<Move>();
+        if (move == null) return;
+        // if (jumpContext.started)
+        // {
+        //     abilities.OnChargeJump(jumpContext);
+        // }
+        // else if (jumpContext.canceled)
+        // {
+        //     abilities.OnChargeJump(jumpContext);
+        //     // Handled in ChargeJump ability
+        // }
+        if (jumpContext.canceled)
         {
-            player.GetComponent<Move>().Jump();
+            move.Jump();
         }
     }
 
