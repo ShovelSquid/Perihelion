@@ -43,6 +43,7 @@ public class Mob : MonoBehaviour
     public bool takeFallDamage;
     public int fallSpeedTest;
     public bool invincible = false;
+    public float projectileAbsorption = 0f;
     [Header("Stamina")]
     public float stamina = 100f;
     public float maxStamina = 100f;

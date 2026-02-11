@@ -19,6 +19,11 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
+    void Start()
+    {
+        LockCursor();
+    }
+
 
     void LockCursor()
     {
@@ -87,15 +92,14 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
-    public void OnClick(InputAction.CallbackContext clickInputContext)
+    public void OnPrimary(InputAction.CallbackContext primaryInputContext)
     {
         if (!playerInputEnabled) return;
-        // Debug.Log("Click input detected");
-        // bool clickPressed = clickInputContext.started;
-        // if (clickPressed)
-        // {
-        //     player.GetComponent<Attack>().ClickAttack();
-        // }
+        bool primaryPressed = primaryInputContext.started;
+        if (primaryPressed)
+        {
+            // player.GetComponent<Attack>().PrimaryAttack();
+        }
     }
 
     public void OnLook(InputAction.CallbackContext lookInputContext)

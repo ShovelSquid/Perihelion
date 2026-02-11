@@ -13,6 +13,7 @@ public class CameraController : MonoBehaviour
     public bool thirdPersonMode;
     public bool weirdThirdPersonMode;
     public float thirdPersonDistance;
+    public float thirdPersonHeightOffset;
     public Quaternion thirdPersonRotation;
     private float yawAngle = 0f;   // Horizontal rotation
     private float pitchAngle = 0f; // Vertical rotation
@@ -62,8 +63,11 @@ public class CameraController : MonoBehaviour
         if (player != null)
         {
             Move mv = player.GetComponent<Move>();
-            mv.onEnterPlat.AddListener(PlayerEnterPlatform);
-            mv.onExitPlat.AddListener(PlayerExitPlatform);
+            if (mv != null)
+            {
+                mv.onEnterPlat.AddListener(PlayerEnterPlatform);
+                mv.onExitPlat.AddListener(PlayerExitPlatform);
+            }
         }
     }
 
@@ -100,13 +104,16 @@ public class CameraController : MonoBehaviour
         if (attachToPlayer && player != null)
         {
             Move mv = player.GetComponent<Move>();
-            if (mv.inAir)
+            if (mv != null)
             {
-                height = Mathf.Clamp(math.remap(0f, terminalVelocity, baseHeight, heightMax, mv.fallSpeed), baseHeight, heightMax);
-            }
-            else
-            {
-                height = baseHeight;
+                if (mv.inAir)
+                {
+                    height = Mathf.Clamp(math.remap(0f, terminalVelocity, baseHeight, heightMax, mv.fallSpeed), baseHeight, heightMax);
+                }
+                else
+                {
+                    height = baseHeight;
+                }
             }
             if (attachToPlayer && attachToPlat)
             {
@@ -139,7 +146,7 @@ public class CameraController : MonoBehaviour
         Quaternion playerRot = Quaternion.identity;
         if (player != null)
         {
-            playerPos = player.transform.position - (thirdPersonRotation * Vector3.forward * thirdPersonDistance);
+            playerPos = player.transform.position - (thirdPersonRotation * Vector3.forward * thirdPersonDistance) + (Vector3.up * thirdPersonHeightOffset);
             // playerRot = Quaternion.LookRotation(player.transform.position - playerPos, Vector3.up);
         }
         if (looking)

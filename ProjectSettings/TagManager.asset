@@ -23,7 +23,7 @@ TagManager:
   - UIText
   - WorldText
   - Menu
-  - 
+  - Objects
   - 
   - 
   - 
@@ -48,6 +48,9 @@ TagManager:
     locked: 0
   - name: VFX
     uniqueID: 737956073
+    locked: 0
+  - name: UI
+    uniqueID: 3795294017
     locked: 0
   m_RenderingLayers:
   - Default
