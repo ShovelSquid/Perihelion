@@ -8,6 +8,7 @@ public class Mob : MonoBehaviour
 {
     public Inventory loot;
     public Inventory body;
+    public Item heldItem;
     public Animator anim;
     public AudioSource adio;
     public BoxCollider box;

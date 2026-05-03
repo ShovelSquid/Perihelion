@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 public class PlayerManager : MonoBehaviour
 {
     public GameObject player;
+    public Mob mob;
     public MenuScript menu;
     public CameraController cam;
     public Move move;
@@ -25,6 +26,7 @@ public class PlayerManager : MonoBehaviour
     void Start()
     {
         LockCursor();
+        mob = player.GetComponent<Mob>();
         move = player.GetComponent<Move>();
         look = player.GetComponent<Look>();
         cam = Camera.main.GetComponent<CameraController>();
@@ -104,7 +106,11 @@ public class PlayerManager : MonoBehaviour
         bool primaryPressed = primaryInputContext.started;
         if (primaryPressed)
         {
-            // player.GetComponent<Attack>().PrimaryAttack();
+            mob.heldItem?.SlapTrigger(true);
+        }
+        else if (primaryInputContext.canceled)
+        {
+            mob.heldItem?.SlapTrigger(false);
         }
     }
 

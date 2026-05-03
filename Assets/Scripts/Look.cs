@@ -27,7 +27,7 @@ public class Look : MonoBehaviour
     {
         if (swivel == null) swivel = transform;
         targetRotation = swivel.rotation;
-        swivel.SetParent(null, true);
+        // swivel.SetParent(null, true);
     }
 
     public void SetLookDirection(Vector2 input, bool isController)
