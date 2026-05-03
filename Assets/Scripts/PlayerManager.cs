@@ -6,8 +6,11 @@ public class PlayerManager : MonoBehaviour
     public GameObject player;
     public MenuScript menu;
     public CameraController cam;
+    public Move move;
+    public Look look;
     private bool cursorLocked = false;
     public bool playerInputEnabled = true;
+    private Vector2 rawMoveInput;
     [Header("Ability References")]
     private AbilityManager abilities;
     
@@ -22,6 +25,9 @@ public class PlayerManager : MonoBehaviour
     void Start()
     {
         LockCursor();
+        move = player.GetComponent<Move>();
+        look = player.GetComponent<Look>();
+        cam = Camera.main.GetComponent<CameraController>();
     }
 
 
@@ -46,24 +52,11 @@ public class PlayerManager : MonoBehaviour
     public void OnMove(InputAction.CallbackContext moveInputContext)
     {
         if (!playerInputEnabled) return;
-        Debug.Log("Move input detected");
-        Vector2 moveInput = moveInputContext.ReadValue<Vector2>();
-        Vector2 moveDirection = moveInput;
-
-        if (moveInput != Vector2.zero)
+        rawMoveInput = moveInputContext.ReadValue<Vector2>();
+        if (rawMoveInput == Vector2.zero)
         {
-            Vector3 cameraForward = Camera.main.transform.forward;
-            Vector3 cameraRight = Camera.main.transform.right;
-            cameraForward.y = 0;
-            cameraRight.y = 0;
-            cameraForward.Normalize();
-            cameraRight.Normalize();
-
-            Vector3 direction = cameraRight * moveInput.x + cameraForward * moveInput.y;
-            moveDirection = new Vector2(direction.x, direction.z).normalized;
+            move.SetMoveDirection(Vector2.zero);
         }
-
-        player.GetComponent<Move>().SetMoveDirection(moveDirection);
     }
 
     public void OnRotate(InputAction.CallbackContext rotateInputContext)
@@ -92,6 +85,19 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
+    void Update()
+    {
+        if (rawMoveInput == Vector2.zero) return;
+        Vector3 fwd = look.swivel.forward;
+        Vector3 right = look.swivel.right;
+        fwd.y = 0;
+        right.y = 0;
+        fwd.Normalize();
+        right.Normalize();
+        Vector3 direction = right * rawMoveInput.x + fwd * rawMoveInput.y;
+        move.SetMoveDirection(new Vector2(direction.x, direction.z).normalized);
+    }
+
     public void OnPrimary(InputAction.CallbackContext primaryInputContext)
     {
         if (!playerInputEnabled) return;
@@ -108,13 +114,13 @@ public class PlayerManager : MonoBehaviour
         Vector2 lookInput = lookInputContext.ReadValue<Vector2>();
         bool isController = lookInputContext.control.device is Gamepad;
         Debug.Log("Look input from " + (isController ? "Controller" : "Keyboard/Mouse"));
-        cam.OnLook(lookInput, isController);
+        // cam.OnLook(lookInput, isController);
+        look.SetLookDirection(lookInput, isController);
     }
 
     public void OnJump(InputAction.CallbackContext jumpContext)
     {
         if (!playerInputEnabled) return;
-        Move move = player.GetComponent<Move>();
         if (move == null) return;
         // if (jumpContext.started)
         // {

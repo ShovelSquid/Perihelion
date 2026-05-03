@@ -4,6 +4,7 @@ using System;
 using Unity.Mathematics;
 using System.Collections.Generic;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 
 [RequireComponent(typeof(Mob))]
@@ -52,8 +53,10 @@ public class Move : MonoBehaviour
     public float jumpForceUpMultMax;
     [Range(1f, 100f)]
     public float jumpForceUpMultMaxAir;
-    public int maxJumps;
-    public int jumps;
+    [FormerlySerializedAs("maxJumps")]
+    public int maxAirJumps;
+    [FormerlySerializedAs("jumps")]
+    public int airJumps;
     public float maxJumpSpeed;
     public float maxFallSpeed;
     [Range(0f, 1f)]
@@ -74,7 +77,7 @@ public class Move : MonoBehaviour
     {
         mob = GetComponent<Mob>();
         rb = GetComponent<Rigidbody>();
-        jumps = maxJumps;
+        airJumps = maxAirJumps;
         InAir();
     }
 
@@ -190,7 +193,8 @@ public class Move : MonoBehaviour
     bool CanJump()
     {
         if (mob.dead) return false;
-        return jumps > 0;
+        if (!inAir) return true;
+        return airJumps > 0;
     }
 
     void OnCollisionEnter(Collision collision)
@@ -205,7 +209,7 @@ public class Move : MonoBehaviour
                 Vector3 jumpVector = (rb.linearVelocity.normalized + transform.up).normalized;
                 mob.jumpFXPoint.rotation = Quaternion.LookRotation(jumpVector);
                 var jumpfx = Instantiate(mob.groundJumpParticle, mob.jumpFXPoint.position, mob.jumpFXPoint.rotation);
-                jumps = maxJumps;
+                airJumps = maxAirJumps;
                 InAir();
                 StartCoroutine(DelayAction(0.1f, InAir));
                 Debug.Log("math.abs(rb.linearVelocity.y): " + fallSpeed);
@@ -308,7 +312,7 @@ public class Move : MonoBehaviour
             Debug.Log("move mult: " + jumpForceUpMult);
             rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, new Vector3(0, rb.linearVelocity.y, 0), horizontalWeight);
             rb.AddForce(new Vector3(moveDirection.x, 0, moveDirection.y).normalized * horizontalWeight * (jumpforce * jumpForceMoveMult), ForceMode.Impulse);
-            jumps--;
+            if (inAir) airJumps--;
         }
     }
 

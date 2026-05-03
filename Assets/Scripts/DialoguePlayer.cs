@@ -29,9 +29,9 @@ public class DialoguePlayer : MonoBehaviour
             {
                 highlight.HighlightCharacter(false);
                 dialogue.ExitDialogueRange();
-                dialogue = null;
-                highlight = null;
-                actor = null;
+                // dialogue = null;
+                // highlight = null;
+                // actor = null;
             }
         }
     }
