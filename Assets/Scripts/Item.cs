@@ -2,10 +2,11 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
 
+[RequireComponent(typeof(Shine))]
 public class Item : MonoBehaviour
 {
+    private Shine shine;
     public bool inInventory;
-    public Inventory inv;
     [Header("Hold Info")]
     public bool holdable;
     public bool held;
@@ -21,16 +22,8 @@ public class Item : MonoBehaviour
 
     [Header("Item Info")]
     // begin bunch of bullshit
-    public int stack_scale;
-    public enum item_type { nothing, consumable, tool, weapon, armor, material, key_item }
-    public item_type type;
-    public int item_code;
-    public SpawnItem spawner;
-    public Item(int stack_scale, item_type type)
-    {
-        this.stack_scale = stack_scale;
-        this.type = type;
-    }
+    public int stack;
+    public int stackScale = 1;  // multiples of 4
 
     [Header("Effects")]
     public AudioSource triggerSound;
@@ -45,6 +38,11 @@ public class Item : MonoBehaviour
     //         onPickup.addEventListener(spawner.ItemPickedUp);
     //     }
     // }
+
+    void Awake()
+    {
+        shine = GetComponent<Shine>();
+    }
 
     public virtual bool CanTrigger()
     {
@@ -80,7 +78,12 @@ public class Item : MonoBehaviour
         if (other.gameObject.layer == LayerMask.NameToLayer("Mobs"))
         {
             // onPickup.Invoke(other.GetComponent<Mob>());
-            OnPickup(other.GetComponent<Mob>());
+            Mob m = other.GetComponent<Mob>();
+            if (m != null)
+            {
+                Debug.Log("can pick up");
+                OnPickup(m);
+            }
         }
     }
 
@@ -111,15 +114,36 @@ public class Item : MonoBehaviour
         // }
     }
 
+    public void GotPickedUp()
+    {
+        //do pickup effects here, like particles or sound
+        Debug.Log(gameObject.name + " got picked up");
+        if (shine != null) shine.Shiney();
+        // disable all colliders and keep it kinematic so it doesn't fall through the floor or get in the way of the player
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        foreach (Collider col in colliders)
+        {
+            col.enabled = false;
+        }
+        Invoke("End", 0.1f);
+        // gameObject.SetActive(false);
+    }
+
+    public void End()
+    {
+        Destroy(gameObject);
+    }
+
 
     public virtual void OnPickup(Mob mob)
     {
         // code for item, handled by subclass
         onPickup.Invoke();
-        if (spawner != null)
-        {
-            spawner.ItemPickedUp();
-        }
-        Destroy(gameObject);
+        mob.PickupItem(this);
+        // if (spawner != null)
+        // {
+        //     spawner.ItemPickedUp();
+        // }
+        // Destroy(gameObject);
     }
 }

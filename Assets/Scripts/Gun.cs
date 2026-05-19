@@ -24,16 +24,6 @@ public class Gun : Item
     public AudioSource reloadSound;
     public AudioSource emptyClickSound;
 
-    public Gun(int damage, float range, bool automatic, int magazineSize, int totalAmmo, int stack_scale, item_type type) : base(stack_scale, type)
-    {
-        this.damage = damage;
-        this.range = range;
-        this.automatic = automatic;
-        this.magazineSize = magazineSize;
-        this.totalAmmo = totalAmmo;
-        this.ammoInMagazine = magazineSize;
-        this.bulletChambered = 1;
-    }
 
     public bool CanShoot()
     {

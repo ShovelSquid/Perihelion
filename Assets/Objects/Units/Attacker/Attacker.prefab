@@ -240,6 +240,7 @@ GameObject:
   m_Component:
   - component: {fileID: 489752521012612550}
   - component: {fileID: 8051081483861945444}
+  - component: {fileID: 6005107776605674618}
   m_Layer: 8
   m_Name: Torso
   m_TagString: Untagged
@@ -284,6 +285,44 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 2.662749, y: 2.7058964, z: 3.1447198}
   m_Center: {x: -0.008582307, y: -0.3032678, z: 0.113734245}
+--- !u!114 &6005107776605674618
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 853440052534580605}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96d31b9371900f143a2cdcac3c432ad1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shake
+  duration: 0.5
+  magnitude: 0.1
+  shakeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &1294592551308176953
 GameObject:
   m_ObjectHideFlags: 0
@@ -1378,9 +1417,13 @@ GameObject:
   - component: {fileID: 121460098886578597}
   - component: {fileID: 7932549538423109645}
   - component: {fileID: 8649624301808105503}
+  - component: {fileID: 8292202024251166759}
+  - component: {fileID: 4365816333690023112}
+  - component: {fileID: 7007901330144092166}
+  - component: {fileID: 2878310819907761562}
   m_Layer: 8
   m_Name: Attacker
-  m_TagString: Untagged
+  m_TagString: Team1
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1459,9 +1502,9 @@ MonoBehaviour:
   xp_base: 0
   level: 0
   reference_number: 0
-  hp: 15
-  hp_base: 15
-  max_hp: 15
+  hp: 50
+  hp_base: 50
+  max_hp: 50
   fallDamageSpeedMin: 0
   fallDamagePct: 0
   fallDamageExp: 0
@@ -1485,6 +1528,138 @@ MonoBehaviour:
   healthRegenCooldown: 3
   healthRegenAmount: 1
   respawnTime: 5
+--- !u!114 &8292202024251166759
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4586065023565963661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96d31b9371900f143a2cdcac3c432ad1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shake
+  duration: 0.1
+  magnitude: 0.04
+  shakeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &4365816333690023112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4586065023565963661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94e57ba3d22db954eb366034ea04893d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shine
+  duration: 0.1
+  shineCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  glowColor: {r: 1, g: 0.6240393, b: 0.106468916, a: 1}
+  glowIntensity: 2
+  glowMaterial: {fileID: 2100000, guid: 4e8f72d06bb06d84081961a4a953a5e6, type: 2}
+  applyToAllChildren: 1
+--- !u!114 &7007901330144092166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4586065023565963661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd3c5e74da38eb84cab2b913cf0bc992, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HitEffect
+  rampIntensity:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  intensity: 1
+--- !u!114 &2878310819907761562
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4586065023565963661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ad75fcdbb2146a459a9c5c735d848a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObjectTint
+  ApplyToChildren: 1
+  baseColor: {r: 0.057486456, g: 0.5005669, b: 0.5687331, a: 1}
+  emissionColor: {r: 0.005169419, g: 0.077785105, b: 0.10959198, a: 1}
+  skipMaterialNameContains: Glow
 --- !u!1 &5228985703122216639
 GameObject:
   m_ObjectHideFlags: 0

@@ -18,6 +18,7 @@ public class Shake : MonoBehaviour
             transform.localRotation = originalRot;
             // transform.localScale = originalScale;
         }
+        originalScale = transform.localScale;
         originalRot = transform.localRotation;
         // originalScale = transform.localScale;
         ShakeIt = StartCoroutine(ShakeItUp());
@@ -76,11 +77,11 @@ public class Shake : MonoBehaviour
                 originalRot.z + Random.Range(-mag, mag),
                 originalRot.w + Random.Range(-mag, mag)
             );
-            // transform.localScale = new Vector3(
-            //     originalScale.x * 1 + Random.Range(-mag, mag),
-            //     originalScale.y * 1 + Random.Range(-mag, mag),
-            //     originalScale.z * 1 + Random.Range(-mag, mag)
-            // );
+            transform.localScale = new Vector3(
+                originalScale.x * 1 + Random.Range(-mag, mag),
+                originalScale.y * 1 + Random.Range(-mag, mag),
+                originalScale.z * 1 + Random.Range(-mag, mag)
+            );
             yield return new WaitForSeconds(Random.Range(0.01f, 0.1f));
         }
         transform.localRotation = originalRot;

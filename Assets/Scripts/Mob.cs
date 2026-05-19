@@ -4,10 +4,10 @@ using System.Collections;
 using Unity.Mathematics;
 using System.Collections.Generic;
 
+[RequireComponent(typeof(Inventory))]
 public class Mob : MonoBehaviour
 {
-    public Inventory loot;
-    public Inventory body;
+    public Inventory inv;
     public Item heldItem;
     public Animator anim;
     public AudioSource adio;
@@ -135,6 +135,7 @@ public class Mob : MonoBehaviour
     {
         if (invincible) return;
         hp -= damage;
+        if (GetComponent<HitEffect>() != null) GetComponent<HitEffect>().Play();
         if (hp < 1)
         {
             float extraDamage = -hp;
@@ -175,6 +176,36 @@ public class Mob : MonoBehaviour
                 Attack(other.gameObject.GetComponent<Mob>());
             }
         }
+    }
+
+    public void PickupItem(Item item)
+    {
+        if (heldItem == null)
+        {
+            heldItem = item;
+            Debug.Log(gameObject.name + " picked up " + item.gameObject.name);
+            item.GotPickedUp();
+        }
+        else if (inv != null)
+        {
+            Item i = inv.AddItem(item);
+            if (i == null)
+            {
+                Debug.Log(gameObject.name + " picked up " + item.gameObject.name);
+                item.GotPickedUp();
+            }
+            else if (i == item)
+            {
+                Debug.Log(gameObject.name + " couldn't pick up " + item.gameObject.name + " at all");
+            }
+            else
+            {
+                Instantiate(i.gameObject, item.transform.position + item.transform.forward, item.transform.rotation);
+                item.GotPickedUp();
+                Debug.Log(gameObject.name + " picked up some of " + item.gameObject.name);
+            }
+        }
+
     }
 
     public void Attack(Mob mob)

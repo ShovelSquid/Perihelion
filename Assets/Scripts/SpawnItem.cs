@@ -22,7 +22,7 @@ public class SpawnItem : MonoBehaviour
         if (!itemPresent)
         {
             spawnedItem = Instantiate(itemPrefab, transform.position, Quaternion.identity);
-            spawnedItem.GetComponent<Item>().spawner = this;
+            // spawnedItem.GetComponent<Item>().spawner = this;
             itemPresent = true;
         }
     }
