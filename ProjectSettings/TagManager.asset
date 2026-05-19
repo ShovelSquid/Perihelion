@@ -9,6 +9,14 @@ TagManager:
   - Lifeform
   - Dialogue
   - Button
+  - Team1
+  - Team2
+  - Team3
+  - Team4
+  - Team5
+  - Team6
+  - Team7
+  - Team8
   layers:
   - Default
   - TransparentFX
@@ -19,12 +27,12 @@ TagManager:
   - Bounds
   - Items
   - Mobs
-  - Events
+  - Buildings
   - UIText
   - WorldText
   - Menu
   - Objects
-  - 
+  - Events
   - 
   - 
   - 
@@ -61,3 +69,4 @@ TagManager:
   - Light Layer 5
   - Light Layer 6
   - Light Layer 7
+  m_MigratedRenderPipelines: []

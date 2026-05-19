@@ -47,6 +47,10 @@ public class Gun : Item
     public override void SlapTrigger(bool isPressed)
     {
         base.SlapTrigger(isPressed);
+        if (!isPressed)
+        {
+            return;
+        }
         if (CanShoot())
         {
             DoTrigger();
@@ -68,12 +72,14 @@ public class Gun : Item
             if (gunshotSound != null) gunshotSound.Play();
             if (muzzleFlash != null) muzzleFlash.Play();
             Ray ray = new Ray(transform.position, transform.forward);
-            if (Physics.Raycast(ray, out RaycastHit hit, range))
+            if (Physics.Raycast(ray, out RaycastHit hit, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
-                if (hit.collider.gameObject.layer == LayerMask.NameToLayer("Mobs"))
+                Mob mob = hit.collider.GetComponentInParent<Mob>();
+                if (mob != null)
                 {
-                    hit.collider.GetComponent<Mob>().Damage(damage);
+                    mob.Damage(damage);
                 }
+
                 if (hitEffect != null)
                 {
                     ParticleSystem effect = Instantiate(hitEffect, hit.point, Quaternion.LookRotation(hit.normal));

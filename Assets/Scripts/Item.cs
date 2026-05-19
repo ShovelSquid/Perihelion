@@ -105,10 +105,10 @@ public class Item : MonoBehaviour
                 transform.rotation = Quaternion.LookRotation(aimPoint.position - transform.position, Vector3.up);
             }
         }
-        if (isTool && inInventory && holdable && Vector3.Distance(transform.position, aimPoint.position) < 10f)
-        {
-            transform.position = Vector3.Lerp(transform.position, aimPoint.position - transform.forward * 10f, holdLerpSpeed * Time.deltaTime);
-        }
+        // if (isTool && inInventory && holdable && Vector3.Distance(transform.position, aimPoint.position) < 10f)
+        // {
+        //     transform.position = Vector3.Lerp(transform.position, aimPoint.position - transform.forward * 10f, holdLerpSpeed * Time.deltaTime);
+        // }
     }
 
 

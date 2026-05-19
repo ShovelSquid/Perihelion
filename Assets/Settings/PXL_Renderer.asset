@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: FullScreenPassPixelate
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
   m_Active: 1
-  injectionPoint: 600
+  injectionPoint: 550
   fetchColorBuffer: 1
   requirements: 4
   passMaterial: {fileID: 2100000, guid: d654f211cc3d105488a20f8f288d26b1, type: 2}

@@ -39,6 +39,10 @@ public class Look : MonoBehaviour
 
     void Update()
     {
+    }
+
+    void LateUpdate()
+    {
         if (looking)
         {
             float sensitivity = controller ? controllerAimSpeed : aimSpeed;
@@ -55,10 +59,6 @@ public class Look : MonoBehaviour
             targetRotation = Quaternion.Euler(euler);
         }
         swivel.rotation = Quaternion.Slerp(swivel.rotation, targetRotation, lookLerpSpeed * Time.deltaTime);
-    }
-
-    void LateUpdate()
-    {
         if (target != null) swivel.position = target.position;
     }
 }
