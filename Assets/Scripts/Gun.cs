@@ -3,7 +3,7 @@ using Unity.Mathematics;
 
 public class Gun : Item
 {
-    public int damage;
+    public float damage;
     public float range;
     public bool automatic;
     public int bulletChambered;
@@ -64,10 +64,11 @@ public class Gun : Item
             Ray ray = new Ray(transform.position, transform.forward);
             if (Physics.Raycast(ray, out RaycastHit hit, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
-                Mob mob = hit.collider.GetComponentInParent<Mob>();
-                if (mob != null)
+                Object obj = hit.collider.GetComponentInParent<Object>();
+                if (obj != null)
                 {
-                    mob.Damage(damage);
+                    obj.Damage(damage);
+                    obj.HitPhysics(hit.point, hit.normal, damage);
                 }
 
                 if (hitEffect != null)

@@ -5,19 +5,17 @@ using Unity.Mathematics;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(Inventory))]
-public class Mob : MonoBehaviour
+public class Mob : Object
 {
     public Inventory inv;
     public Item heldItem;
-    public Animator anim;
     public AudioSource adio;
     public BoxCollider box;
     public AudioClip fallDamagSound;
-    public ParticleSystem hitParticle;
+    public ParticleSystem directionalHitParticle;
     public ParticleSystem airJumpParticle;
     public ParticleSystem groundJumpParticle;
     public Transform jumpFXPoint;
-    public Healthbar healthbar;
     public Transform spawnPoint;
     public bool dead = false;
     public bool respawn = false;
@@ -25,9 +23,7 @@ public class Mob : MonoBehaviour
     public int xp_base;
     public int level;
     public int reference_number;
-    public float hp;
     public int hp_base;
-    public int max_hp;
     [Header("Fall Damage")]
     public float fallDamageSpeedMin;
     [Range(0f, 1f)]
@@ -43,7 +39,6 @@ public class Mob : MonoBehaviour
     public bool giveHeal;
     public bool takeFallDamage;
     public int fallSpeedTest;
-    public bool invincible = false;
     public float projectileAbsorption = 0f;
     [Header("Stamina")]
     public float stamina = 100f;
@@ -66,15 +61,12 @@ public class Mob : MonoBehaviour
     void Awake()
     {
         box = GetComponent<BoxCollider>();
-        if (healthbar != null)
-        {
-            healthbar.SetMaxHealth(max_hp);
-        }
         isRegenerating = true;
     }
 
-    void Start()
+    protected override void Start()
     {
+        base.Start();
         if (isRegenerating)
         {
             healthRegenCoroutine = StartCoroutine(HealthRegen(healthRegenCooldown));
@@ -114,7 +106,7 @@ public class Mob : MonoBehaviour
         adio.PlayOneShot(fallDamagSound);
     }
 
-    public void Respawn()
+    public virtual void Respawn()
     {
         transform.position = spawnPoint.position;
         dead = false;
@@ -123,44 +115,23 @@ public class Mob : MonoBehaviour
         Invoke("ReadyAttack", attackSpeed);
         Heal(max_hp);
         Debug.Log("Respawned");
-        // if (healthbar != null)
-        // {
-        //     healthbar.SetHealth((int)hp);
-        // }
-        StopCoroutine(healthRegenCoroutine);
+        if (healthRegenCoroutine != null) StopCoroutine(healthRegenCoroutine);
         healthRegenCoroutine = StartCoroutine(HealthRegen(healthRegenCooldown));
     }
 
-    public void Damage(float damage)
+    public override void Damage(float damage)
     {
         if (invincible) return;
-        hp -= damage;
-        if (GetComponent<HitEffect>() != null) GetComponent<HitEffect>().Play();
-        if (hp < 1)
-        {
-            float extraDamage = -hp;
-            hp = 0;
-            Die(extraDamage);
-        }
-        if (healthbar != null)
-        {
-            healthbar.SetHealth((int)hp);
-        }
-        StopCoroutine(healthRegenCoroutine);
+        base.Damage(damage);
+        if (healthRegenCoroutine != null) StopCoroutine(healthRegenCoroutine);
         healthRegenCoroutine = StartCoroutine(HealthRegen(healthRegenDamageCooldown));
-        if (hitParticle != null) hitParticle.Emit(1);
     }
 
-    public void Heal(float heal)
+    public void DoHitEffect(Vector3 hitPoint, Vector3 hitNormal, float hitForce)
     {
-        hp += heal;
-        if (hp > max_hp)
+        if (directionalHitParticle != null)
         {
-            hp = max_hp;
-        }
-        if (healthbar != null)
-        {
-            healthbar.SetHealth((int)hp);
+            var d = Instantiate(directionalHitParticle, hitPoint, Quaternion.LookRotation(hitNormal));
         }
     }
 
@@ -208,15 +179,14 @@ public class Mob : MonoBehaviour
 
     }
 
-    public void Attack(Mob mob)
+    public virtual void Attack(Mob mob)
     {
         Debug.Log(gameObject.name + " attacked " + mob.gameObject.name);
         if (attackReady)
         {
-            // anim.SetTrigger("Attack");
             if (attackAnimations.Count > 0)
             {
-                anim.SetLayerWeight(1, 1f); // Set layer 1 weight to 1 (fully active)
+                anim.SetLayerWeight(1, 1f);
                 anim.Play(attackAnimations[UnityEngine.Random.Range(0, attackAnimations.Count)], 1, 0f);
             }
             attackReady = false;
@@ -239,21 +209,16 @@ public class Mob : MonoBehaviour
         else attackReady = true;
     }
 
-    void Die(float extraDamage)
+    protected override void Die(float extraDamage = 0f)
     {
-        if (anim != null)
-        {
-            anim.enabled = false;
-            // anim.SetTrigger("Die");
-        }
+        base.Die(extraDamage);
+        if (anim != null) anim.enabled = false;
         dead = true;
         isRegenerating = false;
         attackReady = false;
         Debug.Log("Dead");
-        StopCoroutine(healthRegenCoroutine);
-        // healthRegenCoroutine = null;
+        if (healthRegenCoroutine != null) StopCoroutine(healthRegenCoroutine);
         if (respawn) Invoke("Respawn", respawnTime);
-        // StartCoroutine(DelayAction(respawnTime, Respawn));
     }
 
     public IEnumerator HealthRegen(float seconds)
