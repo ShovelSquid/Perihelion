@@ -6,6 +6,7 @@ public class Building : Object
     public List<float> damageThresholds = new List<float>(); // from 1 to 0, in descending order. When hp drops below these percentages, the building's damage state changes (handled by DamageStates.cs)
     private DamageStates damageStates;
     public int damageState = 0; // num correlating to num of list on damage states script for current texture
+    public GameObject destroyedVersion; // optional prefab to spawn when building is destroyed (e.g. rubble)
 
     void Awake()
     {
@@ -25,6 +26,18 @@ public class Building : Object
             damageState = dState;
             damageStates.UpdateDamageState(damageState);
         }
+    }
+
+    protected override void Die(float extraDamage = 0f)
+    {
+        base.Die(extraDamage);
+        if (destroyedVersion != null)
+        {
+            GameObject e = Instantiate(destroyedVersion, transform.position, transform.rotation);
+            e.transform.localScale = transform.localScale;
+        }
+        gameObject.SetActive(false); // don't destroy the building object, since we want to keep its collider and other components for the rubble. Just hide it.
+        // Destroy(gameObject);
     }
  
     public int GetDamageState()

@@ -202,7 +202,7 @@ public class Move : MonoBehaviour
         if ((groundLayer.value & (1 << collision.gameObject.layer)) != 0)
         {
             var normal = collision.contacts[0].normal;
-            if (normal.y > 0.5f)
+            if (normal.y > 0.2f)
             {
                 mob.anim.SetTrigger("Land");
                 PlayLandingSound();

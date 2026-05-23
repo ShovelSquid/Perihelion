@@ -33,7 +33,7 @@ public class ParticleMeshSetter : MonoBehaviour
                 var shape = ps.shape;
                 shape.mesh = m;
             }
-            ps.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ps.Stop(withChildren: true);
             ps.Play(true);
         }
     }

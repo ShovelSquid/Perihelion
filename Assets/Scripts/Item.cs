@@ -29,6 +29,8 @@ public class Item : MonoBehaviour
     public AudioSource triggerSound;
     public AudioSource activateSound;
 
+    public ParticleSystem pickupFX;
+
     // end bunch of bullshit
 
     public UnityEvent onPickup;
@@ -119,6 +121,10 @@ public class Item : MonoBehaviour
         //do pickup effects here, like particles or sound
         Debug.Log(gameObject.name + " got picked up");
         if (shine != null) shine.Shiney();
+        if (pickupFX != null)
+        {
+            Instantiate(pickupFX, transform.position, Quaternion.identity);
+        }
         // disable all colliders and keep it kinematic so it doesn't fall through the floor or get in the way of the player
         Collider[] colliders = GetComponentsInChildren<Collider>();
         foreach (Collider col in colliders)

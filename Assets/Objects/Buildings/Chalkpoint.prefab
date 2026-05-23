@@ -74,6 +74,9 @@ Transform:
   - {fileID: 3523813136866156841}
   - {fileID: 816560211939105429}
   - {fileID: 2736262800337614428}
+  - {fileID: 7362255087042696527}
+  - {fileID: 8367500969553701754}
+  - {fileID: 2950390350571677542}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &5931666500901652413
@@ -142,7 +145,10 @@ MonoBehaviour:
   - {fileID: 2800000, guid: b1623e8922915834495da27ca5ce3f87, type: 3}
   - {fileID: 2800000, guid: 04a509aa616106d4bb547990ee8dee21, type: 3}
   currentDamageState: 0
-  drops: []
+  drops:
+  - {fileID: 0}
+  - {fileID: 5256723054338698321}
+  - {fileID: 2466731130049076553}
   mesh: {fileID: 108056185109876711}
   vfx: {fileID: 5699267539506053050}
 --- !u!114 &2355980510528718589
@@ -278,9 +284,10 @@ MonoBehaviour:
   maxSlots: 8
   maxStackScale: 3
   items: []
-  dropMesh: {fileID: 0}
+  dropObject: {fileID: 0}
+  dropCollider: {fileID: 0}
   dropOnSurface: 1
-  dropForce: 0
+  dropForce: 5
   dropRadius: 1.5
   minSpacing: 0.3
   maxAttemptsPerItem: 30
@@ -311,6 +318,7 @@ MonoBehaviour:
   - 0.6
   - 0.3
   damageState: 0
+  destroyedVersion: {fileID: 2037706024103803860, guid: 2cad477c470faed4caba3da57109111e, type: 3}
 --- !u!1 &611987310626233765
 GameObject:
   m_ObjectHideFlags: 0
@@ -487,6 +495,122 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BillboardText
   target: {fileID: 0}
+--- !u!1 &3802884093952382198
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2950390350571677542}
+  - component: {fileID: 6494730716466454779}
+  m_Layer: 9
+  m_Name: DropCollider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2950390350571677542
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3802884093952382198}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 12.16, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2137553538971413295}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &6494730716466454779
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3802884093952382198}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 3.5
+  m_Height: 10.46
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &4362735524289960258
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7362255087042696527}
+  - component: {fileID: 5256723054338698321}
+  m_Layer: 9
+  m_Name: Drop 1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7362255087042696527
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4362735524289960258}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2137553538971413295}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5256723054338698321
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4362735524289960258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a725e47b8ef17954eb2897ff2ec844e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  still: 0
+  maxSlots: 8
+  maxStackScale: 3
+  items:
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  dropObject: {fileID: 5265197469367283241}
+  dropCollider: {fileID: 0}
+  dropOnSurface: 1
+  dropForce: 0
+  dropRadius: 1.5
+  minSpacing: 0.3
+  maxAttemptsPerItem: 30
 --- !u!1 &5265197469367283241
 GameObject:
   m_ObjectHideFlags: 0
@@ -974,6 +1098,67 @@ Transform:
   - {fileID: 7200161218763733808}
   m_Father: {fileID: 816560211939105429}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &8735606321878351279
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8367500969553701754}
+  - component: {fileID: 2466731130049076553}
+  m_Layer: 9
+  m_Name: Drop 2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8367500969553701754
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8735606321878351279}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2137553538971413295}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2466731130049076553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8735606321878351279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a725e47b8ef17954eb2897ff2ec844e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  still: 0
+  maxSlots: 8
+  maxStackScale: 3
+  items:
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  - {fileID: 2957246264008257562, guid: a807425ac39eae046af911eaa8da316d, type: 3}
+  dropObject: {fileID: 5265197469367283241}
+  dropCollider: {fileID: 0}
+  dropOnSurface: 1
+  dropForce: 0
+  dropRadius: 1.5
+  minSpacing: 0.3
+  maxAttemptsPerItem: 30
 --- !u!1 &9047424770804969868
 GameObject:
   m_ObjectHideFlags: 0

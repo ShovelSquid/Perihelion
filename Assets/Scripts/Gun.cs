@@ -24,6 +24,8 @@ public class Gun : Item
     public AudioSource reloadSound;
     public AudioSource emptyClickSound;
 
+    private bool cooldownPending;
+
 
     public bool CanShoot()
     {
@@ -31,25 +33,19 @@ public class Gun : Item
         {
             return false;
         }
-        return bulletChambered > 0;   
+        return bulletChambered > 0;
     }
 
     public override void SlapTrigger(bool isPressed)
     {
+        // Snapshot empty-state BEFORE base, since base may fire and empty the chamber.
+        bool wasEmpty = isPressed && !CanShoot();
         base.SlapTrigger(isPressed);
-        if (!isPressed)
-        {
-            return;
-        }
-        if (CanShoot())
-        {
-            DoTrigger();
-        }
-        else
-        {
-            ChamberRound();
-        }
-
+        if (!isPressed) return;
+        // Only manually chamber if the gun was actually empty at press-time AND there's no
+        // pending cooldown — otherwise the scheduled Invoke will chamber for us, and chambering
+        // here would bypass the fire cooldown.
+        if (wasEmpty && !cooldownPending) ChamberRound();
     }
 
     public override void DoTrigger()
@@ -58,6 +54,7 @@ public class Gun : Item
         if (CanShoot())
         {
             bulletChambered--;
+            cooldownPending = true;
             Invoke("ChamberRound", fireCooldownTime);
             if (gunshotSound != null) gunshotSound.Play();
             if (muzzleFlash != null) muzzleFlash.Play();
@@ -91,6 +88,7 @@ public class Gun : Item
 
     public void ChamberRound()
     {
+        cooldownPending = false;
         if (ammoInMagazine > 0 && bulletChambered == 0)
         {
             ammoInMagazine--;

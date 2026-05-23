@@ -11,7 +11,8 @@ public class Inventory : MonoBehaviour
     public List<GameObject> items = new List<GameObject>();
 
     [Header("Drop Settings")]
-    public Mesh dropMesh;
+    public GameObject dropObject;
+    public Collider dropCollider;
     public bool dropOnSurface = true;
     public float dropForce;
     public float dropRadius = 1.5f;
@@ -20,24 +21,29 @@ public class Inventory : MonoBehaviour
 
     public void Drop()
     {
-        Vector3 center = transform.position + transform.forward;
+        Vector3 dropCenter = dropObject != null
+            ? dropObject.transform.position
+            : transform.position + transform.forward;
         var placed = new List<Vector3>();
 
         foreach (GameObject item in items)
         {
             if (item == null) continue;
 
-            Vector3 offset = FindDropOffset(placed);
-            placed.Add(offset);
+            Vector3 worldPos = FindDropPosition(placed);
+            placed.Add(worldPos);
 
             Quaternion rot = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
-            GameObject spawned = Instantiate(item, center + offset, rot);
+            // Instantiate preserves the source's localScale, so dropped items keep their own size
+            // regardless of how the dropObject is scaled.
+            GameObject spawned = Instantiate(item, worldPos, rot);
 
             Rigidbody rb = spawned.GetComponent<Rigidbody>();
             if (rb != null && dropForce > 0f)
             {
-                Vector3 outward = offset.sqrMagnitude > 0.0001f
-                    ? offset.normalized
+                Vector3 delta = worldPos - dropCenter;
+                Vector3 outward = delta.sqrMagnitude > 0.0001f
+                    ? delta.normalized
                     : UnityEngine.Random.onUnitSphere;
                 rb.AddForce(outward * dropForce, ForceMode.Impulse);
             }
@@ -46,12 +52,12 @@ public class Inventory : MonoBehaviour
         }
     }
 
-    private Vector3 FindDropOffset(List<Vector3> existing)
+    private Vector3 FindDropPosition(List<Vector3> existing)
     {
         float minSqr = minSpacing * minSpacing;
         for (int attempt = 0; attempt < maxAttemptsPerItem; attempt++)
         {
-            Vector3 candidate = SampleCandidate();
+            Vector3 candidate = SampleWorldPosition();
             bool tooClose = false;
             for (int i = 0; i < existing.Count; i++)
             {
@@ -63,13 +69,36 @@ public class Inventory : MonoBehaviour
             }
             if (!tooClose) return candidate;
         }
-        return SampleCandidate();
+        return SampleWorldPosition();
     }
 
-    private Vector3 SampleCandidate()
+    private Vector3 SampleWorldPosition()
     {
-        if (dropMesh == null) return UnityEngine.Random.insideUnitSphere * dropRadius;
-        return dropOnSurface ? RandomPointOnMesh(dropMesh) : RandomPointInMesh(dropMesh);
+        Vector3 fallback = transform.position + transform.forward;
+        if (dropObject == null)
+            return fallback + UnityEngine.Random.insideUnitSphere * dropRadius;
+
+        // Try MeshFilter first; fall back to SkinnedMeshRenderer (bake current pose).
+        Mesh mesh = null;
+        var mf = dropObject.GetComponent<MeshFilter>();
+        if (mf != null) mesh = mf.sharedMesh;
+        if (mesh == null)
+        {
+            var smr = dropObject.GetComponent<SkinnedMeshRenderer>();
+            if (smr != null)
+            {
+                mesh = new Mesh();
+                smr.BakeMesh(mesh); // local-space mesh, no transform scale baked in
+            }
+        }
+
+        if (mesh == null)
+            return fallback + UnityEngine.Random.insideUnitSphere * dropRadius;
+
+        Vector3 local = dropOnSurface ? RandomPointOnMesh(mesh) : RandomPointInMesh(mesh);
+        // TransformPoint applies dropObject's position, rotation, AND scale —
+        // so scaling the dropObject scales the drop region but not the dropped items.
+        return dropObject.transform.TransformPoint(local);
     }
 
     private Vector3 RandomPointOnMesh(Mesh mesh)
