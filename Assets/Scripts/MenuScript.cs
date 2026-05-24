@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEditor;
 using UnityEngine.UI;
 using TMPro;
 
@@ -83,7 +84,7 @@ public class MenuScript : MonoBehaviour
         Application.Quit();
 
         #if UNITY_EDITOR
-                UnityEditor.EditorApplication.isPlaying = false;
+                EditorApplication.isPlaying = false;
         #endif
     }
 

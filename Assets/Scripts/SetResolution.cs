@@ -47,6 +47,15 @@ public class SetResolution : MonoBehaviour
         lastWidth = Screen.width;
         lastHeight = Screen.height;
 
+        foreach (var cam in Camera.allCameras)
+        {
+            if (cam.targetTexture == renderTexture)
+            {
+                cam.targetTexture = null;
+                cam.targetTexture = renderTexture;
+            }
+        }
+
         foreach (var canvas in targetCanvases)
         {
             if (canvas != null)
