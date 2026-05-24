@@ -76,6 +76,8 @@ public class Healthbar : MonoBehaviour
         bool isHeal = newHp > hp;
         if (!isDamage && !isHeal) return;
 
+        bool continuingSession = lerping && flashIsDamage == isDamage;
+
         float newPctPos = (float)newHp / max_hp * 100f;
         float oldPctPos = (float)hp / max_hp * 100f;
 
@@ -117,7 +119,10 @@ public class Healthbar : MonoBehaviour
             hptext.text = newHp + " / " + max_hp;
         }
         lerping = true;
-        lerpStartTime = Time.time + lerpDelay;
+        if (!continuingSession)
+        {
+            lerpStartTime = Time.time + lerpDelay;
+        }
         hp = newHp;
     }
 }

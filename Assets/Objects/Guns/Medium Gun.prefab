@@ -1,0 +1,187 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4848865435690523257
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4385333519637460471}
+  - component: {fileID: 1570970297135986427}
+  - component: {fileID: 1400490067177025756}
+  m_Layer: 0
+  m_Name: Medium Gun
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4385333519637460471
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4848865435690523257}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.47947034, z: -0, w: 0.8775581}
+  m_LocalPosition: {x: -529.5223, y: 16.710402, z: 249.88448}
+  m_LocalScale: {x: 3, y: 3, z: 3}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1570970297135986427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4848865435690523257}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8039454dd3be42d4d961c25b2405fd76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Gun
+  inInventory: 1
+  holdable: 1
+  held: 1
+  isTool: 1
+  triggerHeld: 0
+  holdTarget: {fileID: 0}
+  aimPoint: {fileID: 0}
+  aimTarget: {fileID: 0}
+  holdLerpSpeed: 50
+  aimLerpSpeed: 20
+  stack: 0
+  stackScale: 1
+  triggerSound: {fileID: 0}
+  activateSound: {fileID: 0}
+  pickupFX: {fileID: 0}
+  onPickup:
+    m_PersistentCalls:
+      m_Calls: []
+  bulletManager: {fileID: 0}
+  projectilePrefab: {fileID: 8401526706603462361, guid: 8d0605f3f7bd55145961e8223879827a, type: 3}
+  damage: 3
+  shotCount: 4
+  spreadAngle: 15
+  spreadNoise: 0
+  critMult: 1.25
+  automatic: 1
+  bulletChambered: 1
+  fireCooldownTime: 0.1
+  reloadTime: 1
+  magazineSize: 1000
+  ammoInMagazine: 1000
+  totalAmmo: 1000
+  hitIndicator: {fileID: 0}
+  chargeable: 0
+  charge: 0
+  maxCharge: 0.6
+  critRange: {x: 0, y: 0.001}
+  cooldownGraphMult:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.75
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0.76605415
+      outSlope: 0.76605415
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.077243805
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  damageMult:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0.0053886147
+      value: 0.24155283
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.93471867
+      value: 0.43537468
+      inSlope: 0.4989406
+      outSlope: 0.4989406
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.21394843
+      outWeight: 0.4754944
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 7.9945803
+      outSlope: 7.9945803
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.2188326
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recoilPattern: {x: 2, y: 1}
+  recoilLerpSpeed: 3
+  muzzleFlash: {fileID: 0}
+  gunshotSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptyClickSound: {fileID: 0}
+--- !u!114 &1400490067177025756
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4848865435690523257}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94e57ba3d22db954eb366034ea04893d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shine
+  duration: 0.5
+  shineCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  glowColor: {r: 1, g: 1, b: 1, a: 1}
+  glowMaterial: {fileID: 0}
+  applyToAllChildren: 0

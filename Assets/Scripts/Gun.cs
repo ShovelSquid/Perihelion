@@ -1,11 +1,17 @@
 using UnityEngine;
-using Unity.Mathematics;
+// using Unity.Mathematics;
 
 public class Gun : Item
 {
+    public BulletManager bulletManager;
+    public GameObject projectilePrefab;
     public float damage;
+    public float projectileSpeed;
+    public Vector2 speedCharge;
+    public Vector2 shotCount;
+    public Vector2 spreadAngle;
+    public Vector2 spreadNoise;
     public float critMult;
-    public float range;
     public bool automatic;
     public int bulletChambered;
     public float fireCooldownTime;
@@ -28,7 +34,6 @@ public class Gun : Item
 
     [Header("Effects")]
     public ParticleSystem muzzleFlash;
-    public ParticleSystem hitEffect;
     public AudioSource gunshotSound;
     public AudioSource reloadSound;
     public AudioSource emptyClickSound;
@@ -42,6 +47,7 @@ public class Gun : Item
         {
             hitIndicator.SetCritRange(critRange.x, critRange.y);
         }
+
     }
 
     public bool CanShoot()
@@ -96,24 +102,36 @@ public class Gun : Item
                 effectiveDamage = damage * critMult;
             }
             float effectiveCooldown = chargeable ? fireCooldownTime * cooldownGraphMult.Evaluate(charge/maxCharge) : fireCooldownTime;
+            float effectiveProjectileSpeed = chargeable ? projectileSpeed * Mathf.Lerp(speedCharge.x, speedCharge.y, charge/maxCharge) : projectileSpeed;
             if (hitIndicator != null) hitIndicator.Pulse(effectiveCooldown);
             Invoke("ChamberRound", effectiveCooldown);
             if (gunshotSound != null) gunshotSound.Play();
             if (muzzleFlash != null) muzzleFlash.Play();
-            Ray ray = new Ray(transform.position, transform.forward);
-            if (Physics.Raycast(ray, out RaycastHit hit, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (bulletManager != null && projectilePrefab != null)
             {
-                Object obj = hit.collider.GetComponentInParent<Object>();
-                if (obj != null)
+                int actualShotCount = 0;
+                if (shotCount == Vector2.zero) actualShotCount = 1;
+                else actualShotCount = Random.Range((int)shotCount.x, (int)shotCount.y + 1);
+                for (int i = 0; i < actualShotCount; i++)
                 {
-                    obj.Damage(effectiveDamage);
-                    obj.HitPhysics(hit.point, hit.normal, effectiveDamage);
-                }
-
-                if (hitEffect != null)
-                {
-                    ParticleSystem effect = Instantiate(hitEffect, hit.point, Quaternion.LookRotation(hit.normal));
-                    // Destroy(effect.gameObject, effect.main.duration);
+                    // xy spread baesd off of x and y of spreadAngle
+                    Vector2 angleOffset = new Vector2(
+                        Random.Range(-spreadAngle.x, spreadAngle.x),
+                        Random.Range(-spreadAngle.y, spreadAngle.y)
+                    );
+                    angleOffset += new Vector2(
+                        Random.Range(-spreadNoise.x, spreadNoise.x),
+                        Random.Range(-spreadNoise.y, spreadNoise.y)
+                    );
+                    Quaternion spreadRotation = Quaternion.Euler(angleOffset.x, angleOffset.y, 0f);
+                    Vector3 shotDirection = spreadRotation * transform.forward;
+                    // create bullet
+                    Projectile p = bulletManager.Get(projectilePrefab);
+                    p.Proj.position = transform.position;
+                    p.speed = effectiveProjectileSpeed;
+                    p.direction = transform.forward;
+                    p.damage = effectiveDamage;
+                    p.Fire(shotDirection);
                 }
             }
         }
@@ -125,7 +143,7 @@ public class Gun : Item
         if (chargeable && held && triggerHeld)
         {
             if (!charging && CanCharge()) BeginCharge();
-            if (charging) charge = math.min(charge + Time.deltaTime, maxCharge);
+            if (charging) charge = Mathf.Min(charge + Time.deltaTime, maxCharge);
         }
         else if (automatic && held && triggerHeld && CanShoot())
         {

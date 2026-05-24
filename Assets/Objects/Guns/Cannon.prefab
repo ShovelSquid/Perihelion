@@ -198,6 +198,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8352355540033824228}
   - component: {fileID: 6516742912743159764}
+  - component: {fileID: 8053253568646731873}
+  - component: {fileID: 867948569149739055}
   m_Layer: 0
   m_Name: Cannon
   m_TagString: Untagged
@@ -238,10 +240,117 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Size: {x: 1.6226952, y: 1.5892285, z: 2.8843207}
   m_Center: {x: -0.014482498, y: 0.029694855, z: 0.72683454}
+--- !u!114 &8053253568646731873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4153933251539225202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94e57ba3d22db954eb366034ea04893d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shine
+  duration: 0.1
+  shineCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  glowColor: {r: 1, g: 1, b: 1, a: 1}
+  glowMaterial: {fileID: 2100000, guid: 4e8f72d06bb06d84081961a4a953a5e6, type: 2}
+  applyToAllChildren: 0
+--- !u!114 &867948569149739055
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4153933251539225202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8039454dd3be42d4d961c25b2405fd76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Gun
+  inInventory: 0
+  holdable: 0
+  held: 0
+  isTool: 0
+  triggerHeld: 0
+  holdTarget: {fileID: 0}
+  aimPoint: {fileID: 0}
+  aimTarget: {fileID: 0}
+  holdLerpSpeed: 0
+  aimLerpSpeed: 0
+  stack: 0
+  stackScale: 1
+  triggerSound: {fileID: 0}
+  activateSound: {fileID: 0}
+  pickupFX: {fileID: 0}
+  onPickup:
+    m_PersistentCalls:
+      m_Calls: []
+  bulletManager: {fileID: 0}
+  projectilePrefab: {fileID: 0}
+  damage: 0
+  shotCount: {x: 0, y: 0}
+  spreadAngle: {x: 0, y: 0}
+  spreadNoise: {x: 0, y: 0}
+  critMult: 0
+  automatic: 0
+  bulletChambered: 0
+  fireCooldownTime: 0
+  reloadTime: 0
+  magazineSize: 0
+  ammoInMagazine: 0
+  totalAmmo: 0
+  hitIndicator: {fileID: 0}
+  chargeable: 0
+  charge: 0
+  maxCharge: 0
+  critRange: {x: 0, y: 0}
+  cooldownGraphMult:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  damageMult:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recoilPattern: {x: 0, y: 0}
+  recoilLerpSpeed: 0
+  muzzleFlash: {fileID: 0}
+  gunshotSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptyClickSound: {fileID: 0}
 --- !u!1 &7555083469396574212
 GameObject:
   m_ObjectHideFlags: 0

@@ -3427,7 +3427,7 @@ MonoBehaviour:
   hp: 2
   lerping: 1
   lerpSpeed: 5
-  lerpDelay: 0.06
+  lerpDelay: 0.2
   healColor: {r: 0.50491786, g: 2.3709993, b: 0, a: 1}
   damageColor: {r: 2.828427, g: 1.7649078, b: 1.7649078, a: 1}
   colorProperty: _BaseColor
