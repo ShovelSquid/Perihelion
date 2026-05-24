@@ -16,7 +16,7 @@ public class HitIndicator : MonoBehaviour
     public Shape charge;
     public Shape recover;
     public Shape crit;
-    private float zero = 1f;
+    private float zero = 0.5f;
 
     public void Start()
     {
@@ -39,13 +39,14 @@ public class HitIndicator : MonoBehaviour
     }
     public void StartCharge(float chargeTime)
     {
+        EndCharge();
         charging = true;
         this.chargeTime = chargeTime;
+        chargeStartTime = Time.time;
         chargeEndTime = Time.time + chargeTime;
         charge.settings.endAngle = zero;
         charge.gameObject.SetActive(true);
         recover.gameObject.SetActive(false);
-        chargeStartTime = Time.time;
     }
 
     public void EndCharge()
@@ -81,12 +82,12 @@ public class HitIndicator : MonoBehaviour
         if (charging)
         {
             float t = (Time.time - chargeStartTime) / (chargeEndTime - chargeStartTime);
-            charge.settings.endAngle = Mathf.Lerp(0f, 360f, t);
+            charge.settings.endAngle = Mathf.Lerp(zero, 360f, t);
         }
         else if (recovering)
         {
             float t = (Time.time - recoverStartTime) / (recoverEndTime - recoverStartTime);
-            recover.settings.endAngle = Mathf.Lerp(360f, 0f, t);
+            recover.settings.endAngle = Mathf.Lerp(360f, zero, t);
             if (t >= 1f)
             {
                 EndRecover();

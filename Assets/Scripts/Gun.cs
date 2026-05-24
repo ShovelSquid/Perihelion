@@ -154,6 +154,7 @@ public class Gun : Item
 
     private void BeginCharge()
     {
+        if (charging) return;
         charging = true;
         charge = 0f;
         if (hitIndicator != null) hitIndicator.StartCharge(maxCharge);
