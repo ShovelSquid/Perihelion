@@ -72,6 +72,9 @@ public class Move : MonoBehaviour
     public float groundCheckDistance = 0.1f;
     public float fallSpeed;
 
+    private readonly List<Vector3> wallNormals = new List<Vector3>();
+    private Vector3 groundNormal = Vector3.up;
+    private bool grounded;
 
     void Start()
     {
@@ -107,6 +110,11 @@ public class Move : MonoBehaviour
                 }
             }
             return;
+        }
+        if (grounded && groundNormal.y > 0.5f)
+        {
+            Vector3 slopeGravity = Vector3.ProjectOnPlane(Physics.gravity, groundNormal);
+            rb.AddForce(-slopeGravity, ForceMode.Acceleration);
         }
         if (jump)
         {
@@ -157,7 +165,13 @@ public class Move : MonoBehaviour
             }
             else
             {
-                rb.AddForce(new Vector3(finalMoveDirection.x, 0, finalMoveDirection.y).normalized * acc, ForceMode.Acceleration);
+                Vector3 inputDir = new Vector3(finalMoveDirection.x, 0, finalMoveDirection.y).normalized;
+                foreach (var n in wallNormals)
+                {
+                    float into = -Vector3.Dot(inputDir, n);
+                    if (into > 0f) inputDir += n * into;
+                }
+                rb.AddForce(inputDir * acc, ForceMode.Acceleration);
                 if (rb.transform.forward != new Vector3(finalMoveDirection.x, 0, finalMoveDirection.y))
                 {
                     Quaternion targetRotation = Quaternion.LookRotation(new Vector3(finalMoveDirection.x, 0, finalMoveDirection.y), Vector3.up);
@@ -188,6 +202,8 @@ public class Move : MonoBehaviour
             fallSpeed = math.abs(rb.linearVelocity.y);
             Debug.Log("rb.linearVelocity.y: " + rb.linearVelocity.y);
         }
+        wallNormals.Clear();
+        grounded = false;
     }
 
     bool CanJump()
@@ -201,8 +217,10 @@ public class Move : MonoBehaviour
     {
         if ((groundLayer.value & (1 << collision.gameObject.layer)) != 0)
         {
-            var normal = collision.contacts[0].normal;
-            if (normal.y > 0.2f)
+            Vector3 normal = Vector3.zero;
+            foreach (var c in collision.contacts)
+                if (c.normal.y > normal.y) normal = c.normal;
+            if (normal.y > 0.5f)
             {
                 mob.anim.SetTrigger("Land");
                 PlayLandingSound();
@@ -218,6 +236,23 @@ public class Move : MonoBehaviour
                     // fix this to be aligned with the normal later
                     mob.FallDamage(fallSpeed, normal.y);
                 }
+            }
+        }
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        if ((groundLayer.value & (1 << collision.gameObject.layer)) == 0) return;
+        foreach (var c in collision.contacts)
+        {
+            if (c.normal.y > 0.5f)
+            {
+                grounded = true;
+                groundNormal = c.normal;
+            }
+            else if (c.normal.y < 0.4f)
+            {
+                wallNormals.Add(c.normal);
             }
         }
     }

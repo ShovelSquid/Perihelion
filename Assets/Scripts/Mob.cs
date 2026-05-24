@@ -10,7 +10,7 @@ public class Mob : Object
     public Inventory inv;
     public Item heldItem;
     public AudioSource adio;
-    public BoxCollider box;
+    public Collider box;
     public AudioClip fallDamagSound;
     public ParticleSystem directionalHitParticle;
     public ParticleSystem airJumpParticle;
@@ -60,7 +60,7 @@ public class Mob : Object
 
     void Awake()
     {
-        box = GetComponent<BoxCollider>();
+        box = GetComponent<Collider>();
         isRegenerating = true;
     }
 

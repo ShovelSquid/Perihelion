@@ -212,7 +212,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  glowColor: {r: 1.1434177, g: 1.39772, b: 1.2626683, a: 1}
+  glowColor: {r: 1.313442, g: 1.6055588, b: 1.450425, a: 1}
   glowMaterial: {fileID: 2100000, guid: 4e8f72d06bb06d84081961a4a953a5e6, type: 2}
   applyToAllChildren: 0
 --- !u!114 &5219073500037205364
