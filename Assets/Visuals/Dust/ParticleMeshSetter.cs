@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class ParticleMeshSetter : MonoBehaviour
 {
+    public Transform particleTransform;
     public MeshRenderer mesh;
     public SkinnedMeshRenderer skinnedMesh;
     public ParticleSystem ps;
@@ -33,8 +34,10 @@ public class ParticleMeshSetter : MonoBehaviour
                 var shape = ps.shape;
                 shape.mesh = m;
             }
-            ps.Stop(withChildren: true);
-            ps.Play(true);
+            // ps.Stop(withChildren: true);
+            // ps.Play(true);
+            var p = Instantiate(ps, particleTransform.position, particleTransform.rotation);
+            p.gameObject.SetActive(true);
         }
     }
 }

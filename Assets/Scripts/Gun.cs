@@ -7,7 +7,6 @@ public class Gun : Item
     public GameObject projectilePrefab;
     public float damage;
     public float projectileSpeed;
-    public Vector2 speedCharge;
     public Vector2 shotCount;
     public Vector2 spreadAngle;
     public Vector2 spreadNoise;
@@ -27,6 +26,8 @@ public class Gun : Item
     public Vector2 critRange;   // charge range (as % of maxCharge) that guarantees critical hit
     public AnimationCurve cooldownGraphMult;    // affects fire cooldown based on charge level
     public AnimationCurve damageMult;           // affects damage based on charge level
+    public AnimationCurve speedMult;            // affects projectile speed based on charge level
+
 
     [Header("Recoil Info")]
     public Vector2 recoilPattern;
@@ -102,7 +103,7 @@ public class Gun : Item
                 effectiveDamage = damage * critMult;
             }
             float effectiveCooldown = chargeable ? fireCooldownTime * cooldownGraphMult.Evaluate(charge/maxCharge) : fireCooldownTime;
-            float effectiveProjectileSpeed = chargeable ? projectileSpeed * Mathf.Lerp(speedCharge.x, speedCharge.y, charge/maxCharge) : projectileSpeed;
+            float effectiveProjectileSpeed = chargeable ? projectileSpeed * speedMult.Evaluate(charge/maxCharge) : projectileSpeed;
             if (hitIndicator != null) hitIndicator.Pulse(effectiveCooldown);
             Invoke("ChamberRound", effectiveCooldown);
             if (gunshotSound != null) gunshotSound.Play();
@@ -144,6 +145,12 @@ public class Gun : Item
         {
             if (!charging && CanCharge()) BeginCharge();
             if (charging) charge = Mathf.Min(charge + Time.deltaTime, maxCharge);
+            if (automatic && charging && charge >= maxCharge && CanShoot())
+            {
+                DoTrigger();
+                charging = false;
+                charge = 0f;
+            }
         }
         else if (automatic && held && triggerHeld && CanShoot())
         {

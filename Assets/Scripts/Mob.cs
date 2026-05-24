@@ -121,6 +121,7 @@ public class Mob : Object
 
     public override void Damage(float damage)
     {
+        if (destroyed) return;
         if (invincible) return;
         base.Damage(damage);
         if (healthRegenCoroutine != null) StopCoroutine(healthRegenCoroutine);

@@ -11,7 +11,10 @@ public class Projectile : MonoBehaviour
     public float radius;
     public float damage;
     public float damp;
+    public bool dampMultBySpeed;
     public float limitSpeed;
+    public float drag;
+    public bool dragMultBySpeed;
     public float speed;
     public float gravity;
     public float terminalVelocity;
@@ -40,15 +43,29 @@ public class Projectile : MonoBehaviour
     public Vector3 CalculatePosition(float t) => s0 + v0 * t + 0.5f * a0 * t * t;
     public Vector3 CalculateVelocity(float t) => v0 + a0 * t;
 
+    private void ApplyDrag(ref Vector3 v, float dt)
+    {
+        if (drag <= 0f) return;
+        float fallY = v.y < 0f ? v.y : 0f;
+        Vector3 draggable = new Vector3(v.x, v.y - fallY, v.z);
+        float factor = drag * dt;
+        if (dragMultBySpeed) factor *= draggable.magnitude;
+        draggable *= Mathf.Max(0f, 1f - factor);
+        v = new Vector3(draggable.x, draggable.y + fallY, draggable.z);
+    }
+
     private void ApplyDamping(ref Vector3 v, float dt)
     {
         if (limitSpeed <= 0f) return;
-        Vector3 horiz = new Vector3(v.x, 0f, v.z);
-        float spd = horiz.magnitude;
+        float fallY = v.y < 0f ? v.y : 0f;
+        Vector3 dampable = new Vector3(v.x, v.y - fallY, v.z);
+        float spd = dampable.magnitude;
         if (spd <= limitSpeed) return;
-        float reduction = Mathf.Min(damp * dt, spd - limitSpeed);
-        Vector3 newHoriz = horiz - (horiz / spd) * reduction;
-        v = new Vector3(newHoriz.x, v.y, newHoriz.z);
+        float rate = damp * dt;
+        if (dampMultBySpeed) rate *= spd;
+        float reduction = Mathf.Min(rate, spd - limitSpeed);
+        dampable -= (dampable / spd) * reduction;
+        v = new Vector3(dampable.x, dampable.y + fallY, dampable.z);
     }
 
     public void CalculateTrajectoryPoints(float life, float interval)
@@ -61,6 +78,7 @@ public class Projectile : MonoBehaviour
         {
             v += a0 * interval;
             if (terminalVelocity > 0f && v.y < -terminalVelocity) v.y = -terminalVelocity;
+            ApplyDrag(ref v, interval);
             ApplyDamping(ref v, interval);
             s += v * interval;
             points.Add(s);
@@ -83,6 +101,7 @@ public class Projectile : MonoBehaviour
         float dt = Time.deltaTime;
         vel += a0 * dt;
         if (terminalVelocity > 0f && vel.y < -terminalVelocity) vel.y = -terminalVelocity;
+        ApplyDrag(ref vel, dt);
         ApplyDamping(ref vel, dt);
         Proj.position += vel * dt;
         if (vel.sqrMagnitude > 1e-10f) Proj.rotation = Quaternion.LookRotation(vel);
