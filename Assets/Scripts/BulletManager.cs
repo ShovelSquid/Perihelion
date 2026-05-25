@@ -90,10 +90,15 @@ public class BulletManager : MonoBehaviour
     private void OnBulletHit(Projectile bullet, RaycastHit hit)
     {
         Object obj = hit.collider.GetComponentInParent<Object>();
+        Rigidbody rb = hit.collider.GetComponentInParent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.AddForceAtPosition(bullet.direction * rb.mass * bullet.speed * bullet.mass, hit.point, ForceMode.Impulse);
+        }
         if (obj != null)
         {
             obj.Damage(bullet.damage);
-            obj.HitPhysics(hit.point, hit.normal, bullet.damage);
+            obj.HitPhysics(hit.point, hit.normal, bullet.speed * bullet.mass);
         }
         if (bullet.hitEffect != null)
             Instantiate(bullet.hitEffect, hit.point, Quaternion.LookRotation(hit.normal));

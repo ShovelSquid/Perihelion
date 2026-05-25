@@ -21,7 +21,11 @@ public class Object : MonoBehaviour
     public List<float> damageThresholds = new List<float>(); // from 1 to 0, in descending order. When hp drops below these percentages, the damage state changes (handled by DamageStates.cs)
     public int damageState = 0; // num correlating to num of list on damage states script for current texture
     private DamageStates damageStates;
+    private GameObject spawnedDestroyed;
     public ParticleSystem deathEffect;
+    public float deathForce = 10f;
+    public float deathForceMult;
+    public float hitRadius = 1f;
 
 
     void Awake()
@@ -106,6 +110,7 @@ public class Object : MonoBehaviour
         {
             GameObject e = Instantiate(destroyedVersion, transform.position, transform.rotation);
             e.transform.localScale = transform.localScale;
+            spawnedDestroyed = e;
         }
         if (deathEffect != null)
         {
@@ -118,7 +123,31 @@ public class Object : MonoBehaviour
 
     public virtual void HitPhysics(Vector3 point, Vector3 normal, float force)
     {
-        if (rb != null && !still)
+        if (destroyed && spawnedDestroyed != null)
+        {
+            Rigidbody[] rbs = spawnedDestroyed.GetComponentsInChildren<Rigidbody>();
+            float totalWeight = 0f;
+            foreach (Rigidbody b in rbs)
+            {
+                float dist = (b.position - point).magnitude;
+                if (dist > hitRadius) continue;
+                totalWeight += 1f - dist / hitRadius;
+            }
+            if (totalWeight > 0f)
+            {
+                foreach (Rigidbody b in rbs)
+                {
+                    Vector3 delta = b.position - point;
+                    float dist = delta.magnitude;
+                    if (dist > hitRadius) continue;
+                    Vector3 dir = dist > 1e-5f ? delta / dist : -normal;
+                    float share = (1f - dist / hitRadius) / totalWeight;
+                    //  * Mathf.Pow((transform.localScale.x + transform.localScale.y + transform.localScale.z) / 3, 3) 
+                    b.AddForceAtPosition(-normal * (force + deathForce) * deathForceMult * share, point, ForceMode.Impulse);
+                }
+            }
+        }
+        else if (rb != null && !still)
         {
             rb.AddForceAtPosition(-normal * force * rb.mass, point, ForceMode.Impulse);
         }

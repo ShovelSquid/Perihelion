@@ -192,4 +192,16 @@ public class PlayerManager : MonoBehaviour
             }
         }
     }
+
+    public void OnReload(InputAction.CallbackContext reloadContext)
+    {
+        if (!playerInputEnabled) return;
+        if (reloadContext.started)
+        {
+            if (mob.heldItem is Gun gun)
+            {
+                gun.StartReload();
+            }
+        }
+    }
 }

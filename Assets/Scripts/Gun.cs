@@ -77,6 +77,7 @@ public class Gun : Item
                 charge = 0f;
             }
             if (wasEmpty && !cooldownPending) ChamberRound();
+            if (MustReload() && CanReload()) StartReload();
             return;
         }
 
@@ -88,6 +89,52 @@ public class Gun : Item
         // pending cooldown — otherwise the scheduled Invoke will chamber for us, and chambering
         // here would bypass the fire cooldown.
         if (wasEmptyNC && !cooldownPending) ChamberRound();
+    }
+
+    public bool OutOfAmmo()
+    {
+        return ammoInMagazine <= 0 && totalAmmo <= 0 && bulletChambered <= 0;
+    }
+
+    public bool MustReload()
+    {
+        return ammoInMagazine <= 0 && totalAmmo > 0 && bulletChambered <= 0;
+    }
+
+    public bool CanReload()
+    {
+        if (cooldownPending) return false;
+        if (ammoInMagazine == magazineSize || totalAmmo <= 0) return false;
+        return true;
+    }
+
+    public void StartReload()
+    {
+        if (cooldownPending) return;
+        if (!CanReload()) return;
+        if (reloadSound != null) reloadSound.Play();
+        if (hitIndicator != null) hitIndicator.Pulse(reloadTime);
+        cooldownPending = true;
+        Invoke("Reload", reloadTime);
+    }
+
+    public void Reload()
+    {
+        if (reloadSound != null) reloadSound.Play();
+        int neededAmmo = magazineSize - ammoInMagazine;
+        int ammoToLoad = Mathf.Min(neededAmmo, totalAmmo);
+        ammoInMagazine += ammoToLoad;
+        totalAmmo -= ammoToLoad;
+        ChamberRound();
+    }
+
+    public void ForceChamber()
+    {
+        if (ammoInMagazine > 0 && bulletChambered == 0)
+        {
+            ammoInMagazine--;
+            bulletChambered++;
+        }
     }
 
     public override void DoTrigger()

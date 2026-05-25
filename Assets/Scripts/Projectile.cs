@@ -10,6 +10,10 @@ public class Projectile : MonoBehaviour
     public ParticleSystem hitEffect;
     public float radius;
     public float damage;
+    public float mass;
+    public float explosionForce;
+    public float explosionRadius;
+    public float explosionFalloff;
     public float damp;
     public bool dampMultBySpeed;
     public float limitSpeed;

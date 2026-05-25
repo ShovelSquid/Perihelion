@@ -483,6 +483,9 @@ MonoBehaviour:
   - 0
   damageState: 0
   deathEffect: {fileID: 0}
+  deathForce: 3000
+  deathForceMult: 5
+  hitRadius: 55
 --- !u!1 &446134645167112766
 GameObject:
   m_ObjectHideFlags: 0

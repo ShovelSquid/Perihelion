@@ -112,12 +112,16 @@ MonoBehaviour:
   hitEffect: {fileID: 5030815878368170372, guid: b78f6957d984b044d8906303cdfe8b30, type: 3}
   radius: 1
   damage: 0
+  mass: 0
+  explosionForce: 0
+  explosionRadius: 0
+  explosionFalloff: 0
   damp: 0.1
   dampMultBySpeed: 1
   limitSpeed: 100
   drag: 0.01
   dragMultBySpeed: 0
-  speed: 5000
+  speed: 50000
   gravity: 50
   terminalVelocity: 5000
   direction: {x: 0, y: 0, z: 0}

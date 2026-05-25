@@ -167,6 +167,9 @@ MonoBehaviour:
   damageThresholds: []
   damageState: 0
   deathEffect: {fileID: 5212572148145262854, guid: 92505d46e13a32c49aeedb3a988df18b, type: 3}
+  deathForce: 250
+  deathForceMult: 5
+  hitRadius: 30
   inv: {fileID: 0}
   heldItem: {fileID: 0}
   adio: {fileID: 0}
