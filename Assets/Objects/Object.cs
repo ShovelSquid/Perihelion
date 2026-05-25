@@ -26,6 +26,7 @@ public class Object : MonoBehaviour
     public float deathForce = 10f;
     public float deathForceMult;
     public float hitRadius = 1f;
+    public float endTime = 5f;
 
 
     void Awake()
@@ -118,7 +119,13 @@ public class Object : MonoBehaviour
         }
         gameObject.SetActive(false); // don't destroy the building object, since we want to keep its collider and other components for the rubble. Just hide it.
         // if (anim != null) anim.SetBool("Destroyed", true);
+        Invoke("End", endTime);
         destroyed = true;
+    }
+    public void End()
+    {
+        if (healthbar != null) Destroy(healthbar.gameObject);
+        Destroy(gameObject);
     }
 
     public virtual void HitPhysics(Vector3 point, Vector3 normal, float force)
@@ -143,7 +150,7 @@ public class Object : MonoBehaviour
                     Vector3 dir = dist > 1e-5f ? delta / dist : -normal;
                     float share = (1f - dist / hitRadius) / totalWeight;
                     //  * Mathf.Pow((transform.localScale.x + transform.localScale.y + transform.localScale.z) / 3, 3) 
-                    b.AddForceAtPosition(-normal * (force + deathForce) * deathForceMult * share, point, ForceMode.Impulse);
+                    b.AddForceAtPosition(dir * (force + deathForce) * deathForceMult * share, point, ForceMode.Impulse);
                 }
             }
         }
