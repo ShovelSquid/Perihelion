@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 public class PlayerManager : MonoBehaviour
 {
     public GameObject player;
-    public Mob mob;
+    public Player mob;
     public MenuScript menu;
     public CameraController cam;
     public Move move;
@@ -26,7 +26,7 @@ public class PlayerManager : MonoBehaviour
     void Start()
     {
         LockCursor();
-        mob = player.GetComponent<Mob>();
+        mob = player.GetComponent<Player>();
         move = player.GetComponent<Move>();
         look = player.GetComponent<Look>();
         cam = Camera.main.GetComponent<CameraController>();
@@ -202,6 +202,15 @@ public class PlayerManager : MonoBehaviour
             {
                 gun.StartReload();
             }
+        }
+    }
+
+    public void OnInteract(InputAction.CallbackContext interactContext)
+    {
+        if (!playerInputEnabled) return;
+        if (interactContext.started)
+        {
+            mob.Activate();
         }
     }
 }

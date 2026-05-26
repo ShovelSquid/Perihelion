@@ -110,6 +110,9 @@ public class Outline : MonoBehaviour {
 
       renderer.materials = materials.ToArray();
     }
+
+    UpdateMaterialProperties();
+    needsUpdate = false;
   }
 
   void OnValidate() {

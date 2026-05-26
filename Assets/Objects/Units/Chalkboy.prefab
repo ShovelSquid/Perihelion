@@ -44,6 +44,8 @@ GameObject:
   - component: {fileID: 5943166190999919645}
   - component: {fileID: 8664106529782504455}
   - component: {fileID: 243055029106998400}
+  - component: {fileID: 1063055583855983643}
+  - component: {fileID: 8026501910384119502}
   m_Layer: 8
   m_Name: Chalkboy
   m_TagString: Untagged
@@ -67,6 +69,8 @@ Transform:
   - {fileID: 1546013932042240198}
   - {fileID: 8108921244329844671}
   - {fileID: 5159124603073589100}
+  - {fileID: 1365779405700284203}
+  - {fileID: 5180015327462762280}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &8908853674322284395
@@ -99,8 +103,8 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 159508721732615910}
   serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
+  m_Mass: 40
+  m_LinearDamping: 7.6
   m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
@@ -114,10 +118,10 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
+  m_Constraints: 112
+  m_CollisionDetection: 2
 --- !u!114 &8664106529782504455
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,6 +163,9 @@ MonoBehaviour:
   hitMistParticle: {fileID: 1061280300882830386, guid: 06fca539a8d345d458d4c2db257d11aa, type: 3}
   invincible: 0
   still: 0
+  interactible: 1
+  interactionTrigger: {fileID: 0}
+  outline: {fileID: 1063055583855983643}
   hp: 20
   max_hp: 20
   density: 1
@@ -170,18 +177,16 @@ MonoBehaviour:
   deathForce: 250
   deathForceMult: 5
   hitRadius: 30
+  endTime: 5
   inv: {fileID: 0}
   heldItem: {fileID: 0}
   adio: {fileID: 0}
-  box: {fileID: 0}
   fallDamagSound: {fileID: 0}
   directionalHitParticle: {fileID: 0}
-  airJumpParticle: {fileID: 0}
-  groundJumpParticle: {fileID: 0}
-  jumpFXPoint: {fileID: 0}
   spawnPoint: {fileID: 0}
   dead: 0
   respawn: 0
+  damageOnTouch: 0
   xp: 0
   xp_base: 0
   level: 0
@@ -209,6 +214,86 @@ MonoBehaviour:
   healthRegenCooldown: 3
   healthRegenAmount: 1
   respawnTime: 5
+  interactObject: {fileID: 0}
+--- !u!114 &1063055583855983643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 159508721732615910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fea29bb7c508c244a1f805a5fd3fc4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Outline
+  outlineMode: 1
+  outlineColor: {r: 0.11560869, g: 0.888905, b: 0.9029649, a: 1}
+  outlineWidth: 8
+  precomputeOutline: 1
+  bakeKeys: []
+  bakeValues: []
+--- !u!114 &8026501910384119502
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 159508721732615910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 209ad444022945348b7c4d1a82de18d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Move
+  moveCollider: {fileID: 5756749098986606965}
+  onEnterPlat:
+    m_PersistentCalls:
+      m_Calls: []
+  onExitPlat:
+    m_PersistentCalls:
+      m_Calls: []
+  playAudio: 1
+  playFootsteps: 0
+  footstepSounds: []
+  jumpSound: {fileID: 0}
+  moving: 0
+  acceleration: 50
+  groundDeceleration: 50
+  maxGroundSpeed: 15
+  airAcceleration: 50
+  airDeceleration: 50
+  maxAirSpeed: 15
+  moveDirection: {x: 0, y: 0}
+  groundRotationSpeed: 0
+  airRotationSpeed: 0
+  maxSpeedForceGround: 0
+  maxSpeedForceAir: 0
+  jumpforce: 0
+  jumpForceGround: 0
+  jumpForceAir: 0
+  jumpForceMoveMult: 1
+  jumpForceMoveMultMax: 1
+  jumpForceMoveMultMaxAir: 1
+  jumpForceUpMult: 1
+  jumpForceUpMultMax: 1
+  jumpForceUpMultMaxAir: 1
+  maxAirJumps: 0
+  airJumps: 0
+  maxJumpSpeed: 0
+  maxFallSpeed: 0
+  horizontalWeight: 0
+  horizontalWeightMax: 0
+  horizontalWeightMaxAir: 0
+  jump: 0
+  inAir: 0
+  airJumpParticle: {fileID: 0}
+  groundJumpParticle: {fileID: 0}
+  jumpFXPoint: {fileID: 0}
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 8968
+  groundCheckDistance: 0.1
+  fallSpeed: 0
 --- !u!1 &1279702209365531959
 GameObject:
   m_ObjectHideFlags: 0
@@ -595,6 +680,76 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.98, y: 1.97, z: 2.01}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &3822231339731164379
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1365779405700284203}
+  - component: {fileID: 8174628941752744711}
+  - component: {fileID: 1207716171086002209}
+  m_Layer: 8
+  m_Name: Interaction
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1365779405700284203
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3822231339731164379}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 534805875829843701}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &8174628941752744711
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3822231339731164379}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 16.05
+  m_Height: 1
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1207716171086002209
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3822231339731164379}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c867c6f024969084bb97b56e6bca4e13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  interactObject: {fileID: 243055029106998400}
+  objectsInRange: []
 --- !u!1 &4281436879701508701
 GameObject:
   m_ObjectHideFlags: 0
@@ -877,6 +1032,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3913956750069259125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7984505831621834951
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5180015327462762280}
+  - component: {fileID: 5756749098986606965}
+  m_Layer: 8
+  m_Name: Box
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5180015327462762280
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7984505831621834951}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 534805875829843701}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &5756749098986606965
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7984505831621834951}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 5, y: 2.5, z: 5}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &8244123781583089989
 GameObject:
   m_ObjectHideFlags: 0

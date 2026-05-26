@@ -12,6 +12,10 @@ public class Object : MonoBehaviour
     public ParticleSystem hitMistParticle;
     public bool invincible = false;
     public bool still = false; // If true, this object can't be moved or affected by physics
+    public bool interactible = false; // If true, player can interact with this object (e.g. press E to interact)
+    [HideInInspector]
+    public InteractionTrigger interactionTrigger;
+    public Outline outline;
     public float hp;
     public int max_hp;
     // public float mass = 1f;
@@ -29,11 +33,12 @@ public class Object : MonoBehaviour
     public float endTime = 5f;
 
 
-    void Awake()
+    protected virtual void Awake()
     {
         if (body == null) body = GetComponent<Inventory>();
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (anim == null) anim = GetComponent<Animator>();
+        if (interactionTrigger == null) interactionTrigger = GetComponentInChildren<InteractionTrigger>();
         damageStates = GetComponent<DamageStates>();
         hp = max_hp;
     }
@@ -43,6 +48,25 @@ public class Object : MonoBehaviour
         // if (body == null) body = GetComponent<Inventory>();
         // if (rb != null) rb.mass = rb.mass * density;
         if (healthbar != null) healthbar.SetMaxHealth(max_hp);
+        if (outline != null) outline.enabled = false;
+    }
+
+    public virtual void Interact()
+    {
+        // Override this method in child classes to make the object interactible (e.g. open a door, loot a chest, etc.)
+    }
+
+    public virtual void Activate()
+    {
+        // Override this method in child classes to make the object activate (e.g. turn on a machine, start a trap, etc.)
+    }
+
+    public void InteractOutline(bool on)
+    {
+        if (outline != null)
+        {
+            outline.enabled = on;
+        }
     }
 
     public virtual void Damage(float damage)
@@ -70,8 +94,6 @@ public class Object : MonoBehaviour
         }
 
         if (healthbar != null) healthbar.SetHealth((int)hp);
-
-
     }
 
     public int GetDamageState()

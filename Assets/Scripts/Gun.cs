@@ -77,7 +77,6 @@ public class Gun : Item
                 charge = 0f;
             }
             if (wasEmpty && !cooldownPending) ChamberRound();
-            if (MustReload() && CanReload()) StartReload();
             return;
         }
 
@@ -89,6 +88,7 @@ public class Gun : Item
         // pending cooldown — otherwise the scheduled Invoke will chamber for us, and chambering
         // here would bypass the fire cooldown.
         if (wasEmptyNC && !cooldownPending) ChamberRound();
+        if (MustReload() && CanReload()) StartReload();
     }
 
     public bool OutOfAmmo()

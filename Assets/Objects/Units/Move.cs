@@ -11,6 +11,7 @@ public class Move : MonoBehaviour
 {
     private Mob mob;
     private Rigidbody rb;
+    public Collider moveCollider;
 
     [Header("Events")]
     public UnityEvent<Collider> onEnterPlat;
@@ -66,6 +67,9 @@ public class Move : MonoBehaviour
     public float horizontalWeightMaxAir;
     public bool jump;
     public bool inAir;
+    public ParticleSystem airJumpParticle;
+    public ParticleSystem groundJumpParticle;
+    public Transform jumpFXPoint;
 
     [Header("Ground Check")]
     public LayerMask groundLayer;
@@ -179,8 +183,11 @@ public class Move : MonoBehaviour
         if (normal.y <= 0.5f) return;
         mob.anim.SetTrigger("Land");
         PlayLandingSound();
-        mob.jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
-        Instantiate(mob.groundJumpParticle, mob.jumpFXPoint.position, mob.jumpFXPoint.rotation);
+        if (jumpFXPoint != null && groundJumpParticle != null)
+        {
+            jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
+            Instantiate(groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
+        }
         airJumps = maxAirJumps;
         InAir();
         StartCoroutine(DelayAction(0.1f, InAir));
@@ -231,7 +238,7 @@ public class Move : MonoBehaviour
 
     public void InAir()
     {
-        Vector3 origin = new Vector3(transform.position.x, transform.position.y - mob.box.bounds.size.y / 2, transform.position.z);
+        Vector3 origin = new Vector3(transform.position.x, transform.position.y - moveCollider.bounds.size.y / 2, transform.position.z);
         inAir = !Physics.Raycast(origin, Vector3.down, out _, groundCheckDistance, groundLayer, QueryTriggerInteraction.Ignore);
         mob.anim.SetBool("inAir", inAir);
     }
@@ -246,7 +253,7 @@ public class Move : MonoBehaviour
         mob.adio.PlayOneShot(jumpSound);
         jumpforce = jumpForceGround;
         mob.anim.SetFloat("Flip", 0);
-        ParticleSystem jumpParticle = mob.groundJumpParticle;
+        ParticleSystem jumpParticle = groundJumpParticle;
         Vector3 moveVec = new Vector3(moveDirection.x, 0, moveDirection.y).normalized;
         horizontalWeight = math.clamp(math.remap(0f, maxGroundSpeed, 0f, horizontalWeightMax, rb.linearVelocity.magnitude), 0f, horizontalWeightMax);
         jumpForceMoveMult = math.clamp(math.remap(0f, maxGroundSpeed, 1f, jumpForceMoveMultMax, rb.linearVelocity.magnitude), 0f, jumpForceMoveMultMax);
@@ -255,15 +262,18 @@ public class Move : MonoBehaviour
         {
             mob.anim.SetFloat("Flip", 1);
             jumpforce = jumpForceAir;
-            jumpParticle = mob.airJumpParticle;
+            jumpParticle = airJumpParticle;
             float magnitude = moveDirection.magnitude;
             jumpForceMoveMult = math.clamp(math.remap(0f, 1f, 1f, jumpForceMoveMultMaxAir, magnitude), 0f, jumpForceMoveMultMaxAir);
             horizontalWeight = math.clamp(math.remap(0f, 1f, 0f, horizontalWeightMaxAir, magnitude), 0f, horizontalWeightMaxAir);
             jumpForceUpMult = math.clamp(math.remap(0f, 1f, 1f, jumpForceUpMultMaxAir, magnitude), 0f, jumpForceUpMultMaxAir);
         }
         Vector3 jumpVector = Vector3.up * (1 - horizontalWeight) * (jumpforce * jumpForceUpMult) + moveVec * horizontalWeight * (jumpforce * jumpForceMoveMult);
-        mob.jumpFXPoint.rotation = Quaternion.LookRotation(jumpVector.normalized);
-        Instantiate(jumpParticle, mob.jumpFXPoint.position, mob.jumpFXPoint.rotation);
+        if (jumpParticle != null && jumpFXPoint != null)
+        {
+            jumpFXPoint.rotation = Quaternion.LookRotation(jumpVector.normalized);
+            Instantiate(jumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
+        }
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
         rb.AddForce(Vector3.up * (1 - horizontalWeight) * (jumpforce * jumpForceUpMult), ForceMode.Impulse);
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, new Vector3(0, rb.linearVelocity.y, 0), horizontalWeight);

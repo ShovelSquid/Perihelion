@@ -10,15 +10,12 @@ public class Mob : Object
     public Inventory inv;
     public Item heldItem;
     public AudioSource adio;
-    public Collider box;
     public AudioClip fallDamagSound;
     public ParticleSystem directionalHitParticle;
-    public ParticleSystem airJumpParticle;
-    public ParticleSystem groundJumpParticle;
-    public Transform jumpFXPoint;
     public Transform spawnPoint;
     public bool dead = false;
     public bool respawn = false;
+    public bool damageOnTouch = false;
     public int xp;
     public int xp_base;
     public int level;
@@ -58,9 +55,12 @@ public class Mob : Object
     private Coroutine healthRegenCoroutine;
     public float respawnTime = 5f;
 
-    void Awake()
+    [Header ("Interaction")]
+    public Object interactObject;
+
+    protected override void Awake()
     {
-        box = GetComponent<Collider>();
+        base.Awake();
         isRegenerating = true;
     }
 
@@ -74,6 +74,15 @@ public class Mob : Object
         if (!attackReady)
         {
             Invoke("ReadyAttack", attackSpeed);
+        }
+    }
+
+    public override void Activate()
+    {
+        base.Activate();
+        if (interactObject != null)
+        {
+            interactObject.Interact();
         }
     }
 
@@ -121,10 +130,10 @@ public class Mob : Object
 
     public override void Damage(float damage)
     {
-        if (destroyed) return;
         if (invincible) return;
         base.Damage(damage);
         if (healthRegenCoroutine != null) StopCoroutine(healthRegenCoroutine);
+        if (destroyed) return;
         healthRegenCoroutine = StartCoroutine(HealthRegen(healthRegenDamageCooldown));
     }
 
@@ -139,13 +148,15 @@ public class Mob : Object
     public void OnCollisionEnter(Collision other)
     {
         Debug.Log(gameObject.name + " collided with " + other.gameObject.name);
-        if (other.gameObject.layer == LayerMask.NameToLayer("Mobs"))
-        {
-            Debug.Log(gameObject.name + " is on good terms with " + other.gameObject.name);
-            if (other.gameObject.tag != gameObject.tag)
+        if (damageOnTouch) {
+            if (other.gameObject.layer == LayerMask.NameToLayer("Mobs"))
             {
-                Debug.Log(gameObject.name + " would like to go out with " + other.gameObject.name);
-                Attack(other.gameObject.GetComponent<Mob>());
+                Debug.Log(gameObject.name + " is on good terms with " + other.gameObject.name);
+                if (other.gameObject.tag != gameObject.tag)
+                {
+                    Debug.Log(gameObject.name + " would like to go out with " + other.gameObject.name);
+                    Attack(other.gameObject.GetComponent<Mob>());
+                }
             }
         }
     }

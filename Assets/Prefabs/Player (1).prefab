@@ -5055,7 +5055,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1692017918249240207}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3f76dfaa84ccd8f4599e58b467b64e90, type: 3}
+  m_Script: {fileID: 11500000, guid: 60d6336ae104e854280f41a28b92a7f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Mob
   loot: {fileID: 5087523949379151160}

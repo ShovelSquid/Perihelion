@@ -2,6 +2,16 @@ using UnityEngine;
 
 public class Building : Object
 {
+    public Spawner spawner;
+
+    public override void Interact()
+    {
+        if (spawner != null)
+        {
+            spawner.Spawn(1);
+        }
+    }
+
     // protected override void Die(float extraDamage = 0f)
     // {
     //     base.Die(extraDamage);
