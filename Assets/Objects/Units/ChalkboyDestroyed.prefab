@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2855861552568006833}
   - component: {fileID: 3211974644086237607}
+  - component: {fileID: 1594729210493017044}
   m_Layer: 0
   m_Name: ChalkboyDestroyed
   m_TagString: Untagged
@@ -47,6 +48,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TextureApply
   texture: {fileID: 0}
   material: {fileID: 2100000, guid: 7cf5a1924ca411045bb9e53197c6e3a1, type: 2}
+--- !u!114 &1594729210493017044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7259150174584688865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6cae2cf11ed03d48989d93c31631603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Palette
+  referencePalette: {fileID: 0}
+  objectsToColor: []
+  allRenderersInChildren: 1
+  colorName: 
+  colorHealthbar: 0
+  colorOnStart: 0
+  palette: []
 --- !u!1001 &8731006416962439538
 PrefabInstance:
   m_ObjectHideFlags: 0

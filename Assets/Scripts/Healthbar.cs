@@ -125,4 +125,11 @@ public class Healthbar : MonoBehaviour
         }
         hp = newHp;
     }
+
+    public void FadeOut()
+    {
+        // Optional: implement fade-out animation here.
+        // For now, just disable the healthbar.
+        gameObject.SetActive(false);
+    }
 }

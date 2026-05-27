@@ -210,6 +210,7 @@ GameObject:
   - component: {fileID: 7541213055669298375}
   - component: {fileID: 4044512946298195037}
   - component: {fileID: 2251716356027456747}
+  - component: {fileID: 5735582866798428971}
   m_Layer: 9
   m_Name: Chalkpoint
   m_TagString: Untagged
@@ -470,6 +471,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Building
   anim: {fileID: 0}
   healthbar: {fileID: 7335763950595760602}
+  team: {fileID: 0}
+  colorPalette: {fileID: 5735582866798428971}
+  damageflashDuration: 0.2
   hitParticle: {fileID: 0}
   hitMistParticle: {fileID: 1061280300882830386, guid: 84fb183817056d248a24d8895f294640, type: 3}
   invincible: 0
@@ -512,6 +516,27 @@ MonoBehaviour:
   precomputeOutline: 1
   bakeKeys: []
   bakeValues: []
+--- !u!114 &5735582866798428971
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 405524628748621408}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6cae2cf11ed03d48989d93c31631603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Palette
+  referencePalette: {fileID: 7499364087332233355, guid: a167bd0c6ef7edb44b56291db841e620, type: 3}
+  objectsToColor:
+  - {fileID: 108056185109876711}
+  allRenderersInChildren: 0
+  colorName: Chalk
+  colorHealthbar: 1
+  colorOutline: 1
+  colorOnStart: 1
+  palette: []
 --- !u!1 &446134645167112766
 GameObject:
   m_ObjectHideFlags: 0
@@ -3106,6 +3131,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa08208afe5f2924c8651bb91bd95f16, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Spawner
+  parentObject: {fileID: 0}
   spawn: {fileID: 159508721732615910, guid: ca41b5f3e60578c47ae3898a93f3cfa4, type: 3}
   scaleBase: {fileID: 2137553538971413295}
   spawnRadius: 10

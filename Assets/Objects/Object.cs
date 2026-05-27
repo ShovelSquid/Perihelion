@@ -8,6 +8,10 @@ public class Object : MonoBehaviour
     protected Rigidbody rb;
     protected Inventory body;
     public Healthbar healthbar;
+    public Team team;
+    public bool useTeamColor = true;
+    public Palette colorPalette;
+    public float damageflashDuration = 0.2f;
     public ParticleSystem hitParticle;
     public ParticleSystem hitMistParticle;
     public bool invincible = false;
@@ -39,6 +43,12 @@ public class Object : MonoBehaviour
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (anim == null) anim = GetComponent<Animator>();
         if (interactionTrigger == null) interactionTrigger = GetComponentInChildren<InteractionTrigger>();
+        if (colorPalette == null) colorPalette = GetComponent<Palette>();
+        if (colorPalette != null && useTeamColor && team != null)
+        {
+            colorPalette.colorName = team.colorName;
+            // colorPalette.ColorObject(team.colorName);
+        }
         damageStates = GetComponent<DamageStates>();
         hp = max_hp;
     }
@@ -49,6 +59,12 @@ public class Object : MonoBehaviour
         // if (rb != null) rb.mass = rb.mass * density;
         if (healthbar != null) healthbar.SetMaxHealth(max_hp);
         if (outline != null) outline.enabled = false;
+        if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName);
+        // if (team != null && colorPalette != null && colorPalette.colorName == "")
+        // {
+        //     colorPalette.colorName = team.colorName;
+        //     colorPalette.ColorObject(team.colorName);
+        // }
     }
 
     public virtual void Interact()
@@ -93,7 +109,14 @@ public class Object : MonoBehaviour
             Die(extraDamage);
         }
 
+        if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName, "Damage", 0.3f);
+        Invoke("ResetColor", damageflashDuration);
         if (healthbar != null) healthbar.SetHealth((int)hp);
+    }
+
+    public void ResetColor()
+    {
+        if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName);
     }
 
     public int GetDamageState()
@@ -133,6 +156,12 @@ public class Object : MonoBehaviour
         {
             GameObject e = Instantiate(destroyedVersion, transform.position, transform.rotation);
             e.transform.localScale = transform.localScale;
+            Palette p = e.GetComponent<Palette>();
+            if (p != null && colorPalette != null)
+            {
+                p.referencePalette = colorPalette.referencePalette;
+                p.ColorObject(colorPalette.colorName, "Destroy", 0.5f);
+            }
             spawnedDestroyed = e;
         }
         if (deathEffect != null)

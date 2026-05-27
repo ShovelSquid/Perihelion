@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class Spawner : MonoBehaviour
 {
+    public Object parentObject;
     public GameObject spawn;
     public Transform scaleBase;
     public float spawnRadius = 5f;
@@ -9,6 +10,11 @@ public class Spawner : MonoBehaviour
     public GameObject spawnEffect;
     public AudioClip spawnSound;
 
+
+    public void Awake()
+    {
+        parentObject = GetComponentInParent<Object>();
+    }
 
     public void Spawn(int amount)
     {
@@ -41,6 +47,18 @@ public class Spawner : MonoBehaviour
         {
             AudioSource.PlayClipAtPoint(spawnSound, pos);
         }
-        Instantiate(spawn, pos, Quaternion.identity);
+        GameObject spawnedObject = Instantiate(spawn, pos, Quaternion.identity);
+        Palette p = spawnedObject.GetComponent<Palette>();
+        if (parentObject != null && parentObject.colorPalette != null && p != null)
+        {
+            if (parentObject.colorPalette != null)
+            {
+                p.referencePalette = parentObject.colorPalette.referencePalette;
+                // p.colorOnStart = false;
+                p.colorName = parentObject.colorPalette.colorName;
+                p.ColorObject(parentObject.colorPalette.colorName);
+            }
+            spawnedObject.GetComponent<Object>().team = parentObject.team;
+        }
     }
 }

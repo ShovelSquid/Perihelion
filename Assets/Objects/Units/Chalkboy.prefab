@@ -46,6 +46,7 @@ GameObject:
   - component: {fileID: 243055029106998400}
   - component: {fileID: 1063055583855983643}
   - component: {fileID: 8026501910384119502}
+  - component: {fileID: 440684530746431422}
   m_Layer: 8
   m_Name: Chalkboy
   m_TagString: Untagged
@@ -159,6 +160,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Mob
   anim: {fileID: 8908853674322284395}
   healthbar: {fileID: 9107542493006373919}
+  team: {fileID: 0}
+  useTeamColor: 1
+  colorPalette: {fileID: 0}
+  damageflashDuration: 0.2
   hitParticle: {fileID: 0}
   hitMistParticle: {fileID: 1061280300882830386, guid: 06fca539a8d345d458d4c2db257d11aa, type: 3}
   invincible: 0
@@ -177,7 +182,7 @@ MonoBehaviour:
   deathForce: 250
   deathForceMult: 5
   hitRadius: 30
-  endTime: 5
+  endTime: 1
   inv: {fileID: 0}
   heldItem: {fileID: 0}
   adio: {fileID: 0}
@@ -294,6 +299,26 @@ MonoBehaviour:
     m_Bits: 8968
   groundCheckDistance: 0.1
   fallSpeed: 0
+--- !u!114 &440684530746431422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 159508721732615910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6cae2cf11ed03d48989d93c31631603, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Palette
+  referencePalette: {fileID: 7499364087332233355, guid: a167bd0c6ef7edb44b56291db841e620, type: 3}
+  objectsToColor: []
+  allRenderersInChildren: 1
+  colorName: Chalk
+  colorHealthbar: 1
+  colorOutline: 1
+  colorOnStart: 1
+  palette: []
 --- !u!1 &1279702209365531959
 GameObject:
   m_ObjectHideFlags: 0
