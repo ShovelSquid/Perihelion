@@ -7,6 +7,7 @@ public class Item : MonoBehaviour
 {
     private Shine shine;
     public bool inInventory;
+    public Animator anim;
     [Header("Hold Info")]
     public bool holdable;
     public bool held;
@@ -23,7 +24,8 @@ public class Item : MonoBehaviour
     [Header("Item Info")]
     // begin bunch of bullshit
     public int stack;
-    public int stackScale = 1;  // multiples of 4
+    public int maxStack;
+    // public int stackScale = 1;  // multiples of 4
 
     [Header("Effects")]
     public AudioSource triggerSound;

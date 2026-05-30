@@ -76,7 +76,7 @@ public class Gun : Item
                 charging = false;
                 charge = 0f;
             }
-            if (wasEmpty && !cooldownPending) ChamberRound();
+            if (wasEmpty && !cooldownPending) ChamberRound(true);
             return;
         }
 
@@ -114,7 +114,9 @@ public class Gun : Item
         if (!CanReload()) return;
         if (reloadSound != null) reloadSound.Play();
         if (hitIndicator != null) hitIndicator.Pulse(reloadTime);
+        if (hitIndicator != null) hitIndicator.SetAmmo(bulletChambered, magazineSize + bulletChambered);
         cooldownPending = true;
+        if (anim != null) anim.SetTrigger("Reload");
         Invoke("Reload", reloadTime);
     }
 
@@ -125,7 +127,8 @@ public class Gun : Item
         int ammoToLoad = Mathf.Min(neededAmmo, totalAmmo);
         ammoInMagazine += ammoToLoad;
         totalAmmo -= ammoToLoad;
-        ChamberRound();
+        if (hitIndicator != null) hitIndicator.SetAmmo(ammoInMagazine + bulletChambered, magazineSize + 1);
+        ChamberRound(true);
     }
 
     public void ForceChamber()
@@ -152,6 +155,7 @@ public class Gun : Item
             float effectiveCooldown = chargeable ? fireCooldownTime * cooldownGraphMult.Evaluate(charge/maxCharge) : fireCooldownTime;
             float effectiveProjectileSpeed = chargeable ? projectileSpeed * speedMult.Evaluate(charge/maxCharge) : projectileSpeed;
             if (hitIndicator != null) hitIndicator.Pulse(effectiveCooldown);
+            if (hitIndicator != null) hitIndicator.SetAmmo(ammoInMagazine + bulletChambered - 0.15f, magazineSize + 1);
             Invoke("ChamberRound", effectiveCooldown);
             if (gunshotSound != null) gunshotSound.Play();
             if (muzzleFlash != null) muzzleFlash.Play();
@@ -182,6 +186,7 @@ public class Gun : Item
                     p.Fire(shotDirection);
                 }
             }
+            if (anim != null) anim.SetTrigger("Shoot");
         }
     }
 
@@ -204,14 +209,17 @@ public class Gun : Item
             DoTrigger();
         }
     }
+    public void ChamberRound() => ChamberRound(false);
 
-    public void ChamberRound()
+    public void ChamberRound(bool anim8 = false)
     {
         cooldownPending = false;
         if (ammoInMagazine > 0 && bulletChambered == 0)
         {
             ammoInMagazine--;
             bulletChambered++;
+            if (anim8 &&anim != null) anim.SetTrigger("Chamber");
+            if (hitIndicator != null) hitIndicator.SetAmmo(ammoInMagazine + bulletChambered, magazineSize + 1);
         }
         else if (ammoInMagazine == 0)
         {

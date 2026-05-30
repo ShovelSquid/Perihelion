@@ -16,6 +16,7 @@ public class HitIndicator : MonoBehaviour
     public Shape charge;
     public Shape recover;
     public Shape crit;
+    public Shape ammo;
     private float zero = 0.5f;
 
     public void Start()
@@ -28,6 +29,13 @@ public class HitIndicator : MonoBehaviour
 
     public void SetCritRange(float min, float max)
     {
+        if (min == max)
+        {
+            crit.gameObject.SetActive(false);
+            crit.settings.startAngle = zero;
+            crit.settings.endAngle = zero;
+            return;
+        }
         crit.settings.startAngle = min * 360f;
         crit.settings.endAngle = max * 360f;
     }
@@ -47,6 +55,12 @@ public class HitIndicator : MonoBehaviour
         charge.settings.endAngle = zero;
         charge.gameObject.SetActive(true);
         recover.gameObject.SetActive(false);
+    }
+
+    public void SetAmmo(float current, float magazineSize)
+    {
+        ammo.settings.startAngle = zero;
+        ammo.settings.endAngle = (float)current / magazineSize * 360f;
     }
 
     public void EndCharge()

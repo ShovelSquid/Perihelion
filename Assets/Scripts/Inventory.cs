@@ -5,10 +5,21 @@ using UnityEngine;
 public class Inventory : MonoBehaviour
 {
     public bool still = false; // If true, this inventory can't add items
-    public int maxSlots = 8;
+    [System.Serializable]
+    public struct Slot
+    {
+        public Item item;
+        public int stack;
+        public Slot(Item item, int stack)
+        {
+            this.item = item;
+            this.stack = stack;
+        }
+    }
+    public int slots = 8;
     // max stack = item's stack scale * max stack scale * 4
-    public int maxStackScale = 3;
-    public List<GameObject> items = new List<GameObject>();
+    // public int maxStackScale = 3;
+    public List<Slot> items = new List<Slot>();
 
     [Header("Drop Settings")]
     public GameObject dropObject;
@@ -19,6 +30,15 @@ public class Inventory : MonoBehaviour
     public float minSpacing = 0.3f;
     public int maxAttemptsPerItem = 30;
 
+    public void Awake()
+    {
+        for (int i = 0; i < slots; i++)
+        {
+            if (i < items.Count) continue;
+            items.Add(new Slot(null, 0));
+        }
+    }
+
     public void Drop()
     {
         Vector3 dropCenter = dropObject != null
@@ -26,9 +46,9 @@ public class Inventory : MonoBehaviour
             : transform.position + transform.forward;
         var placed = new List<Vector3>();
 
-        foreach (GameObject item in items)
+        foreach (Slot slot in items)
         {
-            if (item == null) continue;
+            if (slot.item == null) continue;
 
             Vector3 worldPos = FindDropPosition(placed);
             placed.Add(worldPos);
@@ -36,7 +56,7 @@ public class Inventory : MonoBehaviour
             Quaternion rot = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
             // Instantiate preserves the source's localScale, so dropped items keep their own size
             // regardless of how the dropObject is scaled.
-            GameObject spawned = Instantiate(item, worldPos, rot);
+            GameObject spawned = Instantiate(slot.item.gameObject, worldPos, rot);
 
             Rigidbody rb = spawned.GetComponent<Rigidbody>();
             if (rb != null && dropForce > 0f)
@@ -48,7 +68,7 @@ public class Inventory : MonoBehaviour
                 rb.AddForce(outward * dropForce, ForceMode.Impulse);
             }
 
-            Debug.Log($"Dropped {item.name}");
+            Debug.Log($"Dropped {slot.item.name}");
         }
     }
 
@@ -147,16 +167,16 @@ public class Inventory : MonoBehaviour
     {
         if (still) return item;
         if (item == null) return null;
-
-        int maxStack = item.stackScale * maxStackScale * 4;
+ 
+        int maxStack = item.maxStack;
         int remaining = item.stack;
 
         // Top up existing stacks of the same kind.
-        foreach (GameObject slot in items)
+        foreach (Slot slot in items)
         {
-            if (slot == null) continue;
+            if (slot.stack == 0) continue;
             if (remaining <= 0) break;
-            Item existing = slot.GetComponent<Item>();
+            Item existing = slot.item;
             if (existing == null) continue;
             if (!SameItemType(existing, item)) continue;
 
@@ -169,10 +189,10 @@ public class Inventory : MonoBehaviour
         }
 
         // Anything left over: claim a new slot if there's room.
-        if (remaining > 0 && items.Count < maxSlots)
+        if (remaining > 0 && items.Count < slots)
         {
             item.stack = remaining;
-            items.Add(item.gameObject);
+            items.Add(new Slot(item, remaining));
             Debug.Log($"Added {item.name} to inventory (stack={remaining}).");
             return null;
         }
