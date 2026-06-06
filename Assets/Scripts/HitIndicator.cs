@@ -17,7 +17,7 @@ public class HitIndicator : MonoBehaviour
     public Shape recover;
     public Shape crit;
     public Shape ammo;
-    private float zero = 0.5f;
+    private float zero = 0.001f;
 
     public void Start()
     {

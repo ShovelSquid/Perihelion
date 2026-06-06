@@ -5,9 +5,11 @@ public class BillboardText : MonoBehaviour
     private Camera cam;
     public Transform target;
     private bool hasTarget = false;
+    public bool ScreenOverlay = false;
     void Awake()
     {
-        cam = Camera.main;
+        if (cam == null)
+            cam = Camera.main;
         if (target != null)
         {
             hasTarget = true;
@@ -18,7 +20,14 @@ public class BillboardText : MonoBehaviour
         if (hasTarget)
         {
             transform.position = target.position;
+            if (ScreenOverlay)
+            {
+                transform.position = cam.WorldToScreenPoint(target.position);
+            }
         }
-        transform.LookAt(transform.position + cam.transform.rotation * Vector3.forward, cam.transform.rotation * Vector3.up);
+        if (!ScreenOverlay)
+        {
+            transform.LookAt(transform.position + cam.transform.rotation * Vector3.forward, cam.transform.rotation * Vector3.up);
+        }
     }
 }
