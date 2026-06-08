@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class Spawner : MonoBehaviour
 {
-    public Object parentObject;
+    private Object parentObject;
     public GameObject spawn;
     public Transform scaleBase;
     public float spawnRadius = 5f;

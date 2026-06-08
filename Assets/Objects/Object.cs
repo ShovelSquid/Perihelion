@@ -11,7 +11,8 @@ public class Object : MonoBehaviour
     public Team team;
     public bool useTeamColor = true;
     public Palette colorPalette;
-    public float damageflashDuration = 0.2f;
+    private Shine shine;
+    public float damageflashDuration = 0.1f;
     public ParticleSystem hitParticle;
     public ParticleSystem hitMistParticle;
     public bool invincible = false;
@@ -49,6 +50,7 @@ public class Object : MonoBehaviour
             colorPalette.colorName = team.colorName;
             // colorPalette.ColorObject(team.colorName);
         }
+        if (shine == null) shine = GetComponent<Shine>();
         damageStates = GetComponent<DamageStates>();
         hp = max_hp;
     }
@@ -94,13 +96,14 @@ public class Object : MonoBehaviour
         HitEffect fx = GetComponent<HitEffect>();
         if (fx != null) fx.Play();
         if (hitParticle != null) hitParticle.Emit(1);
+        if (damageStates != null) damageStates.UpdateDamageState(hp / max_hp);
 
-        int dState = GetDamageState();
-        if (dState != damageState && damageStates != null)
-        {
-            damageState = dState;
-            damageStates.UpdateDamageState(damageState);
-        }
+        // int dState = GetDamageState();
+        // if (dState != damageState && damageStates != null)
+        // {
+        //     damageState = dState;
+        //     damageStates.UpdateDamageState(hp / max_hp);
+        // }
 
         if (hp < 1)
         {
@@ -111,6 +114,7 @@ public class Object : MonoBehaviour
 
         if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName, "Damage", 0.3f);
         Invoke("ResetColor", damageflashDuration);
+        if (shine != null) shine.Shiney(damageflashDuration);
         if (healthbar != null) healthbar.SetHealth((int)hp);
     }
 
@@ -119,23 +123,23 @@ public class Object : MonoBehaviour
         if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName);
     }
 
-    public int GetDamageState()
-    {
-        if (damageThresholds.Count == 0) return 0;
-        int state = 0;
-        float healthPct = hp / max_hp;
-        // Thresholds are 0..1, descending (e.g. [0.75, 0.5, 0.25]).
-        // Walk from the lowest threshold (largest index) upward; first match wins.
-        for (int i = damageThresholds.Count - 1; i >= 0; i--)
-        {
-            if (healthPct <= damageThresholds[i])
-            {
-                state = i;
-                break;
-            }
-        }
-        return state;
-    }
+    // public int GetDamageState()
+    // {
+    //     if (damageThresholds.Count == 0) return 0;
+    //     int state = 0;
+    //     float healthPct = hp / max_hp;
+    //     // Thresholds are 0..1, descending (e.g. [0.75, 0.5, 0.25]).
+    //     // Walk from the lowest threshold (largest index) upward; first match wins.
+    //     for (int i = damageThresholds.Count - 1; i >= 0; i--)
+    //     {
+    //         if (healthPct <= damageThresholds[i])
+    //         {
+    //             state = i;
+    //             break;
+    //         }
+    //     }
+    //     return state;
+    // }
 
     public virtual void Heal(float heal)
     {

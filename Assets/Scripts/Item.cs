@@ -6,6 +6,7 @@ using UnityEngine.Events;
 public class Item : MonoBehaviour
 {
     private Shine shine;
+    public bool pickupable;
     public bool inInventory;
     public Animator anim;
     [Header("Hold Info")]
@@ -83,7 +84,7 @@ public class Item : MonoBehaviour
         {
             // onPickup.Invoke(other.GetComponent<Mob>());
             Mob m = other.GetComponent<Mob>();
-            if (m != null)
+            if (m != null && pickupable && !inInventory)
             {
                 Debug.Log("can pick up");
                 OnPickup(m);

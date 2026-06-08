@@ -14,7 +14,7 @@ public class ParticleMeshSetter : MonoBehaviour
         if (ps == null) ps = GetComponent<ParticleSystem>();
     }
 
-    public void Activate()
+    public void Activate(ParticleSystem system = null)
     {
         if ((mesh != null || skinnedMesh != null) && ps != null)
         {
@@ -36,7 +36,7 @@ public class ParticleMeshSetter : MonoBehaviour
             }
             // ps.Stop(withChildren: true);
             // ps.Play(true);
-            var p = Instantiate(ps, particleTransform.position, particleTransform.rotation);
+            var p = Instantiate(system != null ? system : ps, particleTransform.position, particleTransform.rotation);
             p.gameObject.SetActive(true);
         }
     }

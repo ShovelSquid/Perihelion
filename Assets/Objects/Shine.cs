@@ -37,14 +37,15 @@ public class Shine : MonoBehaviour
         SetAlpha(0f);
     }
 
-    public void Shiney()
+    public void Shiney(float dur = -1f)
     {
+        if (dur == -1f) dur = duration;
         if (glowInstances == null || glowInstances.Length == 0) return;
         if (ShineIt != null) StopCoroutine(ShineIt);
-        ShineIt = StartCoroutine(ShineItUp());
+        ShineIt = StartCoroutine(ShineItUp(dur));
     }
 
-    private IEnumerator ShineItUp()
+    private IEnumerator ShineItUp(float duration)
     {
         float elapsed = 0f;
         while (elapsed < duration)

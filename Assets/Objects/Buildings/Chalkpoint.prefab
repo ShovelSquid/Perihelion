@@ -304,19 +304,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 064b2e55f72529c43aab0a7477bd14ce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  healthPct: 0
   damageStates:
-  - {fileID: 2800000, guid: 9869c50e054136940b404787e46a9228, type: 3}
-  - {fileID: 2800000, guid: b1623e8922915834495da27ca5ce3f87, type: 3}
-  - {fileID: 2800000, guid: 04a509aa616106d4bb547990ee8dee21, type: 3}
-  - {fileID: 2800000, guid: 04a509aa616106d4bb547990ee8dee21, type: 3}
+  - threshold: 1
+    texture: {fileID: 2800000, guid: 9869c50e054136940b404787e46a9228, type: 3}
+    drop: {fileID: 0}
+    mesh: {fileID: 0}
+    vfx: {fileID: 7683957820386979539}
+  - threshold: 0.672
+    texture: {fileID: 2800000, guid: b1623e8922915834495da27ca5ce3f87, type: 3}
+    drop: {fileID: 0}
+    mesh: {fileID: 0}
+    vfx: {fileID: 7683957820386979539}
+  - threshold: 0.345
+    texture: {fileID: 2800000, guid: 04a509aa616106d4bb547990ee8dee21, type: 3}
+    drop: {fileID: 0}
+    mesh: {fileID: 0}
+    vfx: {fileID: 7683957820386979539}
+  - threshold: 0
+    texture: {fileID: 2800000, guid: 08ee187573181df41b25c7b4e8d7aec8, type: 3}
+    drop: {fileID: 0}
+    mesh: {fileID: 0}
+    vfx: {fileID: 0}
+  pms: {fileID: 7472155795726554885}
   currentDamageState: 0
-  drops:
-  - {fileID: 0}
-  - {fileID: 5256723054338698321}
-  - {fileID: 2466731130049076553}
-  - {fileID: 0}
   mesh: {fileID: 108056185109876711}
-  vfx: {fileID: 7472155795726554885}
 --- !u!114 &2355980510528718589
 MonoBehaviour:
   m_ObjectHideFlags: 0
