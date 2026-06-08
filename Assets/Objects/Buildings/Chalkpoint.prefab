@@ -325,7 +325,7 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 08ee187573181df41b25c7b4e8d7aec8, type: 3}
     drop: {fileID: 0}
     mesh: {fileID: 0}
-    vfx: {fileID: 0}
+    vfx: {fileID: 7683957820386979539}
   pms: {fileID: 7472155795726554885}
   currentDamageState: 0
   mesh: {fileID: 108056185109876711}
@@ -3149,7 +3149,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa08208afe5f2924c8651bb91bd95f16, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Spawner
-  parentObject: {fileID: 0}
   spawn: {fileID: 159508721732615910, guid: ca41b5f3e60578c47ae3898a93f3cfa4, type: 3}
   scaleBase: {fileID: 2137553538971413295}
   spawnRadius: 10
@@ -3697,7 +3696,7 @@ MonoBehaviour:
   max_hp: 0
   hp: 2
   lerping: 1
-  lerpSpeed: 3
+  lerpSpeed: 5
   lerpDelay: 0.2
   healColor: {r: 0.50491786, g: 2.3709993, b: 0, a: 1}
   damageColor: {r: 2.828427, g: 1.7649078, b: 1.7649078, a: 1}
