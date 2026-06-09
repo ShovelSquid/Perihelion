@@ -5,6 +5,7 @@ using System.Collections.Generic;
 
 public class Hotwheel : MonoBehaviour
 {
+    public Player player;
     public float horizontalpadding;
     public int totalSlots;
     public int equippedSlot;
@@ -29,6 +30,7 @@ public class Hotwheel : MonoBehaviour
         // CreateSlots already paints every slot's frame plus the big icon/label for the
         // equipped slot, so building the wheel here is enough to initialize the display.
         CreateSlots();
+        EquipSlot(equippedSlot);
     }
 
     // Rebuilds one child HotwheelSlot per slot, laid out in a single horizontal row
@@ -132,9 +134,22 @@ public class Hotwheel : MonoBehaviour
     public void EquipSlot(int slot)
     {
         if (slot < 0 || slot >= totalSlots) return;
-        if (slot != equippedSlot) slots[equippedSlot].slotObject.SetSlot(slots[equippedSlot], false);
+        if (slot != equippedSlot) 
+        {
+            if (slots[equippedSlot].actionItem != null) slots[equippedSlot].actionItem.Equip(false);
+            // else
+            // {
+            //     player.EnableIK(false, false);
+            // }
+            slots[equippedSlot].slotObject.SetSlot(slots[equippedSlot], false);
+        }
         equippedSlot = slot;
         slots[slot].slotObject.SetSlot(slots[slot], true);
+        if (slots[slot].actionItem != null) slots[slot].actionItem.Equip(true);
+        else
+        {
+            player.EnableIK(false, false);
+        }
         SetBigIcon(slots[slot].bigIcon, slots[slot].label);
     }
 

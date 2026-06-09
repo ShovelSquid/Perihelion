@@ -6,10 +6,24 @@ using UnityEngine.Events;
 public class Item : MonoBehaviour
 {
     private Shine shine;
+    [System.Serializable]
+    public struct EquipInfo
+    {
+        public Sprite hotwheelIcon;
+        public Sprite bigUIIcon;
+        public string label;
+        public string equipAnimation;
+        public bool rightHand;
+        public bool leftHand;
+    }
+    public Transform handL;
+    public Transform handR;
+    public EquipInfo equipInfo;
     public bool pickupable;
     public bool inInventory;
     public Animator anim;
     [Header("Hold Info")]
+    public Mob holder;
     public bool holdable;
     public bool held;
     public bool isTool;
@@ -141,6 +155,22 @@ public class Item : MonoBehaviour
     public void End()
     {
         Destroy(gameObject);
+    }
+
+    public void Equip(bool equip)
+    {
+        if (!equip) { gameObject.SetActive(false); return; }
+        else gameObject.SetActive(true);
+        holder.EnableIK(equipInfo.rightHand, equipInfo.leftHand);
+        holder.SetIK(equipInfo.rightHand ? handR : null, equipInfo.leftHand ? handL : null);
+        if (anim != null && equipInfo.equipAnimation != "")
+        {
+            anim.Play(equipInfo.equipAnimation, -1, 0f);
+        }
+        if (holder.anim != null && equipInfo.equipAnimation != "")
+        {
+            holder.anim.Play(equipInfo.equipAnimation, -1, 0f);
+        }
     }
 
 

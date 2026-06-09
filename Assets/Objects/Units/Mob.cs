@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using Unity.Mathematics;
 using System.Collections.Generic;
+using UnityEngine.Animations.Rigging;
 
 [RequireComponent(typeof(Inventory))]
 public class Mob : Object
@@ -60,6 +61,11 @@ public class Mob : Object
 
     [Header ("Interaction")]
     public Object interactObject;
+    [Header ("IK Controls")]
+    public Rig rightIK;
+    public Rig leftIK;
+    public Transform rightHandTarget;
+    public Transform leftHandTarget;
 
     protected override void Awake()
     {
@@ -193,6 +199,26 @@ public class Mob : Object
             }
         }
 
+    }
+
+    public void EnableIK(bool right, bool left)
+    {
+        if (rightIK != null) rightIK.weight = right ? 1f : 0f;
+        if (leftIK != null) leftIK.weight = left ? 1f : 0f;
+    }
+
+    public void SetIK(Transform rightTarget, Transform leftTarget)
+    {
+        if (rightHandTarget != null && rightTarget != null)
+        {
+            rightHandTarget.position = rightTarget.position;
+            rightHandTarget.rotation = rightTarget.rotation;
+        }
+        if (leftHandTarget != null && leftTarget != null)
+        {
+            leftHandTarget.position = leftTarget.position;
+            leftHandTarget.rotation = leftTarget.rotation;
+        }
     }
 
     public virtual void Attack(Mob mob)
