@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!319 &31900000
+AvatarMask:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: CheesoUpperAvatar
+  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  m_Elements:
+  - m_Path: 
+    m_Weight: 1
+  - m_Path: Body
+    m_Weight: 0
+  - m_Path: Rig
+    m_Weight: 0
+  - m_Path: Rig/Root
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Hips.001
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Leg.L
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Leg.L/Foreleg.L
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Leg.L/Foreleg.L/Foot.L
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Leg.R
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Leg.R/Foreleg.R
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Leg.R/Foreleg.R/Foot.R
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Waist
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Waist/Chest
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.L
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.L/Forearm.L
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.L/Forearm.L/Hand.L
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.L.001
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.R
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.R/Forearm.R
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.R/Forearm.R/Hand.R
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Arm.R.001
+    m_Weight: 1
+  - m_Path: Rig/Root/Hips/Waist/Chest/Neck
+    m_Weight: 0
+  - m_Path: Rig/Root/Hips/Waist/Chest/Neck/Head
+    m_Weight: 0
+  - m_Path: Rig/Root/IK.Elbow.L
+    m_Weight: 1
+  - m_Path: Rig/Root/IK.Elbow.R
+    m_Weight: 1
+  - m_Path: Rig/Root/IK.Foot.L
+    m_Weight: 0
+  - m_Path: Rig/Root/IK.Foot.R
+    m_Weight: 0
+  - m_Path: Rig/Root/IK.Hand.L
+    m_Weight: 1
+  - m_Path: Rig/Root/IK.Hand.R
+    m_Weight: 1
+  - m_Path: Rig/Root/IK.Knee.L
+    m_Weight: 0
+  - m_Path: Rig/Root/IK.Knee.R
+    m_Weight: 0
+  - m_Path: Rig/Root/Item
+    m_Weight: 1

@@ -136,8 +136,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Inventory
   still: 0
-  maxSlots: 8
-  maxStackScale: 3
+  slots: 8
   items: []
   dropObject: {fileID: 0}
   dropCollider: {fileID: 0}
@@ -628,6 +627,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BillboardText
   target: {fileID: 8620620786820423687}
+  ScreenOverlay: 0
 --- !u!1 &3628291300749447685
 GameObject:
   m_ObjectHideFlags: 0
@@ -875,6 +875,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BillboardText
   target: {fileID: 0}
+  ScreenOverlay: 0
 --- !u!1 &4836653610215016747
 GameObject:
   m_ObjectHideFlags: 0
