@@ -171,6 +171,7 @@ GameObject:
   - component: {fileID: 1311853342353057438}
   - component: {fileID: 4511164150791455628}
   - component: {fileID: 4179729578868732738}
+  - component: {fileID: 4784485311681042031}
   m_Layer: 7
   m_Name: OreChunk.Small
   m_TagString: Untagged
@@ -229,8 +230,8 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 9e5b962107876d94bad303d15498f99f, type: 2}
-  - {fileID: 2100000, guid: f3eeb152cc559da4eb69633862cd63ca, type: 2}
+  - {fileID: 2100000, guid: 45e4255ad95924d46a85f8c35bc60998, type: 2}
+  - {fileID: 2100000, guid: 45e4255ad95924d46a85f8c35bc60998, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -281,3 +282,18 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &4784485311681042031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7489135342187245915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 365ecb1ab9d188b4b9a2f8bac4f53069, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Drop
+  item: {fileID: 0}
+  isGold: 1
+  amount: {x: 3, y: 6}

@@ -7,11 +7,16 @@ public class PlayerManager : MonoBehaviour
     public Player mob;
     public MenuScript menu;
     public CameraController cam;
+    public Hotwheel hotwheel;
     public Move move;
     public Look look;
     private bool cursorLocked = false;
     public bool playerInputEnabled = true;
     private Vector2 rawMoveInput;
+    [Header("Hotwheel")]
+    [SerializeField] float scrollStep = 1f; // accumulated scroll delta needed to change one slot (tune per platform/device)
+    private float scrollAccum;
+    public bool scrollInverted = false;
     [Header("Ability References")]
     private AbilityManager abilities;
     
@@ -212,5 +217,24 @@ public class PlayerManager : MonoBehaviour
         {
             mob.Activate();
         }
+    }
+
+    public void OnScroll(InputAction.CallbackContext scrollContext)
+    {
+        if (!playerInputEnabled) return;
+        if (!scrollContext.performed) return;            // accumulate each change exactly once
+        float scrollDelta = scrollContext.ReadValue<float>();
+        if (scrollInverted) scrollDelta = -scrollDelta;
+        scrollAccum += scrollDelta; // action is an Axis now, not a Vector2
+        while (scrollAccum >= scrollStep)  { hotwheel.EquipNext(true);  scrollAccum -= scrollStep; }
+        while (scrollAccum <= -scrollStep) { hotwheel.EquipNext(false); scrollAccum += scrollStep; }
+    }
+
+    public void OnNumber(InputAction.CallbackContext numberContext)
+    {
+        if (!playerInputEnabled) return;
+        if (numberContext.ReadValue<float>() < 0.5f) return; // press only; Pass-Through also fires on key release
+        int numberPressed = int.Parse(numberContext.control.name);
+        hotwheel.EquipSlot(numberPressed - 1);
     }
 }

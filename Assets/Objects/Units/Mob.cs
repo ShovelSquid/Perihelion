@@ -46,6 +46,9 @@ public class Mob : Object
     public float staminaRegenAmount = 1f;
     private bool isRegeneratingStamina = false;
     private Coroutine staminaRegenCoroutine;
+    [Header("Gold")]
+    public int gold;
+    public int maxGold;
 
     [Header("Health Regen")]
     public float healthRegenDamageCooldown = 5f;
@@ -123,6 +126,7 @@ public class Mob : Object
         isRegenerating = true;
         Invoke("ReadyAttack", attackSpeed);
         Heal(max_hp);
+        gold = Mathf.Clamp(gold, 0, maxGold);
         Debug.Log("Respawned");
         if (healthRegenCoroutine != null) StopCoroutine(healthRegenCoroutine);
         healthRegenCoroutine = StartCoroutine(HealthRegen(healthRegenCooldown));
@@ -265,4 +269,10 @@ public class Mob : Object
         Debug.Log("called respawn");
         action?.Invoke();
     }
+
+    public virtual void AddGold(int amount)
+    {
+        gold = Mathf.Clamp(gold + amount, 0, maxGold);
+    }
+
 }

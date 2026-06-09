@@ -49,6 +49,7 @@ MonoBehaviour:
   mob: {fileID: 0}
   menu: {fileID: 0}
   cam: {fileID: 0}
+  hotwheel: {fileID: 0}
   move: {fileID: 0}
   look: {fileID: 0}
   playerInputEnabled: 1
@@ -126,7 +127,19 @@ MonoBehaviour:
     m_ActionId: 6c2ab1b8-8984-453a-af3d-a3c78ae1679a
     m_ActionName: 'Player/Attack[/Mouse/leftButton,/Keyboard/enter]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8717675306450761669}
+        m_TargetAssemblyTypeName: PlayerManager, Assembly-CSharp
+        m_MethodName: OnInteract
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: 852140f2-7766-474d-8707-702459ba45f3
     m_ActionName: 'Player/Interact[/Keyboard/e]'
   - m_PersistentCalls:
@@ -245,22 +258,6 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 8717675306450761669}
         m_TargetAssemblyTypeName: PlayerManager, Assembly-CSharp
-        m_MethodName: OnRotate
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-    m_ActionId: ba9b4995-c54c-4780-bac6-62091709f539
-    m_ActionName: 'Player/E[/Keyboard/e]'
-  - m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8717675306450761669}
-        m_TargetAssemblyTypeName: PlayerManager, Assembly-CSharp
         m_MethodName: OnMenu
         m_Mode: 0
         m_Arguments:
@@ -297,6 +294,14 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: 45e38d14-c696-47c7-8f5c-1db4ec6f4c40
     m_ActionName: 'Player/Reload[/Keyboard/r]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 6105a0ab-c124-4704-a481-ed239ba4082b
+    m_ActionName: 'Player/Number[/Keyboard/1,/Keyboard/2,/Keyboard/3,/Keyboard/4,/Keyboard/5,/Keyboard/6,/Keyboard/7,/Keyboard/8,/Keyboard/9,/Keyboard/0]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: cdd6b4cb-b779-47a4-b2aa-4fb3a4cf5e9c
+    m_ActionName: 'Player/Scroll[/Mouse/scroll/up,/Mouse/scroll/down]'
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: Player

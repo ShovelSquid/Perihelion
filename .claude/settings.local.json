@@ -4,7 +4,8 @@
       "Read(//c/Users/Kaelen Cook/AppData/Local/Unity/Editor/**)",
       "Bash(find \"C:/Users/Kaelen Cook\" -maxdepth 4 -type d -iname \"*management*displeased*\" 2>/dev/null | head -5; find \"C:/Users/Kaelen Cook\" -maxdepth 4 -type d -iname \"*displeased*\" 2>/dev/null | head -5)",
       "Read(//c/Users/Kaelen Cook/**)",
-      "Bash(xargs grep -li \"bullet\\\\|projectile\\\\|raycast\")"
+      "Bash(xargs grep -li \"bullet\\\\|projectile\\\\|raycast\")",
+      "Bash(grep -rni \"scripts/player\\\\|scripts\\\\\\\\\\\\\\\\player\" --include=*.csproj --include=*.sln --include=*.unity --include=*.asset --include=*.json .)"
     ]
   }
 }
