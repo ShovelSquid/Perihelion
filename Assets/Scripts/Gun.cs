@@ -3,8 +3,9 @@ using UnityEngine;
 
 public class Gun : Item
 {
-    public BulletManager bulletManager;
+    protected BulletManager bulletManager;
     public GameObject projectilePrefab;
+    public Transform firePoint;
     public float damage;
     public float projectileSpeed;
     public Vector2 shotCount;
@@ -19,15 +20,7 @@ public class Gun : Item
     public int ammoInMagazine;
     public int totalAmmo;
     [Header("Charge Info")]
-    public HitIndicator hitIndicator;
-    public bool chargeable;
-    public float charge;        // measured in t
-    public float maxCharge;     // measured in t
-    public Vector2 critRange;   // charge range (as % of maxCharge) that guarantees critical hit
-    public AnimationCurve cooldownGraphMult;    // affects fire cooldown based on charge level
-    public AnimationCurve damageMult;           // affects damage based on charge level
-    public AnimationCurve speedMult;            // affects projectile speed based on charge level
-
+    public Charge charge = new Charge();
 
     [Header("Recoil Info")]
     public Vector2 recoilPattern;
@@ -39,16 +32,23 @@ public class Gun : Item
     public AudioSource reloadSound;
     public AudioSource emptyClickSound;
 
-    private bool cooldownPending;
-    private bool charging;
+    protected bool cooldownPending;
 
     void Start()
     {
-        if (hitIndicator != null)
-        {
-            hitIndicator.SetCritRange(critRange.x, critRange.y);
-        }
+        charge.OnBegin += OnChargeBegin;
+    }
 
+    protected override void Awake()
+    {
+        base.Awake();
+        bulletManager = FindObjectOfType<BulletManager>();
+    }
+
+    private void OnChargeBegin(float max)
+    {
+        if (hitIndicator != null) hitIndicator.StartCharge(max);
+        if (triggerSound != null) triggerSound.Play();
     }
 
     public bool CanShoot()
@@ -62,19 +62,17 @@ public class Gun : Item
 
     public override void SlapTrigger(bool isPressed)
     {
-        if (chargeable)
+        if (charge.enabled)
         {
             triggerHeld = isPressed;
             bool wasEmpty = isPressed && !CanShoot();
             if (isPressed)
             {
-                if (CanCharge()) BeginCharge();
+                if (CanCharge()) charge.Begin();
             }
             else
             {
-                if (charging && CanShoot()) DoTrigger();
-                charging = false;
-                charge = 0f;
+                if (charge.charging && CanShoot()) DoTrigger();
             }
             if (wasEmpty && !cooldownPending) ChamberRound(true);
             return;
@@ -147,13 +145,15 @@ public class Gun : Item
         {
             bulletChambered--;
             cooldownPending = true;
-            float effectiveDamage = chargeable ? damage * damageMult.Evaluate(charge/maxCharge) : damage;
-            if (chargeable && charge/maxCharge >= critRange.x && charge/maxCharge <= critRange.y)
+            bool ch = charge.enabled;
+            float t = charge.T;
+            float effectiveDamage = ch ? damage * charge.damageMult.Evaluate(t) : damage;
+            if (ch && charge.IsCrit)
             {
                 effectiveDamage = damage * critMult;
             }
-            float effectiveCooldown = chargeable ? fireCooldownTime * cooldownGraphMult.Evaluate(charge/maxCharge) : fireCooldownTime;
-            float effectiveProjectileSpeed = chargeable ? projectileSpeed * speedMult.Evaluate(charge/maxCharge) : projectileSpeed;
+            float effectiveCooldown = ch ? fireCooldownTime * charge.cooldownMult.Evaluate(t) : fireCooldownTime;
+            float effectiveProjectileSpeed = ch ? projectileSpeed * charge.speedMult.Evaluate(t) : projectileSpeed;
             if (hitIndicator != null) hitIndicator.Pulse(effectiveCooldown);
             if (hitIndicator != null) hitIndicator.SetAmmo(ammoInMagazine + bulletChambered - 0.15f, magazineSize + 1);
             Invoke("ChamberRound", effectiveCooldown);
@@ -176,16 +176,17 @@ public class Gun : Item
                         Random.Range(-spreadNoise.y, spreadNoise.y)
                     );
                     Quaternion spreadRotation = Quaternion.Euler(angleOffset.x, angleOffset.y, 0f);
-                    Vector3 shotDirection = spreadRotation * transform.forward;
+                    Vector3 shotDirection = spreadRotation * firePoint.forward;
                     // create bullet
                     Projectile p = bulletManager.Get(projectilePrefab);
-                    p.Proj.position = transform.position;
+                    p.Proj.position = firePoint.position;
                     p.speed = effectiveProjectileSpeed;
-                    p.direction = transform.forward;
+                    p.direction = firePoint.forward;
                     p.damage = effectiveDamage;
                     p.Fire(shotDirection);
                 }
             }
+            charge.Cancel();
             if (anim != null) anim.SetTrigger("Shoot");
         }
     }
@@ -193,23 +194,35 @@ public class Gun : Item
     public override void Update()
     {
         base.Update();
-        if (chargeable && held && triggerHeld)
+        if (charge.enabled && equipped && triggerHeld)
         {
-            if (!charging && CanCharge()) BeginCharge();
-            if (charging) charge = Mathf.Min(charge + Time.deltaTime, maxCharge);
-            if (automatic && charging && charge >= maxCharge && CanShoot())
+            // if (!charge.charging && CanCharge()) charge.Begin();
+            // charge.Tick(Time.deltaTime);
+            if (automatic && charge.charging && charge.IsFull && CanShoot())
             {
                 DoTrigger();
-                charging = false;
-                charge = 0f;
             }
         }
-        else if (automatic && held && triggerHeld && CanShoot())
+        else if (automatic && equipped && triggerHeld && CanShoot())
         {
             DoTrigger();
         }
     }
     public void ChamberRound() => ChamberRound(false);
+
+    public override void Equip(bool equip)
+    {
+        base.Equip(equip);
+        if (!equip)
+        {
+            cooldownPending = false;
+            return;
+        }
+        if (equip)
+        {
+            if (hitIndicator != null) hitIndicator.SetAmmo(ammoInMagazine + bulletChambered, magazineSize + 1);
+        }
+    }
 
     public void ChamberRound(bool anim8 = false)
     {
@@ -229,15 +242,6 @@ public class Gun : Item
 
     public bool CanCharge()
     {
-        return chargeable && !cooldownPending && (CanShoot() || ammoInMagazine > 0);
-    }
-
-    private void BeginCharge()
-    {
-        if (charging) return;
-        charging = true;
-        charge = 0f;
-        if (hitIndicator != null) hitIndicator.StartCharge(maxCharge);
-        if (triggerSound != null) triggerSound.Play();
+        return charge.enabled && !cooldownPending && (CanShoot() || ammoInMagazine > 0);
     }
 }

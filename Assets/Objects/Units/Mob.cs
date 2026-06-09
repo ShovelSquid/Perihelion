@@ -61,11 +61,16 @@ public class Mob : Object
 
     [Header ("Interaction")]
     public Object interactObject;
+    public Transform itemHoldTarget;
+    public Transform itemAimPoint;
+    public Transform itemAimTarget;
     [Header ("IK Controls")]
     public Rig rightIK;
     public Rig leftIK;
     public Transform rightHandTarget;
     public Transform leftHandTarget;
+    public Transform idleRightHandTarget;
+    public Transform idleLeftHandTarget;
 
     protected override void Awake()
     {
@@ -214,10 +219,20 @@ public class Mob : Object
             rightHandTarget.position = rightTarget.position;
             rightHandTarget.rotation = rightTarget.rotation;
         }
+        else if (rightHandTarget != null && idleRightHandTarget != null)
+        {
+            rightHandTarget.position = idleRightHandTarget.position;
+            rightHandTarget.rotation = idleRightHandTarget.rotation;
+        }
         if (leftHandTarget != null && leftTarget != null)
         {
             leftHandTarget.position = leftTarget.position;
             leftHandTarget.rotation = leftTarget.rotation;
+        }
+        else if (leftHandTarget != null && idleLeftHandTarget != null)
+        {
+            leftHandTarget.position = idleLeftHandTarget.position;
+            leftHandTarget.rotation = idleLeftHandTarget.rotation;
         }
     }
 

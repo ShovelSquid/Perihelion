@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public class Player : Mob
 {
     public Healthbar goldBar;
+    public HitIndicator hitIndicator;
     public void LookAt(Object obj)
     {
         if (interactObject != null && interactObject == obj) return;

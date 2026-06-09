@@ -14,7 +14,7 @@ public class Charge
     public AnimationCurve damageMult   = AnimationCurve.Linear(0f, 1f, 1f, 1f);
     public AnimationCurve speedMult    = AnimationCurve.Linear(0f, 1f, 1f, 1f);
 
-    private HitIndicator hitIndicator;
+    protected HitIndicator hitIndicator;
 
     public float charge { get; private set; }
     public bool charging { get; private set; }
