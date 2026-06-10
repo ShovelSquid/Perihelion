@@ -298,6 +298,7 @@ MonoBehaviour:
   item: {fileID: 0}
   isGold: 1
   amount: {x: 3, y: 6}
+  pickupEffect: {fileID: 5362195323140607850, guid: def06ffc19338744b9ade220d564b07c, type: 3}
 --- !u!1 &8328490730908223111
 GameObject:
   m_ObjectHideFlags: 0

@@ -5,6 +5,7 @@ public class Drop : MonoBehaviour
     public Item item;
     public bool isGold;
     public Vector2 amount;
+    public ParticleSystem pickupEffect;
 
     void OnTriggerEnter(Collider other)
     {
@@ -25,6 +26,7 @@ public class Drop : MonoBehaviour
                 {
                     m.PickupItem(item);
                 }
+                if (pickupEffect != null) Instantiate(pickupEffect, transform.position, Quaternion.identity);
                 Destroy(gameObject);
             }
         }
