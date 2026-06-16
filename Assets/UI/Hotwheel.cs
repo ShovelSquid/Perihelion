@@ -149,7 +149,7 @@ public class Hotwheel : MonoBehaviour
         else
         {
             player.EnableIK(false, false);
-            player.heldItem = null;
+            player.item = null;
         }
         SetBigIcon(slots[slot].bigIcon, slots[slot].label);
     }

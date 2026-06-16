@@ -9,7 +9,7 @@ using UnityEngine.Animations.Rigging;
 public class Mob : Object
 {
     public Inventory inv;
-    public Item heldItem;
+    public Item item;
     public AudioSource adio;
     public AudioClip fallDamagSound;
     public ParticleSystem directionalHitParticle;
@@ -71,6 +71,7 @@ public class Mob : Object
     public Transform leftHandTarget;
     public Transform idleRightHandTarget;
     public Transform idleLeftHandTarget;
+    private Coroutine aimOffRoutine;
 
     protected override void Awake()
     {
@@ -178,9 +179,9 @@ public class Mob : Object
 
     public void PickupItem(Item item)
     {
-        if (heldItem == null)
+        if (this.item == null)
         {
-            heldItem = item;
+            this.item = item;
             Debug.Log(gameObject.name + " picked up " + item.gameObject.name);
             item.GotPickedUp();
         }
@@ -265,6 +266,25 @@ public class Mob : Object
         if (dead) attackReady = false;
         else attackReady = true;
     }
+    
+
+    public virtual void Aim(bool aim)
+    {
+        if (aim)
+        {
+            if (aimOffRoutine != null) { StopCoroutine(aimOffRoutine); aimOffRoutine = null; }
+            item.Aim(true);
+        }
+        else
+        {
+            if (aimOffRoutine != null) StopCoroutine(aimOffRoutine);
+            aimOffRoutine = StartCoroutine(DelayAction(1f, () =>
+            {
+                item.Aim(false);
+                aimOffRoutine = null;
+            }));
+        }
+    }
 
     protected override void Die(float extraDamage = 0f)
     {
@@ -305,9 +325,9 @@ public class Mob : Object
 
     private IEnumerator DelayAction(float delay, Action action)
     {
-        Debug.Log("respawning in " + delay + " seconds");
+        // Debug.Log("respawning in " + delay + " seconds");
         yield return new WaitForSeconds(delay);
-        Debug.Log("called respawn");
+        // Debug.Log("called respawn");
         action?.Invoke();
     }
 

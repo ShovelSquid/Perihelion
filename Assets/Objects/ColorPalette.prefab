@@ -51,6 +51,7 @@ MonoBehaviour:
   colorHealthbar: 0
   colorOutline: 0
   colorOnStart: 1
+  colorOnDamage: 0
   palette:
   - name: Chalk
     color: {r: 0.9029649, g: 0.9029649, b: 0.9029649, a: 1}
@@ -70,7 +71,7 @@ MonoBehaviour:
     hpColor: {r: 1, g: 0, b: 0, a: 1}
   - name: Damage
     color: {r: 1, g: 1, b: 1, a: 1}
-    emissionColor: {r: 2.828427, g: 0.8957955, b: 0.8957955, a: 1}
+    emissionColor: {r: 1.3041189, g: 1.3041189, b: 1.3041189, a: 1}
     hpColor: {r: 0, g: 0, b: 0, a: 0}
   - name: Destroy
     color: {r: 0, g: 0, b: 0, a: 1}

@@ -386,8 +386,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
-      time: 0
-      value: 1
+      time: 0.012500763
+      value: 0.31428528
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -485,7 +485,7 @@ MonoBehaviour:
   team: {fileID: 0}
   useTeamColor: 1
   colorPalette: {fileID: 5735582866798428971}
-  damageflashDuration: 0.2
+  damageflashDuration: 0.1
   hitParticle: {fileID: 0}
   hitMistParticle: {fileID: 1061280300882830386, guid: 84fb183817056d248a24d8895f294640, type: 3}
   invincible: 0
@@ -548,6 +548,7 @@ MonoBehaviour:
   colorHealthbar: 1
   colorOutline: 1
   colorOnStart: 1
+  colorOnDamage: 1
   palette: []
 --- !u!1 &446134645167112766
 GameObject:

@@ -145,6 +145,7 @@ public class Gun : Item
         {
             bulletChambered--;
             cooldownPending = true;
+            // if (!aim) Aim(true);
             bool ch = charge.enabled;
             float t = charge.T;
             float effectiveDamage = ch ? damage * charge.damageMult.Evaluate(t) : damage;

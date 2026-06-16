@@ -111,11 +111,25 @@ public class PlayerManager : MonoBehaviour
         bool primaryPressed = primaryInputContext.started;
         if (primaryPressed)
         {
-            mob.heldItem?.SlapTrigger(true);
+            mob.item?.SlapTrigger(true);
         }
         else if (primaryInputContext.canceled)
         {
-            mob.heldItem?.SlapTrigger(false);
+            mob.item?.SlapTrigger(false);
+        }
+    }
+
+    public void OnSecondary(InputAction.CallbackContext secondaryInputContext)
+    {
+        if (!playerInputEnabled) return;
+        bool secondaryPressed = secondaryInputContext.started;
+        if (secondaryPressed)
+        {
+            mob.Aim(true);
+        }
+        else if (secondaryInputContext.canceled)
+        {
+            mob.Aim(false);
         }
     }
 
@@ -203,7 +217,7 @@ public class PlayerManager : MonoBehaviour
         if (!playerInputEnabled) return;
         if (reloadContext.started)
         {
-            if (mob.heldItem is Gun gun)
+            if (mob.item is Gun gun)
             {
                 gun.StartReload();
             }

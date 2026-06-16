@@ -112,7 +112,7 @@ public class Object : MonoBehaviour
             Die(extraDamage);
         }
 
-        if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName, "Damage", 0.3f);
+        if (colorPalette != null && colorPalette.colorOnDamage) colorPalette.ColorObject(colorPalette.colorName, "Damage", 0.3f);
         Invoke("ResetColor", damageflashDuration);
         if (shine != null) shine.Shiney(damageflashDuration);
         if (healthbar != null) healthbar.SetHealth((int)hp);
@@ -120,7 +120,7 @@ public class Object : MonoBehaviour
 
     public void ResetColor()
     {
-        if (colorPalette != null) colorPalette.ColorObject(colorPalette.colorName);
+        if (colorPalette != null && colorPalette.colorOnDamage) colorPalette.ColorObject(colorPalette.colorName);
     }
 
     // public int GetDamageState()

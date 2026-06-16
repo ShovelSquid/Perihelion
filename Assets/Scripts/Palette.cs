@@ -12,6 +12,7 @@ public class Palette : MonoBehaviour
     public bool colorHealthbar;
     public bool colorOutline;
     public bool colorOnStart = true;
+    public bool colorOnDamage = false; // if true, object will change to a different color (defined in damage states script) when damaged
     [System.Serializable]
     public struct ColorPair
     {

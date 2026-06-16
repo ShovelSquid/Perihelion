@@ -27,10 +27,12 @@ public class Item : MonoBehaviour
     public Mob holder;
     // public bool holdable;
     public bool equipped;
+    public bool aim = false;
     // public bool isTool;
     public bool triggerHeld;
     public Transform holdTransform;
     protected Transform holdTarget;
+    protected Transform holdTargetBase;
     protected Transform aimPoint;
     protected Transform aimTarget;
     public float holdLerpSpeed;
@@ -66,6 +68,10 @@ public class Item : MonoBehaviour
             holdTarget = holder.itemHoldTarget;
             aimTarget = holder.itemAimTarget;
             aimPoint = holder.itemAimPoint;
+            holdTargetBase = new GameObject().transform;
+            holdTargetBase.parent = holdTarget.parent;
+            holdTargetBase.position = holdTarget.position;
+            holdTargetBase.rotation = holdTarget.rotation;
         }
         if (holdTransform == null) holdTransform = transform;
         if (hitIndicator == null && holder is Player && ((Player)holder).hitIndicator != null)
@@ -112,15 +118,32 @@ public class Item : MonoBehaviour
         }
     }
 
+    public virtual void Aim(bool aim)
+    {
+        this.aim = aim;
+        if (!aim)
+        {
+            holdTarget.rotation = holdTargetBase.rotation;
+            holdTarget.position = holdTargetBase.position;
+            // holdTarget.rotation = Quaternion.identity;
+        }
+    }
+
     public virtual void LateUpdate()
     {
         if (equipped)
         {
-            aimPoint.position = Vector3.Lerp(aimPoint.position, aimTarget.position, aimLerpSpeed * Time.deltaTime);
-            aimPoint.rotation = Quaternion.Slerp(aimPoint.rotation, aimTarget.rotation, aimLerpSpeed * Time.deltaTime);
+            if (aim)
+            {
+                aimPoint.position = Vector3.Lerp(aimPoint.position, aimTarget.position, aimLerpSpeed * Time.deltaTime);
+                aimPoint.rotation = Quaternion.Slerp(aimPoint.rotation, aimTarget.rotation, aimLerpSpeed * Time.deltaTime);
+                holdTransform.rotation = Quaternion.LookRotation(aimPoint.position - holdTransform.position, Vector3.up);
+            }
+            else
+            {
+                holdTransform.rotation = Quaternion.Slerp(holdTransform.rotation, holdTarget.rotation, holdLerpSpeed * Time.deltaTime);
+            }
             holdTransform.position = Vector3.Lerp(holdTransform.position, holdTarget.position, holdLerpSpeed * Time.deltaTime);
-
-            holdTransform.rotation = Quaternion.LookRotation(aimPoint.position - holdTransform.position, Vector3.up);
                 // : Quaternion.Slerp(transform.rotation, holdTarget.rotation, holdLerpSpeed * Time.deltaTime);
         }
     }
@@ -164,9 +187,10 @@ public class Item : MonoBehaviour
             return;    
         }
         else gameObject.SetActive(true);
+        holder.item = equip ? this : null;
         holder.EnableIK(equipInfo.rightHand, equipInfo.leftHand);
         holder.SetIK(equipInfo.rightHand ? handR : null, equipInfo.leftHand ? handL : null);
-        holder.heldItem = equip ? this : null;
+        holder.item = equip ? this : null;
         if (hitIndicator != null)
         {
             hitIndicator.gameObject.SetActive(true);

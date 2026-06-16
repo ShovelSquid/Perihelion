@@ -183,7 +183,7 @@ MonoBehaviour:
   hitRadius: 30
   endTime: 1
   inv: {fileID: 0}
-  heldItem: {fileID: 0}
+  item: {fileID: 0}
   adio: {fileID: 0}
   fallDamagSound: {fileID: 0}
   directionalHitParticle: {fileID: 0}
@@ -214,11 +214,22 @@ MonoBehaviour:
   staminaRegenDelay: 2
   staminaRegenCooldown: 3
   staminaRegenAmount: 1
+  gold: 0
+  maxGold: 0
   healthRegenDamageCooldown: 5
   healthRegenCooldown: 3
   healthRegenAmount: 1
   respawnTime: 5
   interactObject: {fileID: 0}
+  itemHoldTarget: {fileID: 0}
+  itemAimPoint: {fileID: 0}
+  itemAimTarget: {fileID: 0}
+  rightIK: {fileID: 0}
+  leftIK: {fileID: 0}
+  rightHandTarget: {fileID: 0}
+  leftHandTarget: {fileID: 0}
+  idleRightHandTarget: {fileID: 0}
+  idleLeftHandTarget: {fileID: 0}
 --- !u!114 &1063055583855983643
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -317,6 +328,7 @@ MonoBehaviour:
   colorHealthbar: 1
   colorOutline: 1
   colorOnStart: 1
+  colorOnDamage: 1
   palette: []
 --- !u!1 &1279702209365531959
 GameObject:
