@@ -18,6 +18,12 @@ namespace Perihelion.Sim
         private readonly Dictionary<int, Squad> _byId = new Dictionary<int, Squad>();
         private DetRng _rng;
 
+        // Player avatars: human-driven entities that live INSIDE the deterministic sim. Authoritative
+        // fixed-point state, integrated each tick from PlayerInput commands. Insertion order must be
+        // identical on every client (SEAM: spawn from the lobby), the same rule as _squads.
+        private readonly List<Player> _players = new List<Player>();
+        private readonly Dictionary<int, Player> _playersById = new Dictionary<int, Player>();
+
         // Commands scheduled by IssueTick. In real netcode these arrive from all players for a
         // future tick (the lockstep input delay). Locally we just queue and apply when due.
         private readonly List<Command> _pending = new List<Command>();
@@ -29,11 +35,22 @@ namespace Perihelion.Sim
         // slowest archetype, and replace straight-line centroid motion with flow-field following.
         private static readonly Fixed SquadMoveSpeed = Fixed.FromFraction(2, 10); // units per tick
 
+        // SEAM: single avatar tuning for the slice — promote to per-player data (gear, terrain) later.
+        private static readonly Fixed PlayerMoveSpeed    = Fixed.FromFraction(3, 10);  // units per tick
+        private static readonly Fixed PlayerWeaponRange  = Fixed.FromInt(20);
+        private static readonly Fixed PlayerWeaponDamage = Fixed.FromInt(25);
+        private static readonly Fixed PlayerAimCos       = Fixed.FromFraction(7, 10);  // ~45° half-cone
+        private const int PlayerFireCooldownTicks = 3;
+
         public World(ulong seed) { _rng = new DetRng(seed); }
 
         public void AddSquad(Squad s) { _squads.Add(s); _byId[s.Id] = s; }
         public Squad GetSquad(int id) => _byId.TryGetValue(id, out Squad s) ? s : null;
         public IReadOnlyList<Squad> Squads => _squads;
+
+        public void AddPlayer(Player p) { _players.Add(p); _playersById[p.Id] = p; }
+        public Player GetPlayer(int id) => _playersById.TryGetValue(id, out Player p) ? p : null;
+        public IReadOnlyList<Player> Players => _players;
 
         /// <summary>Queue an input. In multiplayer this is fed from the per-tick input bundle once
         /// every player's commands for that tick have arrived.</summary>
@@ -60,14 +77,30 @@ namespace Perihelion.Sim
             //    their target to firing range; detached units are evaluated lazily in Squad.Resolve.
             IntegrateMovement();
 
+            // 3b) Player avatars — integrate human-driven entities from their latest input.
+            IntegratePlayers();
+
             // 4) Combat — every hostile pair in range trades a tick of damage (over-time attrition).
             ResolveCombat();
+
+            // 4b) Player actions — fire/interact resolve into the SAME combat intake squads use.
+            ResolvePlayerActions();
 
             Tick++;
         }
 
         private void Apply(in Command c)
         {
+            if (c.Kind == CommandKind.PlayerInput)
+            {
+                Player p = GetPlayer(c.PlayerId);
+                if (p == null) return;
+                p.MoveInput = c.Move;
+                if (c.Aim.SqrMagnitude.Raw > 0) p.Aim = c.Aim.Normalized;
+                p.Buttons = c.Buttons;
+                return;
+            }
+
             int squadId = c.Kind == CommandKind.MoveUnit ? c.Unit.Squad : c.SquadId;
             Squad s = GetSquad(squadId);
             if (s == null) return;
@@ -196,6 +229,58 @@ namespace Perihelion.Sim
         // gets shot whether or not it was told to fight. Orchestration lives in CombatResolver.
         private void ResolveCombat() => CombatResolver.ResolveTick(_squads, ref _rng, Tick, _combatBuffer);
 
+        // Move every player avatar by its latest quantized input. Fixed-point only — the float that
+        // produced MoveInput was quantized at the view airlock before it ever reached the sim.
+        private void IntegratePlayers()
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.MoveInput.SqrMagnitude.Raw == 0) continue;
+                p.Pos = p.Pos + p.MoveInput.Normalized * PlayerMoveSpeed;
+                // SEAM: clamp to map bounds / collide against deterministic geometry here.
+            }
+        }
+
+        // Resolve player weapons. A shot picks the nearest hostile squad inside range and aim cone,
+        // then routes damage through Squad.TakeCombatDamage — the exact intake unit fire uses — so a
+        // player attrits a squad identically to how squads attrit each other. No raycast, no float.
+        private void ResolvePlayerActions()
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if ((p.Buttons & (uint)PlayerButton.Fire) == 0) continue;
+                if (Tick < p.FireCooldownUntil) continue;
+                p.FireCooldownUntil = Tick + PlayerFireCooldownTicks;
+
+                Squad target = NearestHostileInAim(p);
+                if (target != null) target.TakeCombatDamage(PlayerWeaponDamage, Tick);
+                // SEAM: spawn a deterministic projectile (travel time) instead of hitscan if desired;
+                // the view spawns a tracer/muzzle FX off this same event either way.
+            }
+        }
+
+        // Nearest hostile squad within weapon range AND inside the aim cone. Strictly-nearest with
+        // ties broken toward later index (matches CombatResolver's scan), so it's order-deterministic.
+        // SEAM: O(n) per shot; share the spatial grid the combat/acquire scans will use at scale.
+        private Squad NearestHostileInAim(Player p)
+        {
+            Squad best = null;
+            Fixed bestDist = PlayerWeaponRange;
+            for (int j = 0; j < _squads.Count; j++)
+            {
+                Squad o = _squads[j];
+                if (o.TotalAlive() == 0 || !p.IsHostileTo(o)) continue;
+                FixedVec2 to = o.Centroid - p.Pos;
+                Fixed d = to.Magnitude;
+                if (d.Raw == 0 || d > bestDist) continue;
+                if (FixedVec2.Dot(to.Normalized, p.Aim) < PlayerAimCos) continue;  // outside aim cone
+                bestDist = d; best = o;
+            }
+            return best;
+        }
+
         private static int CompareCommands(Command a, Command b)
         {
             int r = a.IssueTick.CompareTo(b.IssueTick); if (r != 0) return r;
@@ -219,6 +304,8 @@ namespace Perihelion.Sim
             // _squads is in insertion order; ensure squads are added in the same (id) order on
             // every client, or sort by Id here before folding.
             for (int i = 0; i < _squads.Count; i++) _squads[i].HashInto(ref h);
+            // Players fold in AFTER squads, in insertion order (must match across clients — SEAM).
+            for (int i = 0; i < _players.Count; i++) _players[i].HashInto(ref h);
             return h;
         }
     }

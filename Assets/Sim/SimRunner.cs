@@ -25,6 +25,11 @@ namespace Perihelion.Sim
 
         public World World { get; private set; }
 
+        /// <summary>The view layer's per-tick input source for the LOCAL player. Set by
+        /// PlayerController. Returns the current quantized intent; SimRunner stamps Kind + IssueTick
+        /// and enqueues it exactly once per tick (the determinism airlock). Null = no local avatar.</summary>
+        public System.Func<Command?> SampleLocalInput;
+
         /// <summary>How far we are between the last sim tick and the next, in [0,1). VIEW ONLY —
         /// the view lerps unit positions by this so motion looks smooth despite the low tick rate.</summary>
         public float TickAlpha => _step > 0.0 ? Mathf.Clamp01((float)(_accumulator / _step)) : 0f;
@@ -51,6 +56,15 @@ namespace Perihelion.Sim
             _accumulator += Time.deltaTime;
             while (_accumulator >= _step)
             {
+                // Airlock: sample the local player's input ONCE per tick, quantized to Fixed, and feed
+                // it in as a command — the only way real-time intent reaches the deterministic sim.
+                if (SampleLocalInput != null && SampleLocalInput() is Command input)
+                {
+                    input.Kind = CommandKind.PlayerInput;
+                    input.IssueTick = World.Tick;   // local: applies this step. Lockstep: + inputDelay, and broadcast.
+                    World.Enqueue(input);
+                }
+
                 World.Step();
                 _accumulator -= _step;
 

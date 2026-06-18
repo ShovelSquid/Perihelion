@@ -1,6 +1,6 @@
 namespace Perihelion.Sim
 {
-    public enum CommandKind { MoveSquad, MoveUnit, AttackSquad, AttackUnit, Stop }
+    public enum CommandKind { MoveSquad, MoveUnit, AttackSquad, AttackUnit, Stop, PlayerInput }
 
     /// <summary>
     /// The ONLY thing that crosses the network in deterministic lockstep: input, never state.
@@ -17,5 +17,12 @@ namespace Perihelion.Sim
         public UnitId Unit;          // for per-unit commands (any unit is addressable)
         public FixedVec2 Target;     // a world position (MoveSquad / MoveUnit)
         public int IssueTick;        // the tick at which all clients apply this command
+
+        // ── PlayerInput payload (a human avatar's per-tick intent) ──
+        // Already quantized to Fixed at the view airlock, so only the owning client ever touches a
+        // float; peers receive these fixed values and integrate identical math.
+        public FixedVec2 Move;       // desired move direction this tick (sim normalizes)
+        public FixedVec2 Aim;        // facing / aim direction (sim normalizes)
+        public uint Buttons;         // PlayerButton bitmask
     }
 }
