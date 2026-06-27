@@ -1,0 +1,15 @@
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/bin/Release/net9.0/SimHeadless
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/bin/Release/net9.0/SimHeadless.deps.json
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/bin/Release/net9.0/SimHeadless.runtimeconfig.json
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/bin/Release/net9.0/SimHeadless.dll
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/bin/Release/net9.0/SimHeadless.pdb
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.GeneratedMSBuildEditorConfig.editorconfig
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.AssemblyInfoInputs.cache
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.AssemblyInfo.cs
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.csproj.CoreCompileInputs.cache
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.sourcelink.json
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.dll
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/refint/SimHeadless.dll
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.pdb
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/SimHeadless.genruntimeconfig.cache
+/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/obj/Release/net9.0/ref/SimHeadless.dll

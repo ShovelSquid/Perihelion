@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "D75cY78gGZQ=",
+  "success": true,
+  "projectFilePath": "/Users/kaelencook/Projects/Games/Perihelion/Tools/SimHeadless/SimHeadless.csproj",
+  "expectedPackageFiles": [
+    "/Users/kaelencook/.nuget/packages/microsoft.netcore.app.ref/9.0.14/microsoft.netcore.app.ref.9.0.14.nupkg.sha512",
+    "/Users/kaelencook/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.14/microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512",
+    "/Users/kaelencook/.nuget/packages/microsoft.netcore.app.host.osx-arm64/9.0.14/microsoft.netcore.app.host.osx-arm64.9.0.14.nupkg.sha512"
+  ],
+  "logs": []
+}
