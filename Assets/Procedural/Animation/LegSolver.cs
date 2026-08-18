@@ -396,20 +396,60 @@ public class LegSolver : MonoBehaviour
         return force * energyScale;
     }
 
+    // joint limits in quaternion space. the local rotation splits into a twist about the bone's
+    // X axis and the swing off it, so the two clamp independently instead of arguing over euler
+    // decomposition order. zero range on an axis still means that axis is free.
     Quaternion ClampToLimits(Joint joint, Quaternion local)
     {
-        Vector3 e = local.eulerAngles;
-        e.x = ClampAngle(e.x, joint.maxX);
-        e.y = ClampAngle(e.y, joint.maxY);
-        e.z = ClampAngle(e.z, joint.maxZ);
-        return Quaternion.Euler(e);
+        bool freeTwist = IsFree(joint.maxX);
+        bool freeSwing = IsFree(joint.maxY) && IsFree(joint.maxZ);
+        if (freeTwist && freeSwing) return local;
+
+        // take the short way round so every angle below lands in -180 to 180
+        if (local.w < 0f) local = new Quaternion(-local.x, -local.y, -local.z, -local.w);
+
+        // swing-twist split: the twist keeps only the part of the rotation lying along X
+        float twistLength = Mathf.Sqrt(local.x * local.x + local.w * local.w);
+        Quaternion twist = twistLength > 1e-6f
+            ? new Quaternion(local.x / twistLength, 0f, 0f, local.w / twistLength)
+            : Quaternion.identity;  // folded a full 180 off axis, no twist left to read
+        Quaternion swing = local * Quaternion.Inverse(twist);
+
+        // the twist is a single signed angle about X
+        if (!freeTwist)
+        {
+            float twistAngle = 2f * Mathf.Atan2(twist.x, twist.w) * Mathf.Rad2Deg;
+            twist = Quaternion.AngleAxis(Mathf.Clamp(twistAngle, joint.maxX.x, joint.maxX.y), Vector3.right);
+        }
+
+        // what is left always swings about an axis in the YZ plane, so its rotation vector reads
+        // straight off as degrees about Y and Z with no third component to muddy the clamp
+        if (!freeSwing)
+        {
+            float swingAngle;
+            Vector3 axis;
+            swing.ToAngleAxis(out swingAngle, out axis);
+            if (swingAngle > 1e-4f && !float.IsInfinity(axis.x))
+            {
+                Vector3 s = axis.normalized * swingAngle;
+                s.y = ClampAxis(s.y, joint.maxY);
+                s.z = ClampAxis(s.z, joint.maxZ);
+                float clampedAngle = s.magnitude;
+                swing = clampedAngle > 1e-4f ? Quaternion.AngleAxis(clampedAngle, s / clampedAngle) : Quaternion.identity;
+            }
+        }
+
+        return swing * twist;
     }
 
-    float ClampAngle(float a, Vector2 limits)
+    bool IsFree(Vector2 limits)
     {
-        if (limits.x == 0f && limits.y == 0f) return a; // no limit set, leave the axis free
-        if (a > 180f) a -= 360f;
-        return Mathf.Clamp(a, limits.x, limits.y);
+        return limits.x == 0f && limits.y == 0f; // no limit set, the axis turns as far as it likes
+    }
+
+    float ClampAxis(float angle, Vector2 limits)
+    {
+        return IsFree(limits) ? angle : Mathf.Clamp(angle, limits.x, limits.y);
     }
 
     float LegCapacity(Leg leg)
