@@ -7437,6 +7437,10 @@ PrefabInstance:
       propertyPath: m_Material
       value: 
       objectReference: {fileID: 1275517092}
+    - target: {fileID: 3645765175264071452, guid: 650a854686d94f245a2149929427d388, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1e740b9651051bf46989aea5aadbd901, type: 3}
     - target: {fileID: 4297545130959229876, guid: 650a854686d94f245a2149929427d388, type: 3}
       propertyPath: m_Material
       value: 
@@ -7491,11 +7495,11 @@ PrefabInstance:
       objectReference: {fileID: 316837179}
     - target: {fileID: 7345421964707198560, guid: 650a854686d94f245a2149929427d388, type: 3}
       propertyPath: m_ReferenceResolution.x
-      value: 1956
+      value: 640
       objectReference: {fileID: 0}
     - target: {fileID: 7345421964707198560, guid: 650a854686d94f245a2149929427d388, type: 3}
       propertyPath: m_ReferenceResolution.y
-      value: 527
+      value: 480
       objectReference: {fileID: 0}
     - target: {fileID: 7896683554425171039, guid: 650a854686d94f245a2149929427d388, type: 3}
       propertyPath: m_Material
@@ -7511,11 +7515,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9156892383890446903, guid: 650a854686d94f245a2149929427d388, type: 3}
       propertyPath: m_ReferenceResolution.x
-      value: 1956
+      value: 640
       objectReference: {fileID: 0}
     - target: {fileID: 9156892383890446903, guid: 650a854686d94f245a2149929427d388, type: 3}
       propertyPath: m_ReferenceResolution.y
-      value: 527
+      value: 480
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
