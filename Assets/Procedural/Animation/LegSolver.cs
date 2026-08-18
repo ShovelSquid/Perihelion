@@ -99,6 +99,9 @@ public class LegSolver : MonoBehaviour
     private float totalMass;
     private float energyDemand; // force asked for this frame, before the budget clamps it
     private float energyScale = 1f; // this frame's budget scale, from last frame's demand
+    private readonly HashSet<Rigidbody> ownBodies = new HashSet<Rigidbody>();   // every body we drive
+    // RaycastNonAlloc truncates at capacity and does not sort, so leave room for the whole walker
+    private readonly RaycastHit[] rayHits = new RaycastHit[16];
 
 
     void Awake()
@@ -151,9 +154,15 @@ public class LegSolver : MonoBehaviour
         }
 
         totalMass = hips.mass;
+        ownBodies.Clear();
+        if (hips.rb != null) ownBodies.Add(hips.rb);
         foreach (Leg leg in builtLegs)
         {
-            foreach (Joint joint in leg.joints) totalMass += joint.mass;
+            foreach (Joint joint in leg.joints)
+            {
+                totalMass += joint.mass;
+                ownBodies.Add(joint.rb);    // so the ground raycasts can tell us apart from the world
+            }
         }
     }
 
@@ -223,7 +232,7 @@ public class LegSolver : MonoBehaviour
             Rigidbody foot = leg.Foot().rb;
             bool wasContact = leg.contact;
             RaycastHit hit;
-            leg.contact = Physics.Raycast(foot.position, Vector3.down, out hit, contactRayLength, groundMask);
+            leg.contact = GroundCast(foot.position, contactRayLength, out hit);
             if (leg.contact && !wasContact) leg.plantedPoint = hit.point; // just landed, grab the ground here
             Debug.DrawRay(foot.position, Vector3.down * contactRayLength, leg.contact ? Color.green : Color.red);
         }
@@ -336,7 +345,7 @@ public class LegSolver : MonoBehaviour
         // land under the foot's home spot, led ahead by where the hips are going
         Vector3 target = hips.bone.TransformPoint(leg.homeOffset) + hips.rb.linearVelocity * stepLead;
         RaycastHit hit;
-        if (Physics.Raycast(target + Vector3.up, Vector3.down, out hit, 2f, groundMask))
+        if (GroundCast(target + Vector3.up, 2f, out hit))
         {
             target = hit.point;
         }
@@ -467,6 +476,25 @@ public class LegSolver : MonoBehaviour
             if (leg.contact && !leg.stepping) planted++;
         }
         return planted;
+    }
+
+    // nearest hit that is not part of this walker. a plain Physics.Raycast would stop dead on our
+    // own foot collider and never see the ground behind it, so every hit gets scanned.
+    bool GroundCast(Vector3 origin, float distance, out RaycastHit best)
+    {
+        best = default;
+        bool found = false;
+        int count = Physics.RaycastNonAlloc(origin, Vector3.down, rayHits, distance, groundMask, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            if (ownBodies.Contains(rayHits[i].collider.attachedRigidbody)) continue;
+            if (!found || rayHits[i].distance < best.distance)
+            {
+                best = rayHits[i];
+                found = true;
+            }
+        }
+        return found;
     }
 
     Transform FindPoseBone(string boneName)
