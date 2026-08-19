@@ -27,19 +27,16 @@ public class Joint
 }
 
 [System.Serializable]
-public class LegSetup
-{
-    public Transform root;  // top of the leg chain, every rigidbody under it becomes a joint
-    public Transform foot;  // the bone that plants on the ground. needs a rigidbody.
-}
-
-[System.Serializable]
 public class Leg
 {
-    public Transform root;
+    public Transform root; // top of the leg chain, every rigidbody under it becomes a joint
+    public Transform foot; // the bone that plants on the ground. needs a rigidbody.
     public int footIndex = -1;  // which joint is the foot
     public List<Joint> joints = new List<Joint>();
+    public Collider footCollider;   // the foot's own collider, so contact casts scale with the rig
+    public float reach;             // hip to sole, summed at startup. step distances are fractions of this.
     public bool contact;
+    public float loadShare; // fraction of the body's weight this leg carries, 0 when not planted
     public Vector3 push;    // general direction of force applied, solve propagates through joints.
     public Vector2 distanceToHips; // x is start of far range, y is max range. produces a gradient of 0 to 1 of desire to adjust leg.
     public float adjustDesirability = 0;    // 0 to 1 gradient from distance to hips.
@@ -60,34 +57,46 @@ public class Leg
 public class LegSolver : MonoBehaviour
 {
     public Joint hips;
-    public float maxStrength = 500f;    // force cap per leg/joint, scaled by capacity
+    // forces and torques carry different units and, on a scaled rig, wildly different magnitudes.
+    // one shared cap cannot serve both: holding this walker up wants tens of kN, swinging a leg
+    // from the hip wants hundreds of kN·m.
+    public float maxForce = 60000f;     // force cap per leg/joint, scaled by capacity
+    public float maxTorque = 600000f;   // torque cap per joint, scaled by capacity
+    public bool useEnergyBudget = false;    // off until the legs walk. demand is still tallied for the inspector.
     public float maxEnergyRate = 4000f; // max energy output per second, all forces scale down past this
     public float energyConsumeRate;     // energy being spent right now, goal is to keep this low
     public Transform hipTarget;
     public float hipWeight;             // extra load carried at the hips
     public Vector3 hipForce;
-    public List<LegSetup> legs = new List<LegSetup>();
+    public List<Leg> legs = new List<Leg>();
     public Transform poseRoot;          // ghost rig playing animations, joints chase its bones. optional.
 
     [Header("Balance")]
     public float hipPosGain = 20f;      // spring pulling hips to the hip target
-    public float hipDamp = 5f;          // hip velocity damping
+    public float hipDamp = 9f;          // hip velocity damping, 2*sqrt(hipPosGain) is critical
     public float hipRotGain = 20f;      // torque spring toward hip target rotation
     public float hipRotDamp = 5f;       // hip angular velocity damping
     public float balanceGain = 2f;      // push to keep center of mass over the feet
+    // how far ahead the balance controller looks. 1 is the physical capture point, higher reacts
+    // sooner and firmer, 0 falls back to steering on com position alone.
+    public float captureLead = 1f;
     public float footHoldGain = 40f;    // spring holding planted feet in place
     public float footHoldDamp = 5f;     // planted foot velocity damping
 
     [Header("Stepping")]
     public LayerMask groundMask = ~0;
-    public float contactRayLength = 0.3f;   // how far below a foot still counts as contact
+    // contact is measured from the sole of the foot collider, so it works at any rig scale.
+    // contactRayLength is only the fallback for a foot with no collider on it.
+    public float contactMargin = 0.5f;      // how far below the sole still counts as contact
+    public float contactRayLength = 0.3f;   // fallback reach when the foot has no collider
     public float stepThreshold = 0.5f;      // desirability needed before a leg steps
     public float stepDuration = 0.25f;
-    public float stepHeight = 0.25f;
     public float stepLead = 0.2f;       // seconds of hip velocity to lead foot placement by
     public float stepGain = 40f;        // spring pulling the foot along the step arc
     public float stepDamp = 5f;         // stepping foot velocity damping
     public int minPlantedLegs = 1;      // never step below this many planted legs
+    // both are fractions of a leg's reach, so retuning the rig's scale does not retune the gait
+    public float stepHeight = 0.1f;     // peak of the step arc
     public Vector2 stepRange = new Vector2(0.4f, 0.8f);   // default distanceToHips given to each leg
 
     [Header("Pose Matching")]
@@ -114,14 +123,15 @@ public class LegSolver : MonoBehaviour
 
         // collect every rigidbody under each leg root into joints. branches and non-physical bones are fine.
         builtLegs.Clear();
-        foreach (LegSetup setup in legs)
+        foreach (Leg leg in legs)
         {
-            if (setup.root == null || setup.foot == null) continue;
+            if (leg.root == null || leg.foot == null) continue;
 
-            Leg leg = new Leg();
-            leg.root = setup.root;
-            leg.distanceToHips = stepRange;
-            foreach (Rigidbody rb in setup.root.GetComponentsInChildren<Rigidbody>())
+            // these persist through serialization, so a rebuild has to start from empty
+            leg.joints.Clear();
+            leg.footIndex = -1;
+
+            foreach (Rigidbody rb in leg.root.GetComponentsInChildren<Rigidbody>())
             {
                 Joint joint = new Joint();
                 joint.rb = rb;
@@ -129,6 +139,7 @@ public class LegSolver : MonoBehaviour
                 joint.mass = rb.mass;
                 joint.restEuler = rb.transform.localRotation.eulerAngles;
                 if (poseRoot != null) joint.poseTarget = FindPoseBone(rb.name);
+                ReadJointLimits(joint);
 
                 // limb length is measured to the bone this one hangs off of, whatever sits between them
                 Rigidbody parentRb = rb.transform.parent != null ? rb.transform.parent.GetComponentInParent<Rigidbody>() : null;
@@ -138,15 +149,19 @@ public class LegSolver : MonoBehaviour
                     if (parent.rb == parentRb) parent.length = Vector3.Distance(parent.bone.position, rb.position);
                 }
 
-                if (rb.transform == setup.foot) leg.footIndex = leg.joints.Count;
+                if (rb.transform == leg.foot) leg.footIndex = leg.joints.Count;
                 leg.joints.Add(joint);
             }
 
             if (leg.footIndex < 0)
             {
-                Debug.LogWarning($"Leg {setup.root.name} has no rigidbody on its foot {setup.foot.name}, skipping it.");
+                Debug.LogWarning($"Leg {leg.root.name} has no rigidbody on its foot {leg.foot.name}, skipping it.");
                 continue;
             }
+
+            leg.footCollider = leg.Foot().rb.GetComponentInChildren<Collider>();
+            leg.reach = MeasureReach(leg);
+            leg.distanceToHips = stepRange * leg.reach;
 
             leg.homeOffset = hips.bone.InverseTransformPoint(leg.Foot().bone.position);
             leg.plantedPoint = leg.Foot().bone.position;
@@ -166,13 +181,66 @@ public class LegSolver : MonoBehaviour
         }
     }
 
+    // how far this leg can reach, so the gait constants can be fractions of the rig instead of
+    // magic numbers that only hold at one scale. walks the foot's own chain up to the root rather
+    // than summing every joint, so a leg with branches on it does not measure long.
+    float MeasureReach(Leg leg)
+    {
+        float reach = leg.footCollider != null ? leg.footCollider.bounds.extents.y : 0f;
+
+        Joint joint = leg.Foot();
+        for (int guard = 0; guard < leg.joints.Count && joint != null; guard++)
+        {
+            Joint parent = null;
+            foreach (Joint candidate in leg.joints)
+            {
+                if (candidate.rb == joint.parentRb) { parent = candidate; break; }
+            }
+            if (parent == null) break;  // reached the top of this leg
+
+            reach += parent.length;
+            joint = parent;
+        }
+
+        return reach > 0f ? reach : 1f; // single-bone leg, fall back to raw units
+    }
+
+    // mirror the bone's ConfigurableJoint limits into our own, so ClampToLimits aims at a pose
+    // physx will actually allow. without this the solver spends its whole budget torquing toward
+    // angles the constraint solver refuses, and never learns why the bone did not move.
+    // assumes the joint frame matches the bone's, ie axis is X and secondaryAxis is Y — which is
+    // how these rigs are built. a joint on a tilted frame would need its limits rotated to match.
+    void ReadJointLimits(Joint joint)
+    {
+        ConfigurableJoint cj = joint.rb.GetComponent<ConfigurableJoint>();
+        if (cj == null) return;
+
+        // Awake rebuilds every Joint from scratch, so these always start free. the guard is here so
+        // limits survive if joints ever get authored or cached instead of rebuilt.
+        if (IsFree(joint.maxX)) joint.maxX = AngularRange(cj.angularXMotion, cj.lowAngularXLimit.limit, cj.highAngularXLimit.limit);
+        if (IsFree(joint.maxY)) joint.maxY = AngularRange(cj.angularYMotion, -cj.angularYLimit.limit, cj.angularYLimit.limit);
+        if (IsFree(joint.maxZ)) joint.maxZ = AngularRange(cj.angularZMotion, -cj.angularZLimit.limit, cj.angularZLimit.limit);
+    }
+
+    Vector2 AngularRange(ConfigurableJointMotion motion, float low, float high)
+    {
+        // a locked axis needs a range that is tiny but not zero, or IsFree reads it as unlimited
+        if (motion == ConfigurableJointMotion.Locked) return new Vector2(-0.01f, 0.01f);
+        if (motion == ConfigurableJointMotion.Free) return Vector2.zero;
+        // a limited axis authored as 0..0 is locked in all but name, so give it the same treatment
+        if (low == 0f && high == 0f) return new Vector2(-0.01f, 0.01f);
+        return new Vector2(low, high);
+    }
+
     void FixedUpdate()
     {
         if (hips.rb == null || hipTarget == null) return;
 
         // last frame's demand sets this frame's budget scale. one frame behind, close enough at 50hz.
-        energyConsumeRate = Mathf.Min(energyDemand, maxEnergyRate);
-        energyScale = energyDemand > maxEnergyRate ? maxEnergyRate / energyDemand : 1f;
+        // demand is always tallied so the inspector shows what the legs are asking for, but until
+        // they actually walk the budget does not throttle anything.
+        energyConsumeRate = useEnergyBudget ? Mathf.Min(energyDemand, maxEnergyRate) : energyDemand;
+        energyScale = useEnergyBudget && energyDemand > maxEnergyRate ? maxEnergyRate / energyDemand : 1f;
         energyDemand = 0f;
 
         UpdateContacts();
@@ -231,10 +299,22 @@ public class LegSolver : MonoBehaviour
         {
             Rigidbody foot = leg.Foot().rb;
             bool wasContact = leg.contact;
+
+            // cast from the middle of the foot down past its sole. the bone pivot sits at the ankle,
+            // which on a scaled rig can be a long way above the ground the foot is already standing on.
+            Vector3 origin = foot.position;
+            float reach = contactRayLength;
+            if (leg.footCollider != null)
+            {
+                Bounds bounds = leg.footCollider.bounds;
+                origin = bounds.center;
+                reach = bounds.extents.y + contactMargin;
+            }
+
             RaycastHit hit;
-            leg.contact = GroundCast(foot.position, contactRayLength, out hit);
+            leg.contact = GroundCast(origin, reach, out hit);
             if (leg.contact && !wasContact) leg.plantedPoint = hit.point; // just landed, grab the ground here
-            Debug.DrawRay(foot.position, Vector3.down * contactRayLength, leg.contact ? Color.green : Color.red);
+            Debug.DrawRay(origin, Vector3.down * reach, leg.contact ? Color.green : Color.red);
         }
     }
 
@@ -266,7 +346,7 @@ public class LegSolver : MonoBehaviour
     {
         // this leg carries its share of the hip force, pushing off its planted point
         Vector3 share = hipForce / Mathf.Max(1, PlantedCount());
-        share = Vector3.ClampMagnitude(share, maxStrength * LegCapacity(leg));
+        share = Vector3.ClampMagnitude(share, maxForce * LegCapacity(leg));
         leg.push = share.normalized;
         share = Budget(share);
         hips.rb.AddForce(share);
@@ -275,7 +355,7 @@ public class LegSolver : MonoBehaviour
         // keep the planted foot from sliding out
         Rigidbody foot = leg.Foot().rb;
         Vector3 hold = ((leg.plantedPoint - foot.position) * footHoldGain - foot.linearVelocity * footHoldDamp) * foot.mass;
-        hold = Vector3.ClampMagnitude(hold, maxStrength * leg.Foot().Capacity());
+        hold = Vector3.ClampMagnitude(hold, maxForce * leg.Foot().Capacity());
         foot.AddForce(Budget(hold));
 
         Debug.DrawRay(leg.plantedPoint, share * 0.002f, Color.cyan);
@@ -292,7 +372,7 @@ public class LegSolver : MonoBehaviour
         if (float.IsInfinity(axis.x)) return; // already aligned
 
         Vector3 torque = axis.normalized * (angle * Mathf.Deg2Rad * hipRotGain) - hips.rb.angularVelocity * hipRotDamp;
-        torque = Vector3.ClampMagnitude(torque, maxStrength * hips.Capacity());
+        torque = Vector3.ClampMagnitude(torque, maxTorque * hips.Capacity());
         hips.rb.AddTorque(Budget(torque));
     }
 
@@ -320,11 +400,11 @@ public class LegSolver : MonoBehaviour
             leg.stepTime += Time.fixedDeltaTime;
             float t = Mathf.Clamp01(leg.stepTime / stepDuration);
             Vector3 point = Vector3.Lerp(leg.stepFrom, leg.stepTo, t);
-            point.y += Mathf.Sin(t * Mathf.PI) * stepHeight; // arc the foot up and over
+            point.y += Mathf.Sin(t * Mathf.PI) * stepHeight * leg.reach; // arc the foot up and over
 
             Rigidbody foot = leg.Foot().rb;
             Vector3 force = ((point - foot.position) * stepGain - foot.linearVelocity * stepDamp) * foot.mass;
-            force = Vector3.ClampMagnitude(force, maxStrength * LegCapacity(leg));
+            force = Vector3.ClampMagnitude(force, maxForce * LegCapacity(leg));
             foot.AddForce(Budget(force));
             Debug.DrawLine(foot.position, leg.stepTo, Color.yellow);
 
@@ -362,8 +442,15 @@ public class LegSolver : MonoBehaviour
             {
                 Quaternion target = joint.poseTarget != null ? joint.poseTarget.localRotation : Quaternion.Euler(joint.restEuler);
 
+                // a ConfigurableJoint measures its limits from the pose the bone was built in, not from
+                // identity, and these bones rest a long way from identity. so clamp how far the target
+                // strays from rest, then put rest back — otherwise the clamp hauls the leg toward
+                // identity and fights the rig instead of agreeing with physx.
+                Quaternion rest = Quaternion.Euler(joint.restEuler);
+                Quaternion strain = ClampToLimits(joint, Quaternion.Inverse(rest) * target);
+
                 // target that local rotation, clamped to joint limits, relative to the physical parent
-                Quaternion local = ClampToLimits(joint, target);
+                Quaternion local = rest * strain;
                 Quaternion parentRot = joint.bone.parent != null ? joint.bone.parent.rotation : Quaternion.identity;
                 Quaternion delta = parentRot * local * Quaternion.Inverse(joint.rb.rotation);
                 float angle;
@@ -375,7 +462,7 @@ public class LegSolver : MonoBehaviour
                 // scale by inertia so the gains mean the same thing whatever the bone weighs
                 Vector3 torque = axis.normalized * (angle * Mathf.Deg2Rad * poseGain) - joint.rb.angularVelocity * poseDamp;
                 torque *= joint.rb.inertiaTensor.magnitude;
-                torque = Vector3.ClampMagnitude(torque, maxStrength * joint.Capacity());
+                torque = Vector3.ClampMagnitude(torque, maxTorque * joint.Capacity());
 
                 // a muscle pulls on both bones, so the parent takes the reaction
                 Vector3 applied = Budget(torque);
