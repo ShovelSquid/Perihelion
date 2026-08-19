@@ -10,5 +10,6 @@
       "Bash(dotnet run *)"
     ]
   },
-  "prefersReducedMotion": false
+  "prefersReducedMotion": false,
+  "outputStyle": "Learning"
 }
