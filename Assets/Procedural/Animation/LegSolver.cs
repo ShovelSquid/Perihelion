@@ -20,6 +20,14 @@ public class Joint
     public float mass;
     public float strength = 1f;
 
+    // rest pose relative to the parent joint, captured at startup. the ik chain is rebuilt from
+    // these every solve rather than from the live bones, so physics jitter cannot feed back into it.
+    public Vector3 restOffset;      // offset from the parent joint, in the parent's rotation frame
+    public Quaternion restFromParent = Quaternion.identity;
+    public Vector3 hingeAxis = Vector3.right;   // the axis this joint actually swings about
+    public Quaternion ikWorldRot;   // world rotation the ik wants this bone in
+    public bool ikDriven;           // whether the pose servo should chase ikWorldRot this frame
+
     public float Capacity()
     {
         return strength * (1f - damage); // how much of this joint still works
@@ -35,6 +43,15 @@ public class Leg
     public List<Joint> joints = new List<Joint>();
     public Collider footCollider;   // the foot's own collider, so contact casts scale with the rig
     public float reach;             // hip to sole, summed at startup. step distances are fractions of this.
+    public Transform ikTarget;      // where this foot is asked to be. visible in the scene, optional.
+    public float soleHeight;        // foot bone origin above the sole, so goals can be given on the ground
+    public Vector3 ikGoal;          // the goal actually fed to ik, rate limited so it cannot jump
+
+    // ik scratch, sized once at startup so the solve never allocates
+    [System.NonSerialized] public LegIK.Link[] links;
+    [System.NonSerialized] public float[] ikAngles;
+    [System.NonSerialized] public Vector3[] ikPos;
+    [System.NonSerialized] public Quaternion[] ikRot;
     public bool contact;
     public float loadShare; // fraction of the body's weight this leg carries, 0 when not planted
     public Vector3 push;    // general direction of force applied, solve propagates through joints.
@@ -89,21 +106,51 @@ public class LegSolver : MonoBehaviour
     // contactRayLength is only the fallback for a foot with no collider on it.
     public float contactMargin = 0.5f;      // how far below the sole still counts as contact
     public float contactRayLength = 0.3f;   // fallback reach when the foot has no collider
-    public float stepThreshold = 0.5f;      // desirability needed before a leg steps
+    [Range(0f, 1f)]
+    [Tooltip("Desirability a leg must reach before it steps. Desirability is a 0-1 gradient, so a value of 1 never triggers.")]
+    public float stepThreshold = 0.5f;
+    [Tooltip("Seconds a swing takes. Keep it well under sqrt(comHeight / gravity) or the body falls before the foot lands.")]
     public float stepDuration = 0.25f;
-    public float stepLead = 0.2f;       // seconds of hip velocity to lead foot placement by
+    [Tooltip("Seconds of hip velocity to lead foot placement by. Neutral is about stepDuration/2 — larger brakes, smaller accelerates.")]
+    public float stepLead = 0.125f;
     public float stepGain = 40f;        // spring pulling the foot along the step arc
     public float stepDamp = 5f;         // stepping foot velocity damping
     public int minPlantedLegs = 1;      // never step below this many planted legs
-    // both are fractions of a leg's reach, so retuning the rig's scale does not retune the gait
-    public float stepHeight = 0.1f;     // peak of the step arc
-    public Vector2 stepRange = new Vector2(0.4f, 0.8f);   // default distanceToHips given to each leg
+    // foot placement is what actually drives a walker. these steer it, see StartStep.
+    public Vector3 desiredVelocity;     // written by the locomotion driver, zero means stand still
+    public float placementGain = 0.35f; // how hard a velocity error pulls the landing spot
+    [Range(0f, 1f)]
+    [Tooltip("FRACTION OF LEG REACH. Furthest a foot may land from the hips.")]
+    public float strideLimit = 0.55f;
+    [Range(0f, 1f)]
+    [Tooltip("FRACTION OF LEG REACH. Peak height of the step arc.")]
+    public float stepHeight = 0.12f;
+    [Tooltip("FRACTION OF LEG REACH. Foot-to-hip drift that maps to 0 and 1 desirability. Resolved values show under builtLegs > distanceToHips.")]
+    public Vector2 stepRange = new Vector2(0.15f, 0.35f);
+
+    [Header("Leg Control")]
+    // a swing leg is solved with ik: we care where the foot lands, so joint angles are the answer.
+    // a stance leg is driven by jacobian transpose: we care what force it puts into the ground,
+    // and the joint torques that produce it are the answer. the leg does the pushing either way.
+    public bool useLegIK = true;
+    public int ikIterations = 8;
+    [Tooltip("Leg reaches per second the ik goal may travel. Caps touchdown jumps without lagging a normal swing.")]
+    public float goalSlew = 8f;
+    [Range(0f, 1f)]
+    [Tooltip("1 makes stance legs push by extending their joints. 0 falls back to shoving the foot rigidbody directly, which is the old cheat.")]
+    public float stanceJacobian = 1f;
 
     [Header("Pose Matching")]
     public float poseGain = 2000f;  // torque spring toward the ghost pose, in rad/s^2 per rad of error
     public float poseDamp = 90f;    // joint angular velocity damping, roughly 2*sqrt(poseGain) is critical
 
     public List<Leg> builtLegs = new List<Leg>();
+
+    [Header("Balance State (read only)")]
+    public Vector3 capturePoint;    // where the com is heading if nothing changes
+    public Vector3 supportCenter;   // average of the planted feet
+    public float balanceError;      // how far the capture point sits from the support center
+    public bool offBalance;         // capture point has left the feet, only a step saves us now
 
     private float totalMass;
     private float energyDemand; // force asked for this frame, before the budget clamps it
@@ -162,9 +209,15 @@ public class LegSolver : MonoBehaviour
             leg.footCollider = leg.Foot().rb.GetComponentInChildren<Collider>();
             leg.reach = MeasureReach(leg);
             leg.distanceToHips = stepRange * leg.reach;
+            // goals arrive as ground points, but ik drives the foot bone, which rides above the sole
+            leg.soleHeight = leg.footCollider != null
+                ? leg.Foot().bone.position.y - leg.footCollider.bounds.min.y
+                : 0f;
+            BuildIKChain(leg);
 
             leg.homeOffset = hips.bone.InverseTransformPoint(leg.Foot().bone.position);
             leg.plantedPoint = leg.Foot().bone.position;
+            leg.ikGoal = leg.plantedPoint;  // start where the foot already is, or frame one slews from the origin
             builtLegs.Add(leg);
         }
 
@@ -179,6 +232,49 @@ public class LegSolver : MonoBehaviour
                 ownBodies.Add(joint.rb);    // so the ground raycasts can tell us apart from the world
             }
         }
+    }
+
+    // capture the leg's rest shape relative to its own parent joints, and size the solver scratch.
+    // measuring against the parent joint rather than the transform parent means non-physical bones
+    // sitting between two rigidbodies do not disturb the chain.
+    void BuildIKChain(Leg leg)
+    {
+        int count = leg.joints.Count;
+        leg.links = new LegIK.Link[count];
+        leg.ikAngles = new float[count];
+        leg.ikPos = new Vector3[count];
+        leg.ikRot = new Quaternion[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            Joint joint = leg.joints[i];
+            Transform parent = ParentBone(leg, i);
+
+            joint.restOffset = Quaternion.Inverse(parent.rotation) * (joint.bone.position - parent.position);
+            joint.restFromParent = Quaternion.Inverse(parent.rotation) * joint.bone.rotation;
+
+            ConfigurableJoint cj = joint.rb.GetComponent<ConfigurableJoint>();
+            if (cj != null && cj.axis != Vector3.zero) joint.hingeAxis = cj.axis.normalized;
+
+            leg.links[i] = new LegIK.Link
+            {
+                offsetFromParent = joint.restOffset,
+                restFromParent = joint.restFromParent,
+                hingeAxis = joint.hingeAxis,
+                // a free axis still has to be bounded for ccd, or it will spin the bone right round
+                limit = IsFree(joint.maxX) ? new Vector2(-180f, 180f) : joint.maxX,
+            };
+        }
+    }
+
+    // the bone the ik chain hangs this joint off: the previous joint in the leg, or the hips
+    Transform ParentBone(Leg leg, int index)
+    {
+        for (int i = index - 1; i >= 0; i--)
+        {
+            if (leg.joints[i].rb == leg.joints[index].parentRb) return leg.joints[i].bone;
+        }
+        return hips.bone;
     }
 
     // how far this leg can reach, so the gait constants can be fractions of the rig instead of
@@ -243,6 +339,12 @@ public class LegSolver : MonoBehaviour
         energyScale = useEnergyBudget && energyDemand > maxEnergyRate ? maxEnergyRate / energyDemand : 1f;
         energyDemand = 0f;
 
+        // ik is re-decided every frame, so clear last frame's claim before anything sets it again
+        foreach (Leg leg in builtLegs)
+        {
+            foreach (Joint joint in leg.joints) joint.ikDriven = false;
+        }
+
         UpdateContacts();
         UpdateHipForce();
 
@@ -280,6 +382,56 @@ public class LegSolver : MonoBehaviour
             }
         }
         return mass > 0f ? center / mass : transform.position;
+    }
+
+    public Vector3 GetCenterOfMassVelocity()
+    {
+        Vector3 momentum = Vector3.zero;
+        float mass = 0f;
+        if (hips.rb != null)
+        {
+            momentum += hips.rb.linearVelocity * hips.mass;
+            mass += hips.mass;
+        }
+        foreach (Leg leg in builtLegs)
+        {
+            foreach (Joint joint in leg.joints)
+            {
+                momentum += joint.rb.linearVelocity * joint.mass;
+                mass += joint.mass;
+            }
+        }
+        return mass > 0f ? momentum / mass : Vector3.zero;
+    }
+
+    // where the center of mass is heading, not just where it sits. falling is about momentum:
+    // a body leaning out but drifting back is fine, an upright one moving fast is already lost.
+    // this is the capture point — how far an inverted pendulum of this height carries before it
+    // would topple, so steering it back over the feet is what actually keeps the walker up.
+    public Vector3 GetCapturePoint(float groundHeight)
+    {
+        Vector3 com = GetCenterOfMass();
+        if (captureLead <= 0f) return com;
+
+        float gravity = Physics.gravity.magnitude;
+        if (gravity <= 0f) return com;
+
+        float height = Mathf.Max(com.y - groundHeight, 0f);
+        Vector3 drift = GetCenterOfMassVelocity();
+        drift.y = 0f;
+        return com + drift * (Mathf.Sqrt(height / gravity) * captureLead);
+    }
+
+    // the planted leg carrying the least weight is the one we can pick up without dropping the body
+    public Leg GetFreestLeg()
+    {
+        Leg best = null;
+        foreach (Leg leg in builtLegs)
+        {
+            if (leg.stepping || !leg.contact) continue;
+            if (best == null || leg.loadShare < best.loadShare) best = leg;
+        }
+        return best;
     }
 
     public Leg GetMostMovableLeg()
@@ -325,7 +477,7 @@ public class LegSolver : MonoBehaviour
         Vector3 support = -Physics.gravity * totalMass + Vector3.down * hipWeight;
 
         // nudge the hips so the center of mass stays over the planted feet
-        Vector3 supportCenter = Vector3.zero;
+        supportCenter = Vector3.zero;
         int planted = PlantedCount();
         if (planted > 0)
         {
@@ -335,22 +487,90 @@ public class LegSolver : MonoBehaviour
             }
             supportCenter /= planted;
         }
-        Vector3 balance = supportCenter - GetCenterOfMass();
+
+        capturePoint = GetCapturePoint(supportCenter.y);
+        Vector3 balance = supportCenter - capturePoint;
         balance.y = 0f;
+        balanceError = balance.magnitude;
+        // once the capture point is outside the feet no amount of pushing keeps us up, only a step
+        offBalance = planted > 0 && balanceError > SupportRadius();
+
+        UpdateLoadShares(capturePoint);
 
         // the spring has to move the whole body, not just the hip bone
         hipForce = spring * totalMass + support + (planted > 0 ? balance * balanceGain * totalMass : Vector3.zero);
+
+        Debug.DrawLine(capturePoint, capturePoint + Vector3.up * 2f, offBalance ? Color.red : Color.green);
+        Debug.DrawLine(supportCenter, capturePoint, Color.grey);
+    }
+
+    // how far the planted feet reach out from their own center, footprints included. this is the
+    // crude stand-in for a support polygon: inside it we can push our way back upright, outside it
+    // the only recovery is to put a foot down somewhere new.
+    public float SupportRadius()
+    {
+        float radius = 0f;
+        foreach (Leg leg in builtLegs)
+        {
+            if (!leg.contact || leg.stepping) continue;
+            Vector3 offset = leg.plantedPoint - supportCenter;
+            offset.y = 0f;
+            float r = offset.magnitude;
+            if (leg.footCollider != null)
+            {
+                Bounds bounds = leg.footCollider.bounds;
+                r += Mathf.Max(bounds.extents.x, bounds.extents.z);   // the foot itself holds ground
+            }
+            if (r > radius) radius = r;
+        }
+        return radius;
+    }
+
+    // split the body's weight across the planted feet by how close each one is to the capture point.
+    // an equal split has the far foot pushing up just as hard as the near one, and that difference
+    // in lever arm is a tipping moment the balance controller then has to spend its budget undoing.
+    // for two feet the inverse-distance weights are exactly the seesaw solution, so moments cancel.
+    void UpdateLoadShares(Vector3 capture)
+    {
+        float total = 0f;
+        foreach (Leg leg in builtLegs)
+        {
+            if (leg.contact && !leg.stepping)
+            {
+                Vector3 offset = leg.plantedPoint - capture;
+                offset.y = 0f;
+                // a foot right under the capture point takes the lot, so keep the divisor off zero
+                leg.loadShare = 1f / Mathf.Max(offset.magnitude, 1e-3f);
+                total += leg.loadShare;
+            }
+            else
+            {
+                leg.loadShare = 0f;
+            }
+        }
+
+        if (total <= 0f) return;
+        foreach (Leg leg in builtLegs) leg.loadShare /= total;   // shares sum to the whole body weight
     }
 
     public void UpdateLegForce(Leg leg)
     {
         // this leg carries its share of the hip force, pushing off its planted point
-        Vector3 share = hipForce / Mathf.Max(1, PlantedCount());
+        Vector3 share = hipForce * leg.loadShare;
         share = Vector3.ClampMagnitude(share, maxForce * LegCapacity(leg));
         leg.push = share.normalized;
-        share = Budget(share);
-        hips.rb.AddForce(share);
-        leg.Foot().rb.AddForce(-share); // ground reaction, the foot pushes down so the hips go up
+
+        // the honest path: the leg presses the ground by extending, and the ground lifts the body
+        // back up through the chain. the direct path shoves the hips and the foot as a force pair,
+        // which works but leaves the leg itself doing nothing, so it hangs there looking inert.
+        float jacobian = Mathf.Clamp01(stanceJacobian);
+        if (jacobian > 0f) ApplyStanceForce(leg, -share * jacobian);
+        if (jacobian < 1f)
+        {
+            Vector3 direct = Budget(share * (1f - jacobian));
+            hips.rb.AddForce(direct);
+            leg.Foot().rb.AddForce(-direct);
+        }
 
         // keep the planted foot from sliding out
         Rigidbody foot = leg.Foot().rb;
@@ -359,6 +579,50 @@ public class LegSolver : MonoBehaviour
         foot.AddForce(Budget(hold));
 
         Debug.DrawRay(leg.plantedPoint, share * 0.002f, Color.cyan);
+    }
+
+    // solve the leg's joint angles so the foot lands on its goal, and hand them to the pose servo.
+    // this is what makes the leg articulate instead of being dragged around by its ankle.
+    void SolveLegIK(Leg leg, Vector3 goal)
+    {
+        if (leg.links == null || leg.links.Length == 0) return;
+
+        goal += Vector3.up * leg.soleHeight;    // goals sit on the ground, the foot bone rides above it
+        Transform baseBone = ParentBone(leg, 0);
+
+        LegIK.Solve(leg.links, leg.ikAngles, leg.ikPos, leg.ikRot,
+                    baseBone.position, baseBone.rotation, goal, ikIterations);
+
+        for (int i = 0; i < leg.joints.Count; i++)
+        {
+            leg.joints[i].ikWorldRot = leg.ikRot[i];
+            leg.joints[i].ikDriven = true;
+        }
+
+        for (int i = 1; i < leg.ikPos.Length; i++) Debug.DrawLine(leg.ikPos[i - 1], leg.ikPos[i], Color.magenta);
+        Debug.DrawLine(leg.ikPos[leg.ikPos.Length - 1], goal, Color.magenta);
+    }
+
+    // a real leg pushes the ground by extending, not by having its foot shoved. the joint torque
+    // that produces force F at the foot is the jacobian transpose: t = (axis x lever) . F. these
+    // are muscle torques like any other, so the parent takes the reaction and nothing is invented.
+    void ApplyStanceForce(Leg leg, Vector3 force)
+    {
+        Vector3 footPos = leg.Foot().rb.worldCenterOfMass;
+        for (int i = 0; i < leg.joints.Count; i++)
+        {
+            if (i == leg.footIndex) continue;   // the foot itself has no leverage on itself
+            Joint joint = leg.joints[i];
+
+            Vector3 axis = joint.rb.rotation * joint.hingeAxis;
+            Vector3 lever = footPos - joint.rb.worldCenterOfMass;
+            Vector3 torque = axis * Vector3.Dot(Vector3.Cross(axis, lever), force);
+
+            torque = Vector3.ClampMagnitude(torque, maxTorque * joint.Capacity());
+            Vector3 applied = Budget(torque);
+            joint.rb.AddTorque(applied);
+            if (joint.parentRb != null) joint.parentRb.AddTorque(-applied);
+        }
     }
 
     public void UpdateHipsRotation()
@@ -386,49 +650,129 @@ public class LegSolver : MonoBehaviour
             leg.adjustDesirability = Mathf.InverseLerp(leg.distanceToHips.x, leg.distanceToHips.y, flat.magnitude);
         }
 
-        // let the leg that wants it most step, as long as enough legs stay planted
-        Leg mover = GetMostMovableLeg();
-        if (mover != null && mover.adjustDesirability > stepThreshold && PlantedCount() > minPlantedLegs)
+        // let the leg that wants it most step, as long as enough legs stay planted.
+        // being knocked off balance overrides that: a recovery step is worth going briefly
+        // under-supported for, because standing still while the com runs away just falls over.
+        Leg mover = offBalance ? GetFreestLeg() : GetMostMovableLeg();
+        bool wanted = mover != null && (offBalance || mover.adjustDesirability > stepThreshold);
+        int needed = offBalance ? 1 : minPlantedLegs;
+        if (wanted && PlantedCount() > needed)
         {
-            StartStep(mover);
+            StartStep(mover, offBalance);
         }
 
-        // pull stepping feet along their arc
+        // every leg publishes where its foot is asked to be, swinging or planted. the ik target
+        // transform is the visible copy of that, so a goal can be watched or dragged in the scene.
         foreach (Leg leg in builtLegs)
         {
-            if (!leg.stepping) continue;
-            leg.stepTime += Time.fixedDeltaTime;
-            float t = Mathf.Clamp01(leg.stepTime / stepDuration);
-            Vector3 point = Vector3.Lerp(leg.stepFrom, leg.stepTo, t);
-            point.y += Mathf.Sin(t * Mathf.PI) * stepHeight * leg.reach; // arc the foot up and over
+            Vector3 goal;
 
-            Rigidbody foot = leg.Foot().rb;
-            Vector3 force = ((point - foot.position) * stepGain - foot.linearVelocity * stepDamp) * foot.mass;
-            force = Vector3.ClampMagnitude(force, maxForce * LegCapacity(leg));
-            foot.AddForce(Budget(force));
-            Debug.DrawLine(foot.position, leg.stepTo, Color.yellow);
-
-            if (t >= 1f)
+            if (leg.stepping)
             {
-                leg.stepping = false;
-                leg.plantedPoint = leg.stepTo;
+                leg.stepTime += Time.fixedDeltaTime;
+                float t = Mathf.Clamp01(leg.stepTime / stepDuration);
+                goal = Vector3.Lerp(leg.stepFrom, leg.stepTo, t);
+                goal.y += Mathf.Sin(t * Mathf.PI) * stepHeight * leg.reach;  // arc the foot up and over
+
+                if (t >= 1f)
+                {
+                    leg.stepping = false;
+                    leg.plantedPoint = leg.stepTo;
+                }
+                Debug.DrawLine(leg.Foot().rb.position, leg.stepTo, Color.yellow);
+            }
+            else if (leg.contact)
+            {
+                goal = leg.plantedPoint;    // planted: hold the patch of ground we took
+            }
+            else
+            {
+                // in the air and not stepping. plantedPoint is stale here — it is the last place
+                // this foot touched down, a world point the body is falling away from, so chasing
+                // it stretches the leg to its limits and flails. hang the foot under the body
+                // instead, and reach for the ground if it is close enough to land on.
+                goal = hips.bone.TransformPoint(leg.homeOffset);
+                RaycastHit hit;
+                if (GroundCast(goal + Vector3.up * leg.reach * 0.5f, leg.reach * 1.5f, out hit))
+                {
+                    goal = hit.point;
+                }
+            }
+
+            // landing and step hand-off move the goal in one jump. fed straight to ik that is a step
+            // input, and the pose servo answers a step input with a torque spike — which is the flop
+            // you see on touchdown. the cap is loose enough that a normal swing arc passes untouched.
+            leg.ikGoal = Vector3.MoveTowards(leg.ikGoal, goal, goalSlew * leg.reach * Time.fixedDeltaTime);
+            goal = leg.ikGoal;
+
+            if (leg.ikTarget != null) leg.ikTarget.position = goal;
+
+            if (useLegIK)
+            {
+                // both phases get their shape from ik — swinging, so the foot arrives where it was
+                // sent; planted, so the leg keeps folding to hold the foot still while the body
+                // travels over it. that second one is what walking actually looks like. the phases
+                // differ in force, not in whether the leg articulates: only stance pushes.
+                SolveLegIK(leg, goal);
+            }
+            else if (leg.stepping)
+            {
+                Rigidbody foot = leg.Foot().rb;
+                Vector3 force = ((goal - foot.position) * stepGain - foot.linearVelocity * stepDamp) * foot.mass;
+                force = Vector3.ClampMagnitude(force, maxForce * LegCapacity(leg));
+                foot.AddForce(Budget(force));
             }
         }
     }
 
-    void StartStep(Leg leg)
+    void StartStep(Leg leg, bool recovering)
     {
         leg.stepping = true;
         leg.stepTime = 0f;
         leg.stepFrom = leg.Foot().rb.position;
 
-        // land under the foot's home spot, led ahead by where the hips are going
-        Vector3 target = hips.bone.TransformPoint(leg.homeOffset) + hips.rb.linearVelocity * stepLead;
+        Vector3 velocity = hips.rb.linearVelocity;
+        velocity.y = 0f;
+        Vector3 wanted = desiredVelocity;
+        wanted.y = 0f;
+
+        Vector3 target;
+        if (recovering)
+        {
+            // catching a fall: put the foot where the com is actually going, not where the gait
+            // would like it. this is the only move that works once the capture point is outside.
+            target = capturePoint;
+        }
+        else
+        {
+            // foot placement is how a walker controls its speed. landing at the home spot plus
+            // half a stance of travel holds the current pace; landing further out brakes, landing
+            // short of it accelerates. so the velocity error is what actually drives us at the goal.
+            target = hips.bone.TransformPoint(leg.homeOffset)
+                   + velocity * stepLead
+                   + (velocity - wanted) * placementGain;
+        }
+
+        // a leg cannot land where it cannot reach. without this a big velocity error commands a
+        // lunge the leg just stretches at, and the body topples instead of striding.
+        Vector3 fromHips = target - hips.rb.position;
+        fromHips.y = 0f;
+        float maxStride = leg.reach * strideLimit;
+        if (fromHips.magnitude > maxStride) fromHips = fromHips.normalized * maxStride;
+        target = hips.rb.position + fromHips;
+
+        // drop it onto the ground. cast from and over a leg's worth of distance, since the target
+        // is built at hip height and the ground could be well below it.
         RaycastHit hit;
-        if (GroundCast(target + Vector3.up, 2f, out hit))
+        if (GroundCast(target + Vector3.up * leg.reach * 0.5f, leg.reach * 1.5f, out hit))
         {
             target = hit.point;
         }
+        else
+        {
+            target.y = leg.plantedPoint.y;  // no ground found, keep the height we last stood at
+        }
+
         leg.stepTo = target;
     }
 
@@ -440,19 +784,31 @@ public class LegSolver : MonoBehaviour
         {
             foreach (Joint joint in leg.joints)
             {
-                Quaternion target = joint.poseTarget != null ? joint.poseTarget.localRotation : Quaternion.Euler(joint.restEuler);
+                Quaternion targetWorld;
+                if (joint.ikDriven)
+                {
+                    // the ik already solved on the hinge axes inside their limits, so this pose is
+                    // one the joints can hold. clamping it again would only fight the solution.
+                    targetWorld = joint.ikWorldRot;
+                }
+                else
+                {
+                    Quaternion target = joint.poseTarget != null ? joint.poseTarget.localRotation : Quaternion.Euler(joint.restEuler);
 
-                // a ConfigurableJoint measures its limits from the pose the bone was built in, not from
-                // identity, and these bones rest a long way from identity. so clamp how far the target
-                // strays from rest, then put rest back — otherwise the clamp hauls the leg toward
-                // identity and fights the rig instead of agreeing with physx.
-                Quaternion rest = Quaternion.Euler(joint.restEuler);
-                Quaternion strain = ClampToLimits(joint, Quaternion.Inverse(rest) * target);
+                    // a ConfigurableJoint measures its limits from the pose the bone was built in, not from
+                    // identity, and these bones rest a long way from identity. so clamp how far the target
+                    // strays from rest, then put rest back — otherwise the clamp hauls the leg toward
+                    // identity and fights the rig instead of agreeing with physx.
+                    Quaternion rest = Quaternion.Euler(joint.restEuler);
+                    Quaternion strain = ClampToLimits(joint, Quaternion.Inverse(rest) * target);
 
-                // target that local rotation, clamped to joint limits, relative to the physical parent
-                Quaternion local = rest * strain;
-                Quaternion parentRot = joint.bone.parent != null ? joint.bone.parent.rotation : Quaternion.identity;
-                Quaternion delta = parentRot * local * Quaternion.Inverse(joint.rb.rotation);
+                    // target that local rotation, clamped to joint limits, relative to the physical parent
+                    Quaternion local = rest * strain;
+                    Quaternion parentRot = joint.bone.parent != null ? joint.bone.parent.rotation : Quaternion.identity;
+                    targetWorld = parentRot * local;
+                }
+
+                Quaternion delta = targetWorld * Quaternion.Inverse(joint.rb.rotation);
                 float angle;
                 Vector3 axis;
                 delta.ToAngleAxis(out angle, out axis);
@@ -567,7 +923,7 @@ public class LegSolver : MonoBehaviour
 
     // nearest hit that is not part of this walker. a plain Physics.Raycast would stop dead on our
     // own foot collider and never see the ground behind it, so every hit gets scanned.
-    bool GroundCast(Vector3 origin, float distance, out RaycastHit best)
+    public bool GroundCast(Vector3 origin, float distance, out RaycastHit best)
     {
         best = default;
         bool found = false;

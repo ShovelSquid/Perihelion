@@ -1180,14 +1180,14 @@ MonoBehaviour:
     m_Bits: 4294967295
   contactMargin: 0.5
   contactRayLength: 2.5
-  stepThreshold: 5
-  stepDuration: 2
-  stepLead: 5
+  stepThreshold: 0.5
+  stepDuration: 0.3
+  stepLead: 0.15
   stepGain: 40
   stepDamp: 5
   minPlantedLegs: 1
-  stepHeight: 4
-  stepRange: {x: 5, y: 8}
+  stepHeight: 0.12
+  stepRange: {x: 0.15, y: 0.35}
   poseGain: 300
   poseDamp: 15
   builtLegs: []
