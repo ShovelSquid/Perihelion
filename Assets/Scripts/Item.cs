@@ -189,7 +189,7 @@ public class Item : MonoBehaviour
         else gameObject.SetActive(true);
         holder.item = equip ? this : null;
         holder.EnableIK(equipInfo.rightHand, equipInfo.leftHand);
-        holder.SetIK(equipInfo.rightHand ? handR : null, equipInfo.leftHand ? handL : null);
+        holder.SetIK();
         holder.item = equip ? this : null;
         if (hitIndicator != null)
         {

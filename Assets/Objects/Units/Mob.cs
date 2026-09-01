@@ -65,6 +65,7 @@ public class Mob : Object
     public Transform itemAimPoint;
     public Transform itemAimTarget;
     [Header ("IK Controls")]
+    public IKHandAttach ikAttacher;
     public Rig rightIK;
     public Rig leftIK;
     public Transform rightHandTarget;
@@ -77,6 +78,7 @@ public class Mob : Object
     {
         base.Awake();
         isRegenerating = true;
+        ikAttacher = gameObject.GetComponent<IKHandAttach>();
     }
 
     protected override void Start()
@@ -213,28 +215,33 @@ public class Mob : Object
         if (leftIK != null) leftIK.weight = left ? 1f : 0f;
     }
 
-    public void SetIK(Transform rightTarget, Transform leftTarget)
+    public void SetIK()
     {
-        if (rightHandTarget != null && rightTarget != null)
-        {
-            rightHandTarget.position = rightTarget.position;
-            rightHandTarget.rotation = rightTarget.rotation;
+        if (ikAttacher != null) {
+            ikAttacher.item = item;
+            ikAttacher.HandRIKTarget = rightHandTarget;
+            ikAttacher.HandLIKTarget = leftHandTarget;
         }
-        else if (rightHandTarget != null && idleRightHandTarget != null)
-        {
-            rightHandTarget.position = idleRightHandTarget.position;
-            rightHandTarget.rotation = idleRightHandTarget.rotation;
-        }
-        if (leftHandTarget != null && leftTarget != null)
-        {
-            leftHandTarget.position = leftTarget.position;
-            leftHandTarget.rotation = leftTarget.rotation;
-        }
-        else if (leftHandTarget != null && idleLeftHandTarget != null)
-        {
-            leftHandTarget.position = idleLeftHandTarget.position;
-            leftHandTarget.rotation = idleLeftHandTarget.rotation;
-        }
+        // if (rightHandTarget != null && rightTarget != null)
+        // {
+        //     rightHandTarget.position = rightTarget.position;
+        //     rightHandTarget.rotation = rightTarget.rotation;
+        // }
+        // else if (rightHandTarget != null && idleRightHandTarget != null)
+        // {
+        //     rightHandTarget.position = idleRightHandTarget.position;
+        //     rightHandTarget.rotation = idleRightHandTarget.rotation;
+        // }
+        // if (leftHandTarget != null && leftTarget != null)
+        // {
+        //     leftHandTarget.position = leftTarget.position;
+        //     leftHandTarget.rotation = leftTarget.rotation;
+        // }
+        // else if (leftHandTarget != null && idleLeftHandTarget != null)
+        // {
+        //     leftHandTarget.position = idleLeftHandTarget.position;
+        //     leftHandTarget.rotation = idleLeftHandTarget.rotation;
+        // }
     }
 
     public virtual void Attack(Mob mob)
