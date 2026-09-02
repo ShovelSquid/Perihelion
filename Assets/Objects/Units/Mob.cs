@@ -65,7 +65,7 @@ public class Mob : Object
     public Transform itemAimPoint;
     public Transform itemAimTarget;
     [Header ("IK Controls")]
-    public IKHandAttach ikAttacher;
+    public AimItem aim;
     public Rig rightIK;
     public Rig leftIK;
     public Transform rightHandTarget;
@@ -78,7 +78,7 @@ public class Mob : Object
     {
         base.Awake();
         isRegenerating = true;
-        ikAttacher = gameObject.GetComponent<IKHandAttach>();
+        aim = gameObject.GetComponent<AimItem>();
     }
 
     protected override void Start()
@@ -119,6 +119,38 @@ public class Mob : Object
         {
             FallDamage(fallSpeedTest, 1f);
             takeFallDamage = false;
+        }
+    }
+
+    public virtual void Equip(Item i)
+    {
+        if (item == null && i == null) return;
+        if (item != null && i != item)
+        {
+            item.gameObject.SetActive(false);
+            item.equipped = false;
+            aim.item = null;
+            aim.rb = null;
+            // if (hitIndicator != null) hitIndicator.gameObject.SetActive(false);
+            // return;
+        }
+        item = i;
+        item.gameObject.SetActive(true);
+        item.transform.position = item.holdTarget.position;
+        item.transform.rotation = item.holdTarget.rotation;
+        item.equipped = true;
+        item.holder = this;
+        aim.item = item;
+        aim.rb = item.GetComponent<Rigidbody>();
+        EnableIK(item.equipInfo.rightHand, item.equipInfo.leftHand);
+        SetIK();
+        if (anim != null && item.equipInfo.equipAnimation != "")
+        {
+            anim.Play(item.equipInfo.equipAnimation, -1, 0f);
+        }
+        if (item.anim != null && item.equipInfo.equipAnimation != "")
+        {
+            item.anim.Play(item.equipInfo.equipAnimation, -1, 0f);
         }
     }
 
@@ -217,10 +249,9 @@ public class Mob : Object
 
     public void SetIK()
     {
-        if (ikAttacher != null) {
-            ikAttacher.item = item;
-            ikAttacher.HandRIKTarget = rightHandTarget;
-            ikAttacher.HandLIKTarget = leftHandTarget;
+        if (aim != null) {
+            aim.HandRIKTarget = rightHandTarget;
+            aim.HandLIKTarget = leftHandTarget;
         }
         // if (rightHandTarget != null && rightTarget != null)
         // {
@@ -275,19 +306,20 @@ public class Mob : Object
     }
     
 
-    public virtual void Aim(bool aim)
+    public virtual void Aim(bool a)
     {
-        if (aim)
+        if (a)
         {
             if (aimOffRoutine != null) { StopCoroutine(aimOffRoutine); aimOffRoutine = null; }
-            item.Aim(true);
+            aim.Aim();
+            // item.Aim(true);
         }
         else
         {
             if (aimOffRoutine != null) StopCoroutine(aimOffRoutine);
             aimOffRoutine = StartCoroutine(DelayAction(1f, () =>
             {
-                item.Aim(false);
+                aim.StopAiming();
                 aimOffRoutine = null;
             }));
         }

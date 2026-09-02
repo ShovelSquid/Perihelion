@@ -136,7 +136,12 @@ public class Hotwheel : MonoBehaviour
         if (slot < 0 || slot >= totalSlots) return;
         if (slot != equippedSlot) 
         {
-            if (slots[equippedSlot].actionItem != null) slots[equippedSlot].actionItem.Equip(false);
+            if (slots[equippedSlot].actionItem != null) player.Equip(slots[equippedSlot].actionItem);
+            if (player.hitIndicator != null)
+            {
+                player.hitIndicator.gameObject.SetActive(true);
+                player.hitIndicator.SetAmmo(0, 0);
+            }
             // else
             // {
             //     player.EnableIK(false, false);
@@ -145,11 +150,12 @@ public class Hotwheel : MonoBehaviour
         }
         equippedSlot = slot;
         slots[slot].slotObject.SetSlot(slots[slot], true);
-        if (slots[slot].actionItem != null) slots[slot].actionItem.Equip(true);
+        if (slots[slot].actionItem != null) player.Equip(slots[slot].actionItem);
         else
         {
             player.EnableIK(false, false);
             player.item = null;
+            player.hitIndicator.gameObject.SetActive(false);
         }
         SetBigIcon(slots[slot].bigIcon, slots[slot].label);
     }

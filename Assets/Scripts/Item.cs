@@ -5,6 +5,7 @@ using UnityEngine.Events;
 [RequireComponent(typeof(Shine))]
 public class Item : MonoBehaviour
 {
+    public Rigidbody rb;
     protected Shine shine;
     [System.Serializable]
     public struct EquipInfo
@@ -27,16 +28,16 @@ public class Item : MonoBehaviour
     public Mob holder;
     // public bool holdable;
     public bool equipped;
-    public bool aim = false;
+    // public bool aim = false;
     // public bool isTool;
     public bool triggerHeld;
     public Transform holdTransform;
-    protected Transform holdTarget;
-    protected Transform holdTargetBase;
-    protected Transform aimPoint;
-    protected Transform aimTarget;
-    public float holdLerpSpeed;
-    public float aimLerpSpeed;
+    public Transform holdTarget;
+    // protected Transform holdTargetBase;
+    // protected Transform aimPoint;
+    public Transform aimTarget;
+    // public float holdLerpSpeed;
+    // public float aimLerpSpeed;
 
     [Header("Item Info")]
     // begin bunch of bullshit
@@ -63,15 +64,17 @@ public class Item : MonoBehaviour
     protected virtual void Awake()
     {
         shine = GetComponent<Shine>();
+        rb = GetComponent<Rigidbody>();
+        if (anim == null) anim = GetComponent<Animator>();
         if (holder != null)
         {
             holdTarget = holder.itemHoldTarget;
-            aimTarget = holder.itemAimTarget;
-            aimPoint = holder.itemAimPoint;
-            holdTargetBase = new GameObject().transform;
-            holdTargetBase.parent = holdTarget.parent;
-            holdTargetBase.position = holdTarget.position;
-            holdTargetBase.rotation = holdTarget.rotation;
+            // aimTarget = holder.itemAimTarget;
+            // aimPoint = holder.itemAimPoint;
+            // holdTargetBase = new GameObject().transform;
+            // holdTargetBase.parent = holdTarget.parent;
+            // holdTargetBase.position = holdTarget.position;
+            // holdTargetBase.rotation = holdTarget.rotation;
         }
         if (holdTransform == null) holdTransform = transform;
         if (hitIndicator == null && holder is Player && ((Player)holder).hitIndicator != null)
@@ -118,35 +121,35 @@ public class Item : MonoBehaviour
         }
     }
 
-    public virtual void Aim(bool aim)
-    {
-        this.aim = aim;
-        if (!aim)
-        {
-            holdTarget.rotation = holdTargetBase.rotation;
-            holdTarget.position = holdTargetBase.position;
-            // holdTarget.rotation = Quaternion.identity;
-        }
-    }
+    // public virtual void Aim(bool aim)
+    // {
+    //     this.aim = aim;
+    //     if (!aim)
+    //     {
+    //         // holdTarget.rotation = holdTargetBase.rotation;
+    //         // holdTarget.position = holdTargetBase.position;
+    //         // holdTarget.rotation = Quaternion.identity;
+    //     }
+    // }
 
-    public virtual void LateUpdate()
-    {
-        if (equipped)
-        {
-            if (aim)
-            {
-                aimPoint.position = Vector3.Lerp(aimPoint.position, aimTarget.position, aimLerpSpeed * Time.deltaTime);
-                aimPoint.rotation = Quaternion.Slerp(aimPoint.rotation, aimTarget.rotation, aimLerpSpeed * Time.deltaTime);
-                holdTransform.rotation = Quaternion.LookRotation(aimPoint.position - holdTransform.position, Vector3.up);
-            }
-            else
-            {
-                holdTransform.rotation = Quaternion.Slerp(holdTransform.rotation, holdTarget.rotation, holdLerpSpeed * Time.deltaTime);
-            }
-            holdTransform.position = Vector3.Lerp(holdTransform.position, holdTarget.position, holdLerpSpeed * Time.deltaTime);
-                // : Quaternion.Slerp(transform.rotation, holdTarget.rotation, holdLerpSpeed * Time.deltaTime);
-        }
-    }
+    // public virtual void LateUpdate()
+    // {
+    //     if (equipped)
+    //     {
+    //         if (aim)
+    //         {
+    //             aimPoint.position = Vector3.Lerp(aimPoint.position, aimTarget.position, aimLerpSpeed * Time.deltaTime);
+    //             aimPoint.rotation = Quaternion.Slerp(aimPoint.rotation, aimTarget.rotation, aimLerpSpeed * Time.deltaTime);
+    //             holdTransform.rotation = Quaternion.LookRotation(aimPoint.position - holdTransform.position, Vector3.up);
+    //         }
+    //         else
+    //         {
+    //             holdTransform.rotation = Quaternion.Slerp(holdTransform.rotation, holdTarget.rotation, holdLerpSpeed * Time.deltaTime);
+    //         }
+    //         holdTransform.position = Vector3.Lerp(holdTransform.position, holdTarget.position, holdLerpSpeed * Time.deltaTime);
+    //             // : Quaternion.Slerp(transform.rotation, holdTarget.rotation, holdLerpSpeed * Time.deltaTime);
+    //     }
+    // }
 
     public void GotPickedUp()
     {
@@ -177,35 +180,35 @@ public class Item : MonoBehaviour
         
     }
 
-    public virtual void Equip(bool equip)
-    {
-        if (!equip) 
-        { 
-            gameObject.SetActive(false); 
-            equipped = false;
-            if (hitIndicator != null) hitIndicator.gameObject.SetActive(false);
-            return;    
-        }
-        else gameObject.SetActive(true);
-        holder.item = equip ? this : null;
-        holder.EnableIK(equipInfo.rightHand, equipInfo.leftHand);
-        holder.SetIK();
-        holder.item = equip ? this : null;
-        if (hitIndicator != null)
-        {
-            hitIndicator.gameObject.SetActive(true);
-            hitIndicator.SetAmmo(0, 0);
-        }
-        equipped = equip;
-        if (anim != null && equipInfo.equipAnimation != "")
-        {
-            anim.Play(equipInfo.equipAnimation, -1, 0f);
-        }
-        if (holder.anim != null && equipInfo.equipAnimation != "")
-        {
-            holder.anim.Play(equipInfo.equipAnimation, -1, 0f);
-        }
-    }
+    // public virtual void Equip(bool equip)
+    // {
+    //     if (!equip) 
+    //     { 
+    //         gameObject.SetActive(false); 
+    //         equipped = false;
+    //         if (hitIndicator != null) hitIndicator.gameObject.SetActive(false);
+    //         return;    
+    //     }
+    //     else gameObject.SetActive(true);
+    //     holder.item = equip ? this : null;
+    //     holder.EnableIK(equipInfo.rightHand, equipInfo.leftHand);
+    //     holder.SetIK();
+    //     holder.item = equip ? this : null;
+    //     if (hitIndicator != null)
+    //     {
+    //         hitIndicator.gameObject.SetActive(true);
+    //         hitIndicator.SetAmmo(0, 0);
+    //     }
+    //     equipped = equip;
+    //     if (anim != null && equipInfo.equipAnimation != "")
+    //     {
+    //         anim.Play(equipInfo.equipAnimation, -1, 0f);
+    //     }
+    //     if (holder.anim != null && equipInfo.equipAnimation != "")
+    //     {
+    //         holder.anim.Play(equipInfo.equipAnimation, -1, 0f);
+    //     }
+    // }
 
 
     public virtual void OnPickup(Mob mob)

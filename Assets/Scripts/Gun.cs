@@ -23,7 +23,8 @@ public class Gun : Item
     public Charge charge = new Charge();
 
     [Header("Recoil Info")]
-    public Vector2 recoilPattern;
+    public Vector3 recoilOffset;
+    public float recoilForce;
     public float recoilLerpSpeed;
 
     [Header("Effects")]
@@ -58,6 +59,15 @@ public class Gun : Item
             return false;
         }
         return bulletChambered > 0;
+    }
+
+    public void AddRecoil()
+    {
+        Vector3 recoilAmount = (-firePoint.forward + recoilOffset).normalized * recoilForce;
+        if (rb != null)
+        {
+            rb.AddForceAtPosition(recoilAmount, firePoint.position, ForceMode.Impulse);
+        }
     }
 
     public override void SlapTrigger(bool isPressed)
@@ -145,6 +155,7 @@ public class Gun : Item
         {
             bulletChambered--;
             cooldownPending = true;
+            AddRecoil();
             // if (!aim) Aim(true);
             bool ch = charge.enabled;
             float t = charge.T;
@@ -210,20 +221,6 @@ public class Gun : Item
         }
     }
     public void ChamberRound() => ChamberRound(false);
-
-    public override void Equip(bool equip)
-    {
-        base.Equip(equip);
-        if (!equip)
-        {
-            cooldownPending = false;
-            return;
-        }
-        if (equip)
-        {
-            if (hitIndicator != null) hitIndicator.SetAmmo(ammoInMagazine + bulletChambered, magazineSize + 1);
-        }
-    }
 
     public void ChamberRound(bool anim8 = false)
     {
