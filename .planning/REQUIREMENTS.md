@@ -16,12 +16,12 @@
 
 ### Clock and Map
 
-- [ ] **CLOCK-01**: The world advances by an integer tick counter through a single `Step()`; no wall-clock or frame time appears in the core
-- [ ] **CLOCK-02**: The player can pause and pick from two or three speed steps; pause halts the tick and never resolves anything
-- [ ] **CLOCK-03**: Long-running activities (travel, repair, mission) are scheduled on a min-heap keyed by end tick with a deterministic tiebreak, and expose closed-form progress computed on read
-- [ ] **CLOCK-04**: Any observer attached or detached ("watching" vs unattended) produces the same state hash for the same command script
-- [ ] **MAP-01**: The map is a graph of Sites with routes carrying travel cost; each Site has a position and a presence number per faction
-- [ ] **MAP-02**: The player can read, for any Site, what can be done there (mission, harvest, contest) and which factions are present
+- [x] **CLOCK-01**: The world advances by an integer tick counter through a single `Step()`; no wall-clock or frame time appears in the core
+- [x] **CLOCK-02**: The player can pause and pick from two or three speed steps; pause halts the tick and never resolves anything
+- [x] **CLOCK-03**: Long-running activities (travel, repair, mission) are scheduled on a min-heap keyed by end tick with a deterministic tiebreak, and expose closed-form progress computed on read
+- [x] **CLOCK-04**: Any observer attached or detached ("watching" vs unattended) produces the same state hash for the same command script
+- [x] **MAP-01**: The map is a graph of Sites with routes carrying travel cost; each Site has a position and a presence number per faction
+- [x] **MAP-02**: The player can read, for any Site, what can be done there (mission, harvest, contest) and which factions are present
 
 ### Hangar and Base
 
@@ -39,7 +39,7 @@
 - [ ] **STAGE-02**: Staging shows the shuttle ETA and Fuel cost before commit, computed from distance, shuttle speed and cargo mass
 - [ ] **STAGE-03**: Launch is gated on readiness and the sim states every reason it cannot launch (pilot recovering, ammo short, mech under repair, no shuttle at base)
 - [ ] **STAGE-04**: Staging reserves the mech, pilot and shuttle; dispatch commits the reservation and withdraws the loadout from stockpiles
-- [ ] **SHUT-01**: A shuttle is a per-instance state machine (Idle, Loading, Outbound, Unloading, On-site, Returning) advanced by the tick
+- [x] **SHUT-01**: A shuttle is a per-instance state machine (Idle, Loading, Outbound, Unloading, On-site, Returning) advanced by the tick
 - [ ] **SHUT-02**: Any number of shuttles and missions can be in flight at once, and the hangar remains fully usable while they travel
 - [ ] **ALERT-01**: Mission arrival raises an alert offering take over, watch, or ignore; alerts queue without blocking and do not force a pause by default
 - [ ] **ALERT-02**: Repairs finishing, shuttles returning and stockpiles running low also raise alerts through the same feed
@@ -116,12 +116,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-02 | Phase 1 | Pending |
 | FOUND-03 | Phase 1 | Pending |
 | FOUND-04 | Phase 1 | Pending |
-| CLOCK-01 | Phase 1 | Pending |
-| CLOCK-02 | Phase 1 | Pending |
-| CLOCK-03 | Phase 1 | Pending |
-| CLOCK-04 | Phase 1 | Pending |
-| MAP-01 | Phase 1 | Pending |
-| MAP-02 | Phase 1 | Pending |
+| CLOCK-01 | Phase 1 | Complete |
+| CLOCK-02 | Phase 1 | Complete |
+| CLOCK-03 | Phase 1 | Complete |
+| CLOCK-04 | Phase 1 | Complete |
+| MAP-01 | Phase 1 | Complete |
+| MAP-02 | Phase 1 | Complete |
 | HANG-01 | Phase 2 | Pending |
 | HANG-02 | Phase 2 | Pending |
 | HANG-03 | Phase 2 | Pending |
@@ -133,7 +133,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAGE-02 | Phase 2 | Pending |
 | STAGE-03 | Phase 2 | Pending |
 | STAGE-04 | Phase 2 | Pending |
-| SHUT-01 | Phase 1 | Pending |
+| SHUT-01 | Phase 1 | Complete |
 | SHUT-02 | Phase 2 | Pending |
 | ALERT-01 | Phase 3 | Pending |
 | ALERT-02 | Phase 3 | Pending |
@@ -150,6 +150,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PORT-03 | Phase 4 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 36 total
 - Mapped to phases: 36
 - Unmapped: 0 ✓
