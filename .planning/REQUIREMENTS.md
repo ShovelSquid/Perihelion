@@ -9,10 +9,10 @@
 
 ### Foundation
 
-- [ ] **FOUND-01**: `Overview/` opens with a class-basis note that argues against both the vault's seven primaries and Helios's node-only ontology as the runtime class basis, proposes the five-class basis (`Def`, `Entity`, `Activity`, `Event`, `World`), and maps every `Design/` primary onto it in a table
-- [ ] **FOUND-02**: The roadmap records the decision to revive the deterministic sim primitives (`Fixed`, `DetRandom`, `Command`, `World.Step`, `StateHash`) from `main:Assets/Sim/` into a new namespaced core at port time, dropping the old squad/combat model
-- [ ] **FOUND-03**: Every `Overview/` note carries a `Derives from:` header pointing at its `Design/` source notes, and concepts with no vault note (Shuttle, Mission, Pilot, Worker, Hangar, Launch Site, Base, Alert) are collected in one `Overview/ProposedForDesign.md` for the user to fold into the vault
-- [ ] **FOUND-04**: `Overview/` never modifies `Design/`; pseudocode is written in a dialect one step from C# (typed records, named functions, explicit tick arguments) so the port is mechanical
+- [x] **FOUND-01**: `Overview/` opens with a class-basis note that argues against both the vault's seven primaries and Helios's node-only ontology as the runtime class basis, proposes the five-class basis (`Def`, `Entity`, `Activity`, `Event`, `World`), and maps every `Design/` primary onto it in a table
+- [x] **FOUND-02**: The roadmap records the decision to revive the deterministic sim primitives (`Fixed`, `DetRandom`, `Command`, `World.Step`, `StateHash`) from `main:Assets/Sim/` into a new namespaced core at port time, dropping the old squad/combat model
+- [x] **FOUND-03**: Every `Overview/` note carries a `Derives from:` header pointing at its `Design/` source notes, and concepts with no vault note (Shuttle, Mission, Pilot, Worker, Hangar, Launch Site, Base, Alert) are collected in one `Overview/ProposedForDesign.md` for the user to fold into the vault
+- [x] **FOUND-04**: `Overview/` never modifies `Design/`; pseudocode is written in a dialect one step from C# (typed records, named functions, explicit tick arguments) so the port is mechanical
 
 ### Clock and Map
 
@@ -112,10 +112,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
-| FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Complete |
+| FOUND-02 | Phase 1 | Complete |
+| FOUND-03 | Phase 1 | Complete |
+| FOUND-04 | Phase 1 | Complete |
 | CLOCK-01 | Phase 1 | Complete |
 | CLOCK-02 | Phase 1 | Complete |
 | CLOCK-03 | Phase 1 | Complete |

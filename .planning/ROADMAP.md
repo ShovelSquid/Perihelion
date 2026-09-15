@@ -44,14 +44,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. For any Site in the skeleton map a reader can list its position, its routes with travel cost, its per-faction presence numbers, and what can be done there (mission, harvest, contest).
   5. The World note states the watched-equals-unattended invariant (same command script, same state hash, observer attached or not), and PROJECT.md's Validated list no longer claims the headless proof exists on this branch, per decision D1.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 **UI hint**: no
 **Research**: Yes. Read `main:Assets/Sim/*` line by line to pick what D1 revives (`Fixed.DivRaw` via `decimal`, `MulRaw` saturation); short spike on tick size (250-500 ms) and event-density targets; decide whether `Design/` gets committed (it is untracked, check for personal data first).
 
 Plans:
 
 - [x] 01-01-PLAN.md — Paper skeleton tracer: World, integer clock, `(EndTick, Seq)` scheduler, Site graph, shuttle state machine, mission stub, host boundary, hand-walked script and event log (`50-World`, `30-Activities`, `40-Events`)
-- [ ] 01-02-PLAN.md — Class-basis argument and vault mapping table, `Overview/` conventions, `ProposedForDesign.md`, `Deferred.md`, PROJECT.md Validated list corrected per D1 / D-15
+- [x] 01-02-PLAN.md — Class-basis argument and vault mapping table, `Overview/` conventions, `ProposedForDesign.md`, `Deferred.md`, PROJECT.md Validated list corrected per D1 / D-15
 
 ### Phase 2: Hangar Depth and Staging
 
@@ -129,7 +129,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Paper Skeleton | 1/2 | In Progress|  |
+| 1. Foundation and Paper Skeleton | 2/2 | In Progress|  |
 | 2. Hangar Depth and Staging | 0/2 | Not started | - |
 | 3. Missions, Handoff and the Worked Loop | 0/3 | Not started | - |
 | 4. Headless Prototype Port | 0/2 | Not started | - |
