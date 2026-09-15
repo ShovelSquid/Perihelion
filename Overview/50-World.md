@@ -212,6 +212,10 @@ World:        Tick 0, Heap empty, Pending empty, Log empty, NextSeq 1, NextMissi
 ### Command script
 
 1. t=0: Dispatch(shuttle=S1, to=Site-B, missionTicks=60)
+2. t=15: Pause()                 (host-level; produces no core event)
+3. t=15: Resume(speed=4x)        (host-level; produces no core event)
+
+Line 1 is a `Command` and reaches the core through `Enqueue`. Lines 2 and 3 never do: they are calls on the host (`## Host (not core)`, at the end of this note) that change how often the host calls `Step`, and the core has no field, command or event for them (D-12). The narration and the log below therefore cover line 1 only, and are unchanged by lines 2 and 3.
 
 ### Narration
 
@@ -243,3 +247,85 @@ At no point does the heap hold more than one entry, and every number above is a 
 | 110 | MissionEnded | [M1, Site-B] |
 | 110 | ShuttleReturning | [S1, Site-B, Site-A] |
 | 140 | ShuttleIdle | [S1, Site-A] |
+
+### Real time against ticks
+
+The host runs the script at 1x, pauses at tick 15, then resumes at 4x. What the clock reads after each stretch of real time:
+
+| real ms elapsed | speed | Tick after |
+|-----------------|-------|------------|
+| 0 | 1x | 0 |
+| 7500 | 1x | 15 |
+| any length | pause | 15 |
+| 3125 | 4x | 40 |
+
+At 1x the host calls `Step` once per 500 ms, so 7500 ms is 15 calls and the clock reads 15. Line 2 stops the calls; however long the pause lasts, the clock still reads 15 and `Travel` Seq 2 sits in the heap with `EndTick 40`. Line 3 resumes at 4x: 3125 ms at four ticks per 500 ms is 25 calls, and the clock reads 40, the tick at which Seq 2 pops. The event log is unchanged by lines 2 and 3, which is why it shows no row between ticks 10 and 40: nothing in the core knows the pause happened, and a host that ran at 1x throughout, or never paused, produces the same eight rows.
+
+## Progress on read
+
+Nothing in flight is stepped. A reader, or a UI, asks where things stand by calling the two read functions from `30-Activities` with an explicit `now`. For the outbound `Travel` (Seq 2, `StartTick 10`, `EndTick 40`):
+
+| now | shuttle state | ProgressPercent | TicksRemaining |
+|-----|---------------|-----------------|----------------|
+| 10 | Outbound | 0 | 30 |
+| 15 | Outbound | 16 | 25 |
+| 39 | Outbound | 96 | 1 |
+| 40 | Outbound, pops this Step | 100 | 0 |
+
+At 39 the activity is still queued: the heap head is `(40, 2)` and 40 > 39. At 40 it is at the head with `EndTick <= Tick`, so it pops during that `Step` and the shuttle has left Outbound before the call returns. 16 and 96 are integer division truncating toward zero (`100 * 5 / 30`, `100 * 29 / 30`).
+
+```csharp
+record Where(SiteId? At, SiteId? From, SiteId? To, int? Progress);
+
+Where ShuttleWhere(World w, ShuttleId id, Tick now) {
+    Shuttle s = w.Shuttles[id];
+    if (s.Busy == null) return Where(At: s.At);                                   // Idle: at a Site
+    Activity a = w.Scheduler.Heap.Find(s.Busy);
+    if (a is Travel t) return Where(From: t.From, To: t.To, Progress: ProgressPercent(t, now));
+    return Where(At: s.At);                                                       // Load, Unload, Mission: at a Site
+}
+```
+
+`ShuttleWhere(w, S1, 15)` reads `(From: Site-A, To: Site-B, Progress: 16)`; `ShuttleWhere(w, S1, 45)` reads `(At: Site-B)`; `ShuttleWhere(w, S1, 140)` reads `(At: Site-A)` once that tick's `Step` has returned.
+
+Tiebreak (D-07): if two activities both end at tick 40, one with Seq 3 and one with Seq 4, the heap pops `(40, 3)` first and `(40, 4)` second, always. Their events land in the log in that order, and any activity either one schedules is numbered after both.
+
+## Invariant
+
+The rule this note exists to state: same command script, same state hash, observer attached or not.
+
+```csharp
+StateHash(World w)   // a fold over w.Log, in log order; the fold's algorithm is Phase 4 (D-13)
+```
+
+An observer is anything that reads `w` between calls to `Step` and issues no commands: a UI, a log printer, a debugger, a reader of this note. `Step` reads only `w`, and every read function above is a pure function of `w` and `now`, so attaching or removing an observer cannot change any event, and the hash of the log after tick N is the same number on both runs. When two runs of one script disagree, the first tick whose hashes differ is the tick the difference was introduced.
+
+## Host (not core)
+
+Everything above this heading is the core. This section is the host: the thing that owns a real clock and decides how often to call `Step`. The core has no field, no command and no read that mentions any of it.
+
+```csharp
+record Host(Speed Speed, int AccumulatorMs);
+enum Speed { Pause, X1, X4, X16 }
+
+SetSpeed(Host h, Speed s) {
+    h.Speed = s;              // Pause() in the script is SetSpeed(h, Pause); Resume(speed=4x) is SetSpeed(h, X4)
+}
+
+Advance(Host h, World w, int elapsedMs) {
+    if (h.Speed == Pause) return;
+    int multiplier = h.Speed == X1 ? 1 : h.Speed == X4 ? 4 : 16;
+    h.AccumulatorMs += elapsedMs * multiplier;
+    while (h.AccumulatorMs >= 500) {
+        Step(w);
+        h.AccumulatorMs -= 500;
+    }
+}
+```
+
+Speeds: pause, 1x, 4x, 16x. Rate: 500 ms of real time per tick at 1x; one tick = one in-world minute (D-05).
+
+Two rules, paraphrased from the deterministic core on `main`:
+
+1. Real time only decides WHEN to step, never WHAT a step computes. `elapsedMs` is an integer millisecond count supplied by whatever hosts the core (a game loop's frame delta, a test's constant, a server's timer); the core section above has no real-time input at all.
+2. Speed steps change only how often the host calls `Step`; the core never sees them. `X4` means four calls to `Step` per 500 ms of real time, not a bigger tick. `Pause` means zero calls: the accumulator keeps whatever it holds and the clock does not move.
