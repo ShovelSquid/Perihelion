@@ -73,7 +73,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 1]: `Design/` is untracked in git, so vault drift is invisible; decide whether to commit it (check for personal data first).
+- [Phase 1, resolved at planning per D-14]: `Design/` is tracked in git (35 files, commit `f216a38`); vault drift is visible through `git status`. The earlier "untracked" concern was stale.
 - [Phase 1]: Concepts with no vault note (Shuttle, Mission, Pilot, Worker, Hangar, Launch Site, Base, Alert) need `Overview/ProposedForDesign.md`; the user folds them into the vault on their side.
 - [Phase 3]: Mid-mission take-over state transfer and resolver shape are flagged for a spike before `60-Handoff.md` is written.
 - [Phase 4]: No .NET SDK installed on the dev machine (runtimes only); needed before the port.

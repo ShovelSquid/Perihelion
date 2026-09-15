@@ -45,8 +45,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Research**: Yes. Read `main:Assets/Sim/*` line by line to pick what D1 revives (`Fixed.DivRaw` via `decimal`, `MulRaw` saturation); short spike on tick size (250-500 ms) and event-density targets; decide whether `Design/` gets committed (it is untracked, check for personal data first).
 
 Plans:
-- [ ] 01-01: Class-basis note, `Overview/` conventions (headers, numbered layout, `ProposedForDesign.md`, `Deferred.md`), PROJECT.md Validated list corrected per D1
-- [ ] 01-02: World, clock, scheduler, map graph and shuttle state machine as a hand-walkable skeleton with a mission stub
+- [ ] 01-01-PLAN.md — Paper skeleton tracer: World, integer clock, `(EndTick, Seq)` scheduler, Site graph, shuttle state machine, mission stub, host boundary, hand-walked script and event log (`50-World`, `30-Activities`, `40-Events`)
+- [ ] 01-02-PLAN.md — Class-basis argument and vault mapping table, `Overview/` conventions, `ProposedForDesign.md`, `Deferred.md`, PROJECT.md Validated list corrected per D1 / D-15
 
 ### Phase 2: Hangar Depth and Staging
 **Goal**: The base half of the loop is fully specified: mechs as parts with per-part condition, four stockpiles with every consumer named, a repair queue worked by mechanics by priority, pilot availability, a roster, and mission staging that prices, reserves and gates a launch while any number of shuttles are out.
