@@ -21,7 +21,7 @@ A single coherent simulation loop, map to hangar to shuttle to mission to conseq
 - ✓ Pooled projectiles with swept hit detection, damage and hit physics on `Object` entities — existing (`Assets/Scripts/BulletManager.cs`)
 - ✓ Damageable entity spine `Object -> Mob -> Player`, buildings with damage states, inventory with drop-on-death — existing (`Assets/Objects/`)
 - ✓ Hotwheel item UI, health bars, hit indicator, Ink-driven dialogue barks — existing (`Assets/UI/`, `Assets/Scripts/Dialogue*.cs`)
-- ✓ Deterministic headless proof of the Σ_rep opinion-field math (Helios) — existing (`Tools/SimHeadless/`)
+- ✓ Deterministic sim core (`Fixed` Q32.32, `DetRandom`, `Command`, `World.Step`, `StateHash`, `SimRunner`) and its Σ_rep headless proof — existing on `main` only; deleted from this branch in commit `3486b58`, so `Tools/SimHeadless/` no longer builds here (research finding, needs a step-0 decision)
 - ✓ Design vault covering Component, Resource, Structure, Character, Faction, Species, Map — existing (`Design/`)
 
 ### Active
