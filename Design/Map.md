@@ -1,0 +1,1 @@
+A collection of resources, components, structures, and where they are in space, as well as their trajectories.

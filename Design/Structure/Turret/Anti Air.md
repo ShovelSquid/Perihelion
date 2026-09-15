@@ -1,0 +1,1 @@
+A type of turret which targets air units and transports and shoots them down.

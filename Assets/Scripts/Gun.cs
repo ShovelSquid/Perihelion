@@ -206,6 +206,7 @@ public class Gun : Item
     public override void Update()
     {
         base.Update();
+        Debug.DrawRay(firePoint.position, firePoint.forward * 655f, Color.red);
         if (charge.enabled && equipped && triggerHeld)
         {
             // if (!charge.charging && CanCharge()) charge.Begin();

@@ -1,0 +1,272 @@
+{
+  "main": {
+    "id": "87da8188cc75d363",
+    "type": "split",
+    "children": [
+      {
+        "id": "d8d35f887afa3c51",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "51903fb7e7760b78",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Structures/Turret.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Turret"
+            }
+          },
+          {
+            "id": "acca8688675ef37b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Structures/Depot.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Depot"
+            }
+          },
+          {
+            "id": "60daa1544a49763a",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Design/Structure/Sensor/Sensor.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Sensor"
+            }
+          },
+          {
+            "id": "7321270b66d1c07a",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Design/Design.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Design"
+            }
+          }
+        ],
+        "currentTab": 3
+      },
+      {
+        "id": "46bef9b094b423f3",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f9682a2394d82d0b",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "1915d4a9e66d7b27",
+    "type": "split",
+    "children": [
+      {
+        "id": "1bfcfe57b684166c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c18b29f41b03b2a9",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "46de9e06a0d68c7b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "acd0c905ce96023c",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "8b739427bb9e22c6",
+    "type": "split",
+    "children": [
+      {
+        "id": "a893c410f4719c67",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "829213df207816b8",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Structures/Transport.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Transport"
+            }
+          },
+          {
+            "id": "dc9535e5ad5a43cd",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Structures/Transport.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Transport"
+            }
+          },
+          {
+            "id": "0da873bdfd5b37dc",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "2c4d87a0cf355835",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Structures/Transport.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Transport"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "f9682a2394d82d0b",
+  "lastOpenFiles": [
+    "Library/PackageCache/com.unity.2d.animation@011d329ac58b/Documentation~/TableOfContents.md",
+    "Design/Design.md",
+    "Overview/Usage.md",
+    "Overview",
+    "Design/Structure/Turret/Artillery.md",
+    "Design/Structure/Turret/Turret.md",
+    "Design/Structure/Turret/Anti Air.md",
+    "Design/Structure/Unit/Droid.md",
+    "Design/Structure/Unit/Unit.md",
+    "Design/Structure/Unit/Drone.md",
+    "Design/Structure/Unit/Mech.md",
+    "Design/Structure/Unit/Transport/Shuttle.md",
+    "Design/Structure/Unit/Transport/Transport.md",
+    "Design/Structure/Control.md",
+    "Design/Structure/Depot.md",
+    "Design/Structure/Unit",
+    "Design/Structure/Structure.md",
+    "Design/Structure/Turret",
+    "Design/Structure/Sensor/Scrambler.md",
+    "Design/Structure/Sensor/Sensor.md",
+    "Design/Structure/Sensor",
+    "Untitled/Untitled.md",
+    "Design/Component/Component.md",
+    "Design",
+    "Design/Faction.md",
+    "Design/Map.md",
+    "Design/Character/Character.md",
+    "Pilot.md",
+    "Design/Character",
+    "Design/Resource/Cells.md",
+    "Design/Resource/Food.md",
+    "Design/Resource/Fuel.md",
+    "Design/Resource/Ammo",
+    "Design/Resource",
+    "Design/Component",
+    "Design/Species"
+  ]
+}

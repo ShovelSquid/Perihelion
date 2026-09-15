@@ -7,7 +7,9 @@ public class AimItem : MonoBehaviour
     public Transform HandRIKTarget;
     public Item item;
     public bool aiming;
-    public float aimForce = 10f;
+    public float aimForceFar = 600f;
+    public float aimForceNear = 100f;
+    public float maxDistance = 5f;
     public float aimForceRotation = 10f;
     public float aimDamp = 1f;
 
@@ -19,6 +21,20 @@ public class AimItem : MonoBehaviour
     public void StopAiming()
     {
         aiming = false;
+    }
+
+    void ClampToTarget(Vector3 pos)
+    {
+        Vector3 offset = rb.position - pos;
+        float dist = offset.magnitude;
+        if (dist <= maxDistance) return;
+        Vector3 dir = offset / dist;
+        rb.position = pos + dir * maxDistance;
+        float outwaredVelocity = Vector3.Dot(rb.linearVelocity, dir);
+        if (outwaredVelocity > 0f)
+        {
+            rb.linearVelocity -= dir * outwaredVelocity;
+        }
     }
 
     Vector3 TorqueTowards(Quaternion targetRot)
@@ -43,16 +59,19 @@ public class AimItem : MonoBehaviour
     public void FixedUpdate()
     {
         // add force to rigidbody towards aimtarget or holdtarget
+        float aimForce = (item.aimTarget.position - item.transform.position).magnitude > maxDistance ? aimForceFar : aimForceNear;
         float c = 2f * aimDamp * Mathf.Sqrt(aimForce);
         if (aiming)
         {
             rb.AddForce((item.aimTarget.position - item.transform.position)*aimForce- (c * rb.linearVelocity));
             rb.AddTorque(TorqueTowards(item.aimTarget.rotation));
+            ClampToTarget(item.aimTarget.position);
         }
         else
         {
             rb.AddForce((item.holdTarget.position - item.transform.position) * aimForce - (c * rb.linearVelocity));
             rb.AddTorque(TorqueTowards(item.holdTarget.rotation));
+            ClampToTarget(item.holdTarget.position);
         }
 
         if (item.equipInfo.leftHand)
@@ -65,6 +84,6 @@ public class AimItem : MonoBehaviour
             HandRIKTarget.position = item.handR.position;
             HandRIKTarget.rotation = item.handR.rotation;
         }
-
+        
     }
 }

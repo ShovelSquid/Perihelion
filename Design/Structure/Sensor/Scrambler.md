@@ -1,0 +1,1 @@
+A type of sensor that prevents communication between units and sensors when within this radius.
