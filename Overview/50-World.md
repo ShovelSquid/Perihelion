@@ -182,6 +182,23 @@ Reject(World w, Command c, RejectReason r) {
 }
 ```
 
+### Rejection
+
+Every way a `Dispatch` can be refused is an event with a reason. The checks run in the order of the table, and the first failing one wins:
+
+| condition | RejectReason |
+|-----------|--------------|
+| `c.Shuttle` is not a key of `w.Shuttles` | UnknownShuttle |
+| `c.To` is not a key of `w.Sites` | UnknownSite |
+| the shuttle's `State` is not `Idle` | ShuttleBusy |
+| `RouteCost(w, shuttle.At, c.To)` is null | NoRoute |
+
+Each rejection emits `CommandRejected` at the current tick with ids `[command Seq, shuttle, destination]` and the reason, and schedules nothing: no activity is pushed and no field of the shuttle or the map changes. Three examples, each a single extra command against the seeded World and outside the three-line script in `## Hand-walk`, which stays as written:
+
+- `Dispatch(shuttle=S1, to=Site-A, missionTicks=60)` issued at t=20, while S1 is Outbound from the script's line 1: `| 20 | CommandRejected | [C2, S1, Site-A] ShuttleBusy |`. S1 keeps flying; the log's other rows are unchanged.
+- `Dispatch(shuttle=S1, to=Site-Z, missionTicks=60)` as the only line of a script: `| 0 | CommandRejected | [C1, S1, Site-Z] UnknownSite |`. No such Site is seeded, so the check fails before the shuttle's state is even read.
+- `Dispatch(shuttle=S1, to=Site-B, missionTicks=60)` with S1 parked at a Site whose `Routes` list is empty (an island): `| 0 | CommandRejected | [C1, S1, Site-B] NoRoute |`. The destination exists and the shuttle is Idle, but there is no edge to follow.
+
 ## Map
 
 ```csharp
@@ -206,6 +223,52 @@ ShuttleDefs:  Lifter  LoadTicks 10, UnloadTicks 10
 Shuttles:     S1  Def Lifter, At Site-A, State Idle, Busy null, Trip null
 World:        Tick 0, Heap empty, Pending empty, Log empty, NextSeq 1, NextMissionId M1
 ```
+
+## Reading a Site
+
+[[Map]] is "a collection of resources, components, structures, and where they are in space, as well as their trajectories." [[Faction]] is "a collection of units, characters, components, and structures that have their own agenda." Of the first the skeleton keeps the Sites and the routes between them; of the second, a name and a presence number per Site. Three read functions answer what a reader can ask of a Site:
+
+```csharp
+enum SiteAction { Mission, Harvest, Contest }   // tags stored on the Site, never derived from presence (D-09)
+
+List<SiteAction> ActionsAt(World w, SiteId id) {
+    return w.Sites[id].Actions;
+}
+
+List<FactionId> FactionsPresent(World w, SiteId id) {
+    // every faction whose presence is above 0, ascending FactionId
+    List<FactionId> present = [];
+    foreach ((FactionId f, int p) in w.Sites[id].Presence) {
+        if (p > 0) present.Add(f);
+    }
+    return present sorted ascending by FactionId;
+}
+
+List<Route> RoutesFrom(World w, SiteId id) {
+    return w.Sites[id].Routes sorted ascending by To;   // ascending destination SiteId
+}
+```
+
+The read-out for both seeded Sites:
+
+| Site | Pos | routes (to: cost) | presence | factions present | actions |
+|------|-----|-------------------|----------|------------------|---------|
+| Site-A | (0, 0) | Site-B: 30 | F1 100, F2 0 | [F1] | [] |
+| Site-B | (6, 4) | Site-A: 30 | F1 20, F2 60 | [F1, F2] | [Mission] |
+
+F2 has a presence entry at Site-A but reads 0, so it is absent there; `Actions` at Site-A is empty because the base offers nothing to do in Phase 1.
+
+## Map rules
+
+1. Presence is an integer 0..100 inclusive; 0 means absent. Any write clamps into that range. No Phase 1 command writes presence; Phase 3 does.
+2. Route cost is an integer of at least 1 tick.
+3. `Routes` holds at most one entry per destination, and never the Site itself: a route from a Site to itself is not allowed.
+4. Two Sites may share the same `Pos` without merging. Identity is `SiteId`; `Pos` is display-only and is never used in core arithmetic.
+5. A Site with an empty `Routes` list is legal (an island). `Dispatch` from it to anywhere emits `CommandRejected` with `NoRoute` and schedules nothing.
+6. A Site with an empty `Presence` dictionary has no factions present; `FactionsPresent` returns `[]`.
+7. Nothing in the map rounds: route cost, presence and `Pos` are integers, and `Pos` never enters arithmetic.
+
+Ordering (D-07): `Routes` are listed by ascending destination `SiteId`; `FactionsPresent` returns ascending `FactionId`; activities with equal `EndTick` pop by ascending `Seq`.
 
 ## Hand-walk: one shuttle, one site
 

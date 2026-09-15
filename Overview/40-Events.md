@@ -48,6 +48,22 @@ Emit(World w, Event e) {
 - `e.Tick` is always `w.Tick` at the moment of `Emit`. An event never carries a tick other than the one it fired on.
 - `StateHash(World w)` is a fold over this log, in this order; the fold's algorithm is Phase 4 (D-13).
 
+## Ids carried per kind
+
+What the `fields` column of a log row holds for each kind, in order. `CommandRejected` is the only kind whose `Reason` is non-null.
+
+| event | ids carried | reason |
+|-------|-------------|--------|
+| ShuttleLoading | [shuttle, site it loads at] | null |
+| ShuttleOutbound | [shuttle, from, to] | null |
+| ShuttleUnloading | [shuttle, site it arrived at] | null |
+| ShuttleOnSite | [shuttle, site] | null |
+| ShuttleReturning | [shuttle, from, to] | null |
+| ShuttleIdle | [shuttle, home site] | null |
+| MissionStarted | [mission, site, shuttle] | null |
+| MissionEnded | [mission, site] | null |
+| CommandRejected | [command seq, shuttle, destination] | NoRoute, ShuttleBusy, UnknownSite or UnknownShuttle |
+
 ## Log table format
 
 Every expected event log in `Overview/` is a three-column table:
