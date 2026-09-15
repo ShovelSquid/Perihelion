@@ -1,0 +1,1 @@
+{"content":"Verify.Xunit 31.12.5 is deprecated (legacy). Use Verify.XunitV3 33.0.1 (Sep 13 2026), depends on xunit.v3.extensibility.core >= 4.0.1. Snapshot .verified files ideal for golden-master event logs.","source":"web","provider":"webfetch","confidence":"MEDIUM","fetched_at":"2026-09-15T05:10:35.328Z","ttl":86400000,"kind":"web"}
