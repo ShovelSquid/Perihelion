@@ -1,6 +1,6 @@
 # 30 - Activities
 
-Derives from: [[Shuttle]], [[Transport]], [[Unit]] (Mission: none, proposed)
+Derives from: [[Unit]], [[Transport]], [[Shuttle]] (Mission: none, proposed)
 Status: draft
 Phase: 01
 
