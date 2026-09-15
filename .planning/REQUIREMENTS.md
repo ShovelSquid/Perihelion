@@ -112,48 +112,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | — | Pending |
-| FOUND-02 | — | Pending |
-| FOUND-03 | — | Pending |
-| FOUND-04 | — | Pending |
-| CLOCK-01 | — | Pending |
-| CLOCK-02 | — | Pending |
-| CLOCK-03 | — | Pending |
-| CLOCK-04 | — | Pending |
-| MAP-01 | — | Pending |
-| MAP-02 | — | Pending |
-| HANG-01 | — | Pending |
-| HANG-02 | — | Pending |
-| HANG-03 | — | Pending |
-| HANG-04 | — | Pending |
-| HANG-05 | — | Pending |
-| HANG-06 | — | Pending |
-| PILOT-01 | — | Pending |
-| STAGE-01 | — | Pending |
-| STAGE-02 | — | Pending |
-| STAGE-03 | — | Pending |
-| STAGE-04 | — | Pending |
-| SHUT-01 | — | Pending |
-| SHUT-02 | — | Pending |
-| ALERT-01 | — | Pending |
-| ALERT-02 | — | Pending |
-| MISS-01 | — | Pending |
-| MISS-02 | — | Pending |
-| HAND-01 | — | Pending |
-| HAND-02 | — | Pending |
-| HAND-03 | — | Pending |
-| CONS-01 | — | Pending |
-| LOOP-01 | — | Pending |
-| LOOP-02 | — | Pending |
-| PORT-01 | — | Pending |
-| PORT-02 | — | Pending |
-| PORT-03 | — | Pending |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Pending |
+| CLOCK-01 | Phase 1 | Pending |
+| CLOCK-02 | Phase 1 | Pending |
+| CLOCK-03 | Phase 1 | Pending |
+| CLOCK-04 | Phase 1 | Pending |
+| MAP-01 | Phase 1 | Pending |
+| MAP-02 | Phase 1 | Pending |
+| HANG-01 | Phase 2 | Pending |
+| HANG-02 | Phase 2 | Pending |
+| HANG-03 | Phase 2 | Pending |
+| HANG-04 | Phase 2 | Pending |
+| HANG-05 | Phase 2 | Pending |
+| HANG-06 | Phase 2 | Pending |
+| PILOT-01 | Phase 2 | Pending |
+| STAGE-01 | Phase 2 | Pending |
+| STAGE-02 | Phase 2 | Pending |
+| STAGE-03 | Phase 2 | Pending |
+| STAGE-04 | Phase 2 | Pending |
+| SHUT-01 | Phase 1 | Pending |
+| SHUT-02 | Phase 2 | Pending |
+| ALERT-01 | Phase 3 | Pending |
+| ALERT-02 | Phase 3 | Pending |
+| MISS-01 | Phase 3 | Pending |
+| MISS-02 | Phase 3 | Pending |
+| HAND-01 | Phase 3 | Pending |
+| HAND-02 | Phase 3 | Pending |
+| HAND-03 | Phase 3 | Pending |
+| CONS-01 | Phase 3 | Pending |
+| LOOP-01 | Phase 3 | Pending |
+| LOOP-02 | Phase 3 | Pending |
+| PORT-01 | Phase 4 | Pending |
+| PORT-02 | Phase 4 | Pending |
+| PORT-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 36 total
-- Mapped to phases: 0
-- Unmapped: 36 ⚠️
+- Mapped to phases: 36
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-09-14*
-*Last updated: 2026-09-14 after initial definition*
+*Last updated: 2026-09-14 after roadmap creation (traceability mapped)*
