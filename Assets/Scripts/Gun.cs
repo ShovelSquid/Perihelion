@@ -23,9 +23,11 @@ public class Gun : Item
     public Charge charge = new Charge();
 
     [Header("Recoil Info")]
-    public Vector3 recoilOffset;
-    public float recoilForce;
+    public Vector3 recoilOffset; // muzzle-local tilt added to the straight-back kick direction; every serialized value is zero today
+    public float recoilForce; // overall kick strength; scales kickback and rise
     public float recoilLerpSpeed;
+    public float recoilKickback = 0.4f; // m/s of kickback velocity per unit of recoilForce, fed to the hand's recoil spring
+    public Vector3 recoilRise = new Vector3(-60f, 0f, 0f); // deg/s of muzzle-local angular kick per unit of recoilForce; negative x lifts the muzzle
 
     [Header("Effects")]
     public ParticleSystem muzzleFlash;
@@ -68,10 +70,17 @@ public class Gun : Item
 
     public void AddRecoil()
     {
-        Vector3 recoilAmount = (-firePoint.forward + recoilOffset).normalized * recoilForce;
-        if (rb != null)
+        Transform m = Muzzle;
+        Vector3 kickDir = (Vector3.back + recoilOffset).normalized;
+        // Held: the gun is kinematic, so kick the hand's recoil spring instead of the body.
+        Vector3 linearKick = kickDir * (recoilForce * recoilKickback);
+        Vector3 angularKick = recoilRise * recoilForce;
+        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, angularKick)) return;
+        // Loose dynamic gun: keep the physics impulse (same as the old formula with a zero recoilOffset).
+        // A kinematic unheld gun gets no recoil.
+        if (rb != null && !rb.isKinematic)
         {
-            rb.AddForceAtPosition(recoilAmount, firePoint.position, ForceMode.Impulse);
+            rb.AddForceAtPosition((m.rotation * kickDir) * recoilForce, m.position, ForceMode.Impulse);
         }
     }
 

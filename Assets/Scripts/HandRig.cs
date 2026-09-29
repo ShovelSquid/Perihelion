@@ -27,6 +27,10 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Rigidbody body; // the placed item's body, held kinematic while in this hand
         [System.NonSerialized] public bool savedKinematic; // body.isKinematic from before it was held, restored on release
         [System.NonSerialized] public RigidbodyInterpolation savedInterpolation; // body.interpolation from before it was held, restored on release
+        [System.NonSerialized] public Vector3 recoilPos; // meters, muzzle-local recoil offset
+        [System.NonSerialized] public Vector3 recoilPosVelocity; // m/s, muzzle-local
+        [System.NonSerialized] public Vector3 recoilRot; // degrees, muzzle-local Euler recoil offset
+        [System.NonSerialized] public Vector3 recoilRotVelocity; // deg/s, muzzle-local
     }
 
     [Header("Hands")]
@@ -40,6 +44,11 @@ public class HandRig : MonoBehaviour
     [Range(1, 4)] public int aimIterations = 2; // correction passes; the muzzle is offset from the pivot, so one pass undershoots
     public float maxAimCorrectionAngle = 60f; // degrees; caps the correction so aim points behind or far off-axis can't spin the item
     public float minAimDistance = 0.5f; // meters beyond the muzzle's reach from the socket; closer aim points are pushed out to this
+    [Header("Recoil")]
+    public float recoilFrequency = 8f; // Hz; the spring's natural frequency; higher snaps back faster
+    [Range(0f, 2f)] public float recoilDampingRatio = 0.6f; // 1 = critically damped; below 1 overshoots slightly
+    public float maxRecoilDistance = 0.2f; // meters; clamps stacked kicks from automatic fire
+    public float maxRecoilAngle = 25f; // degrees; same clamp for rotation
 
     float aimWeight;
 
@@ -126,11 +135,16 @@ public class HandRig : MonoBehaviour
             other.places = false;
         }
 
+        // Inspector-authored holds skip Mob.Equip, and Gun needs its holder to find this rig for recoil.
+        // Setting it before activation lets Item.Awake bind the Player hit indicator on first activation.
+        if (item.holder == null) item.holder = GetComponent<Mob>();
+
         // Activate first so Item.Awake has run and item.rb is filled.
         item.gameObject.SetActive(true);
         item.equipped = true;
         Rigidbody body = item.rb != null ? item.rb : item.GetComponent<Rigidbody>();
         if (body != null) HoldBody(slot, body);
+        ResetRecoil(slot);
 
         if (TryGetHoldPose(side, item, out Vector3 pos, out Quaternion rot))
         {
@@ -214,8 +228,64 @@ public class HandRig : MonoBehaviour
         if (slot.item != item) return;
         // Restore physics before the item is hidden or re-held by the other hand.
         if (slot.places) ReleaseBody(slot);
+        ResetRecoil(slot);
         slot.item = null;
         slot.places = false;
+    }
+
+    void ResetRecoil(HandSlot slot)
+    {
+        slot.recoilPos = Vector3.zero;
+        slot.recoilPosVelocity = Vector3.zero;
+        slot.recoilRot = Vector3.zero;
+        slot.recoilRotVelocity = Vector3.zero;
+    }
+
+    // Kicks the recoil spring of the slot placing this item. Velocities are in the muzzle's local
+    // frame, so back is -z and muzzle rise is negative x (m/s and deg/s).
+    // Returns false when this rig isn't placing the item.
+    public bool Kick(Item item, Vector3 linearKick, Vector3 angularKick)
+    {
+        if (item == null) return false;
+        HandSlot slot = null;
+        if (right.item == item && right.places) slot = right;
+        else if (left.item == item && left.places) slot = left;
+        if (slot == null) return false;
+        slot.recoilPosVelocity += linearKick;
+        slot.recoilRotVelocity += angularKick;
+        return true;
+    }
+
+    void StepRecoil(HandSlot slot, float dt)
+    {
+        if (dt <= 0f) return;
+        float omega = 2f * Mathf.PI * Mathf.Max(recoilFrequency, 0.01f);
+        float k = omega * omega;
+        float c = 2f * recoilDampingRatio * omega;
+        // Substeps keep a stiff spring stable at low framerates.
+        int n = Mathf.Max(1, Mathf.CeilToInt(dt * 120f));
+        float h = dt / n;
+        for (int i = 0; i < n; i++)
+        {
+            slot.recoilPosVelocity += (-k * slot.recoilPos - c * slot.recoilPosVelocity) * h;
+            slot.recoilPos += slot.recoilPosVelocity * h;
+            slot.recoilRotVelocity += (-k * slot.recoilRot - c * slot.recoilRotVelocity) * h;
+            slot.recoilRot += slot.recoilRotVelocity * h;
+        }
+        slot.recoilPos = Vector3.ClampMagnitude(slot.recoilPos, maxRecoilDistance);
+        slot.recoilRot = Vector3.ClampMagnitude(slot.recoilRot, maxRecoilAngle);
+    }
+
+    void ApplyRecoil(HandSlot slot, Vector3 pivot, Quaternion muzzleRotLocal, ref Vector3 pos, ref Quaternion rot)
+    {
+        if (slot.recoilPos.sqrMagnitude < 1e-10f && slot.recoilRot.sqrMagnitude < 1e-10f) return;
+        // Rotation offset expressed in muzzle space, applied about the socket so the muzzle rises around the hand.
+        Quaternion muzzleRot = rot * muzzleRotLocal;
+        Quaternion d = muzzleRot * Quaternion.Euler(slot.recoilRot) * Quaternion.Inverse(muzzleRot);
+        rot = d * rot;
+        pos = pivot + d * (pos - pivot);
+        // Kickback runs along the rotated barrel; the grip leaves the socket, so the arm IK visibly absorbs it.
+        pos += (rot * muzzleRotLocal) * slot.recoilPos;
     }
 
     bool TryGetHoldPose(HandSide side, Item item, out Vector3 pos, out Quaternion rot)
@@ -261,6 +331,9 @@ public class HandRig : MonoBehaviour
         Vector3 pos = basePos;
         Quaternion rot = baseRot;
         ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, ref pos, ref rot);
+        // Recoil goes on top of the aimed pose, so the item springs back onto the aim point.
+        StepRecoil(slot, Time.deltaTime);
+        ApplyRecoil(slot, pivot, muzzleRotLocal, ref pos, ref rot);
 
         // Written directly: MovePosition/MoveRotation would only apply at the next physics step.
         itemT.SetPositionAndRotation(pos, rot);
