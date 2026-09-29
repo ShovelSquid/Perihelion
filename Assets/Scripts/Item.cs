@@ -35,7 +35,6 @@ public class Item : MonoBehaviour
     public Transform holdTransform;
     // protected Transform holdTargetBase;
     // protected Transform aimPoint;
-    public Transform aimTarget;
     // public float holdLerpSpeed;
     // public float aimLerpSpeed;
 
@@ -107,6 +106,13 @@ public class Item : MonoBehaviour
     {
         if (side == HandSide.Left) return handL != null ? handL : handR;
         return handR != null ? handR : handL;
+    }
+
+    // The point and forward the item aims with. HandRig turns the item so this forward hits its
+    // aim point; guns override it with their fire point.
+    public virtual Transform Muzzle
+    {
+        get { return transform; }
     }
 
     public virtual bool CanTrigger()

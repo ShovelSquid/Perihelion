@@ -9,8 +9,11 @@ public enum HandSide
     Left
 }
 
-// Owns both hands: which item each hand holds, where that item rests (from the hand's
-// animated socket), and the TwoBoneIK targets. This is the only script that writes IK targets.
+// Owns both hands: which item each hand holds, that item's pose (hand socket, then muzzle aim
+// correction, then recoil spring), and the TwoBoneIK targets. This is the only script that writes IK targets.
+// Runs after the default-order scripts so it reads the aim point AimInput moved this frame and any
+// recoil fired this frame. The Animator and rig still evaluate after every Update regardless of order.
+[DefaultExecutionOrder(100)]
 public class HandRig : MonoBehaviour
 {
     [System.Serializable]
@@ -19,16 +22,26 @@ public class HandRig : MonoBehaviour
         public Transform socket; // pure animated, pre-IK hand pose; only read here, whatever writes it (rig constraint today, ghost/pose armature later)
         public Transform ikTarget; // this hand's TwoBoneIK target; only HandRig writes it
         public Rig ikRig; // weight 1 while this hand grips, 0 otherwise
-        public AimItem driver; // physics driver used when this hand places an item
         public Item item; // equipped item, or null
         [System.NonSerialized] public bool places; // true when this slot's socket positions the item
+        [System.NonSerialized] public Rigidbody body; // the placed item's body, held kinematic while in this hand
+        [System.NonSerialized] public bool savedKinematic; // body.isKinematic from before it was held, restored on release
+        [System.NonSerialized] public RigidbodyInterpolation savedInterpolation; // body.interpolation from before it was held, restored on release
     }
 
     [Header("Hands")]
     public HandSlot right = new HandSlot();
     public HandSlot left = new HandSlot();
     [Header("Aim")]
-    public bool aiming; // while true, placed items are driven to their own aimTarget
+    public bool aiming; // while true, the aim weight blends toward 1
+    public Transform aimPoint; // shared point AimInput moves; placed items turn their muzzle toward it
+    [Range(0f, 1f)] public float idleAimWeight = 0f; // correction applied when not aiming (0 = pure animation)
+    public float aimBlendSharpness = 10f; // per second; higher blends faster; framerate independent
+    [Range(1, 4)] public int aimIterations = 2; // correction passes; the muzzle is offset from the pivot, so one pass undershoots
+    public float maxAimCorrectionAngle = 60f; // degrees; caps the correction so aim points behind or far off-axis can't spin the item
+    public float minAimDistance = 0.5f; // meters beyond the muzzle's reach from the socket; closer aim points are pushed out to this
+
+    float aimWeight;
 
     public bool IsEmpty
     {
@@ -37,13 +50,8 @@ public class HandRig : MonoBehaviour
 
     void Awake()
     {
-        if (right.driver == null) right.driver = GetComponent<AimItem>();
-        if (right.driver == null) right.driver = gameObject.AddComponent<AimItem>();
-        if (left.driver == null || left.driver == right.driver)
-        {
-            left.driver = gameObject.AddComponent<AimItem>();
-            left.driver.CopyTuning(right.driver);
-        }
+        // Start at the resting weight so there is no blend-in on the first frame.
+        aimWeight = idleAimWeight;
     }
 
     void Start()
@@ -122,6 +130,7 @@ public class HandRig : MonoBehaviour
         item.gameObject.SetActive(true);
         item.equipped = true;
         Rigidbody body = item.rb != null ? item.rb : item.GetComponent<Rigidbody>();
+        if (body != null) HoldBody(slot, body);
 
         if (TryGetHoldPose(side, item, out Vector3 pos, out Quaternion rot))
         {
@@ -129,11 +138,6 @@ public class HandRig : MonoBehaviour
             {
                 body.position = pos;
                 body.rotation = rot;
-                if (!body.isKinematic)
-                {
-                    body.linearVelocity = Vector3.zero;
-                    body.angularVelocity = Vector3.zero;
-                }
             }
             item.transform.SetPositionAndRotation(pos, rot);
         }
@@ -145,8 +149,34 @@ public class HandRig : MonoBehaviour
         WarnIfGripNotChild(item, item.GripFor(side));
         if (twoHanded) WarnIfGripNotChild(item, item.GripFor(otherSide));
 
-        if (slot.driver != null) slot.driver.Attach(body);
         return true;
+    }
+
+    void HoldBody(HandSlot slot, Rigidbody body)
+    {
+        slot.body = body;
+        slot.savedKinematic = body.isKinematic;
+        slot.savedInterpolation = body.interpolation;
+        // Zero velocities while still dynamic: Unity 6 warns when velocity is set on a kinematic body.
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        body.isKinematic = true;
+        // HandRig writes the transform every frame; interpolation would blend it back toward stale physics poses.
+        body.interpolation = RigidbodyInterpolation.None;
+    }
+
+    void ReleaseBody(HandSlot slot)
+    {
+        // Unity null check: the item may have been destroyed while held.
+        if (slot.body != null)
+        {
+            slot.body.isKinematic = slot.savedKinematic;
+            slot.body.interpolation = slot.savedInterpolation;
+        }
+        slot.body = null;
     }
 
     void WarnIfGripNotChild(Item item, Transform grip)
@@ -182,7 +212,8 @@ public class HandRig : MonoBehaviour
     void ReleaseSlot(HandSlot slot, Item item)
     {
         if (slot.item != item) return;
-        if (slot.places && slot.driver != null) slot.driver.Detach();
+        // Restore physics before the item is hidden or re-held by the other hand.
+        if (slot.places) ReleaseBody(slot);
         slot.item = null;
         slot.places = false;
     }
@@ -210,31 +241,72 @@ public class HandRig : MonoBehaviour
         return true;
     }
 
-    void FixedUpdate()
-    {
-        // Driving happens here (not in AimItem) so the target is computed and applied in the
-        // same physics step, with no script-order dependency.
-        DriveSlot(HandSide.Right);
-        DriveSlot(HandSide.Left);
-    }
-
-    void DriveSlot(HandSide side)
+    void PoseSlot(HandSide side)
     {
         HandSlot slot = GetSlot(side);
-        if (slot.item == null || !slot.places || slot.driver == null) return;
+        if (slot.item == null || !slot.places) return;
+        if (!TryGetHoldPose(side, slot.item, out Vector3 basePos, out Quaternion baseRot)) return;
 
-        Vector3 pos;
-        Quaternion rot;
-        if (aiming && slot.item.aimTarget != null)
+        Transform itemT = slot.item.transform;
+        Transform muzzle = slot.item.Muzzle;
+        if (muzzle == null) muzzle = itemT;
+
+        // Muzzle offset in a rotation-only frame (not InverseTransformPoint), so the root's scale
+        // can't distort it; valid while the muzzle is rigidly attached to the item.
+        Quaternion invRot = Quaternion.Inverse(itemT.rotation);
+        Vector3 muzzleOffset = invRot * (muzzle.position - itemT.position);
+        Quaternion muzzleRotLocal = invRot * muzzle.rotation;
+
+        Vector3 pivot = slot.socket.position;
+        Vector3 pos = basePos;
+        Quaternion rot = baseRot;
+        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, ref pos, ref rot);
+
+        // Written directly: MovePosition/MoveRotation would only apply at the next physics step.
+        itemT.SetPositionAndRotation(pos, rot);
+    }
+
+    void ApplyAim(Vector3 pivot, Vector3 basePos, Quaternion baseRot, Vector3 muzzleOffset, Quaternion muzzleRotLocal, ref Vector3 pos, ref Quaternion rot)
+    {
+        pos = basePos;
+        rot = baseRot;
+        if (aimPoint == null || aimWeight <= 0.0001f) return;
+
+        Vector3 target = aimPoint.position;
+        Vector3 fromPivot = target - pivot;
+        if (fromPivot.sqrMagnitude < 1e-6f) return;
+
+        // Clamp (not skip) near aim points out to a minimum distance, so crossing the threshold doesn't pop.
+        float reach = (basePos + baseRot * muzzleOffset - pivot).magnitude;
+        float minDist = reach + minAimDistance;
+        if (fromPivot.sqrMagnitude < minDist * minDist)
         {
-            pos = slot.item.aimTarget.position;
-            rot = slot.item.aimTarget.rotation;
+            target = pivot + fromPivot.normalized * minDist;
         }
-        else if (!TryGetHoldPose(side, slot.item, out pos, out rot))
+
+        Vector3 p = basePos;
+        Quaternion r = baseRot;
+        Quaternion total = Quaternion.identity;
+        for (int i = 0; i < aimIterations; i++)
         {
-            return;
+            Vector3 muzzlePos = p + r * muzzleOffset;
+            Vector3 muzzleFwd = r * (muzzleRotLocal * Vector3.forward);
+            Vector3 toAim = target - muzzlePos;
+            if (toAim.sqrMagnitude < 1e-8f) break;
+            // Nearly opposite: the FromToRotation axis is undefined.
+            if (Vector3.Dot(muzzleFwd.normalized, toAim.normalized) < -0.999f) break;
+            Quaternion step = Quaternion.FromToRotation(muzzleFwd, toAim);
+            total = step * total;
+            r = step * r;
+            // Rotating about the socket keeps the grip in the hand.
+            p = pivot + step * (p - pivot);
         }
-        slot.driver.Drive(pos, rot);
+
+        total = Quaternion.RotateTowards(Quaternion.identity, total, maxAimCorrectionAngle);
+        // Weighting the accumulated rotation, not each iteration, keeps the weight linear in angle.
+        total = Quaternion.Slerp(Quaternion.identity, total, aimWeight);
+        rot = total * baseRot;
+        pos = pivot + total * (basePos - pivot);
     }
 
     // Moved from Mob's old IK target-assignment method; kept for reference.
@@ -259,10 +331,23 @@ public class HandRig : MonoBehaviour
     //     leftHandTarget.rotation = idleLeftHandTarget.rotation;
     // }
 
-    // IK is written in Update because Rigidbody interpolation has already placed the item
-    // for this frame, and Animation Rigging evaluates after Update.
+    // Items are posed here, then IK is written from the final item pose in the same frame.
+    // The socket is written by the rig during the Animator's evaluation, which runs after every
+    // Update, so here it still holds last frame's pre-IK hand pose. It is local to the moving
+    // hierarchy, so this frame's root and body movement is already included; only the animated
+    // hand motion is one frame late. Posing in LateUpdate would read this frame's socket, but the
+    // IK targets would then only be consumed next frame, so the hands would trail the item.
+    // Posing here keeps item and hands in the same frame. A custom rig constraint inside the rig
+    // graph would remove the lag, and is out of scope.
     void Update()
     {
+        float target = aiming ? 1f : idleAimWeight;
+        aimWeight = Mathf.Lerp(aimWeight, target, 1f - Mathf.Exp(-aimBlendSharpness * Time.deltaTime));
+
+        // Both slots are posed before any IK write, so a two-handed item placed by either hand
+        // is final before its off-hand IK target is written.
+        PoseSlot(HandSide.Right);
+        PoseSlot(HandSide.Left);
         WriteIK(HandSide.Right);
         WriteIK(HandSide.Left);
     }

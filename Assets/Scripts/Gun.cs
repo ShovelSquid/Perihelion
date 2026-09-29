@@ -46,6 +46,11 @@ public class Gun : Item
         bulletManager = FindObjectOfType<BulletManager>();
     }
 
+    public override Transform Muzzle
+    {
+        get { return firePoint != null ? firePoint : transform; }
+    }
+
     private void OnChargeBegin(float max)
     {
         if (hitIndicator != null) hitIndicator.StartCharge(max);
