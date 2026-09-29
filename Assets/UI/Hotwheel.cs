@@ -153,8 +153,7 @@ public class Hotwheel : MonoBehaviour
         if (slots[slot].actionItem != null) player.Equip(slots[slot].actionItem);
         else
         {
-            player.EnableIK(false, false);
-            player.item = null;
+            player.UnequipAll();
             player.hitIndicator.gameObject.SetActive(false);
         }
         SetBigIcon(slots[slot].bigIcon, slots[slot].label);
