@@ -1,12 +1,10 @@
 using UnityEngine;
 
+// Pure physics driver: pushes one Rigidbody toward whatever pose it is handed.
+// HandRig decides the pose (hand socket or aimTarget) and calls Drive each physics step.
 public class AimItem : MonoBehaviour
 {
     public Rigidbody rb;
-    public Transform HandLIKTarget;
-    public Transform HandRIKTarget;
-    public Item item;
-    public bool aiming;
     public float aimForceFar = 600f;
     public float aimForceNear = 100f;
     public float maxDistance = 5f;
@@ -14,13 +12,25 @@ public class AimItem : MonoBehaviour
     public float aimDamp = 1f;
 
 
-    public void Aim()
+    public void Attach(Rigidbody body)
     {
-        aiming = true;
+        rb = body;
+        if (body != null) body.interpolation = RigidbodyInterpolation.Interpolate;
     }
-    public void StopAiming()
+
+    public void Detach()
     {
-        aiming = false;
+        rb = null;
+    }
+
+    public void CopyTuning(AimItem other)
+    {
+        if (other == null) return;
+        aimForceFar = other.aimForceFar;
+        aimForceNear = other.aimForceNear;
+        maxDistance = other.maxDistance;
+        aimForceRotation = other.aimForceRotation;
+        aimDamp = other.aimDamp;
     }
 
     void ClampToTarget(Vector3 pos)
@@ -56,34 +66,17 @@ public class AimItem : MonoBehaviour
     }
 
 
-    public void FixedUpdate()
+    public void Drive(Vector3 targetPosition, Quaternion targetRotation)
     {
+        if (rb == null) return;
         // add force to rigidbody towards aimtarget or holdtarget
-        float aimForce = (item.aimTarget.position - item.transform.position).magnitude > maxDistance ? aimForceFar : aimForceNear;
+        // Error is measured from rb.position, not the item transform: with interpolation on,
+        // the transform is the interpolated render pose and rb.position is the physics pose.
+        Vector3 toTarget = targetPosition - rb.position;
+        float aimForce = toTarget.magnitude > maxDistance ? aimForceFar : aimForceNear;
         float c = 2f * aimDamp * Mathf.Sqrt(aimForce);
-        if (aiming)
-        {
-            rb.AddForce((item.aimTarget.position - item.transform.position)*aimForce- (c * rb.linearVelocity));
-            rb.AddTorque(TorqueTowards(item.aimTarget.rotation));
-            ClampToTarget(item.aimTarget.position);
-        }
-        else
-        {
-            rb.AddForce((item.holdTarget.position - item.transform.position) * aimForce - (c * rb.linearVelocity));
-            rb.AddTorque(TorqueTowards(item.holdTarget.rotation));
-            ClampToTarget(item.holdTarget.position);
-        }
-
-        if (item.equipInfo.leftHand)
-        {
-            HandLIKTarget.position = item.handL.position;
-            HandLIKTarget.rotation = item.handL.rotation;
-        }
-        if (item.equipInfo.rightHand)
-        {
-            HandRIKTarget.position = item.handR.position;
-            HandRIKTarget.rotation = item.handR.rotation;
-        }
-        
+        rb.AddForce(toTarget * aimForce - (c * rb.linearVelocity));
+        rb.AddTorque(TorqueTowards(targetRotation));
+        ClampToTarget(targetPosition);
     }
 }

@@ -3,13 +3,11 @@ using System;
 using System.Collections;
 using Unity.Mathematics;
 using System.Collections.Generic;
-using UnityEngine.Animations.Rigging;
 
 [RequireComponent(typeof(Inventory))]
 public class Mob : Object
 {
     public Inventory inv;
-    public Item item;
     public AudioSource adio;
     public AudioClip fallDamagSound;
     public ParticleSystem directionalHitParticle;
@@ -61,24 +59,17 @@ public class Mob : Object
 
     [Header ("Interaction")]
     public Object interactObject;
-    public Transform itemHoldTarget;
     public Transform itemAimPoint;
     public Transform itemAimTarget;
-    [Header ("IK Controls")]
-    public AimItem aim;
-    public Rig rightIK;
-    public Rig leftIK;
-    public Transform rightHandTarget;
-    public Transform leftHandTarget;
-    public Transform idleRightHandTarget;
-    public Transform idleLeftHandTarget;
+    [Header("Hands")]
+    public HandRig hands;
     private Coroutine aimOffRoutine;
 
     protected override void Awake()
     {
         base.Awake();
         isRegenerating = true;
-        aim = gameObject.GetComponent<AimItem>();
+        if (hands == null) hands = GetComponent<HandRig>();
     }
 
     protected override void Start()
@@ -124,34 +115,41 @@ public class Mob : Object
 
     public virtual void Equip(Item i)
     {
-        if (item == null && i == null) return;
-        if (item != null && i != item)
+        if (i == null) return;
+        Equip(i, i.DefaultHand);
+    }
+
+    public virtual void Equip(Item i, HandSide side)
+    {
+        if (i == null) return;
+        if (hands == null)
         {
-            item.gameObject.SetActive(false);
-            item.equipped = false;
-            aim.item = null;
-            aim.rb = null;
-            // if (hitIndicator != null) hitIndicator.gameObject.SetActive(false);
-            // return;
+            Debug.LogWarning($"{name}: no HandRig on this Mob, can't equip {i.name}.", this);
+            return;
         }
-        item = i;
-        item.gameObject.SetActive(true);
-        item.transform.position = item.holdTarget.position;
-        item.transform.rotation = item.holdTarget.rotation;
-        item.equipped = true;
-        item.holder = this;
-        aim.item = item;
-        aim.rb = item.GetComponent<Rigidbody>();
-        EnableIK(item.equipInfo.rightHand, item.equipInfo.leftHand);
-        SetIK();
-        if (anim != null && item.equipInfo.equipAnimation != "")
+        // if (hitIndicator != null) hitIndicator.gameObject.SetActive(false);
+        // return;
+        // Holder is set before activation so Item.Awake already sees it and binds the Player hitIndicator.
+        i.holder = this;
+        if (!hands.Equip(i, side)) return;
+        if (anim != null && i.equipInfo.equipAnimation != "")
         {
-            anim.Play(item.equipInfo.equipAnimation, -1, 0f);
+            anim.Play(i.equipInfo.equipAnimation, -1, 0f);
         }
-        if (item.anim != null && item.equipInfo.equipAnimation != "")
+        if (i.anim != null && i.equipInfo.equipAnimation != "")
         {
-            item.anim.Play(item.equipInfo.equipAnimation, -1, 0f);
+            i.anim.Play(i.equipInfo.equipAnimation, -1, 0f);
         }
+    }
+
+    public void Unequip(HandSide side)
+    {
+        if (hands != null) hands.Unequip(side);
+    }
+
+    public void UnequipAll()
+    {
+        if (hands != null) hands.UnequipAll();
     }
 
     void Update()
@@ -213,9 +211,8 @@ public class Mob : Object
 
     public void PickupItem(Item item)
     {
-        if (this.item == null)
+        if (hands == null || hands.IsEmpty)
         {
-            this.item = item;
             Debug.Log(gameObject.name + " picked up " + item.gameObject.name);
             item.GotPickedUp();
         }
@@ -239,40 +236,6 @@ public class Mob : Object
             }
         }
 
-    }
-
-    public void EnableIK(bool right, bool left)
-    {
-        if (rightIK != null) rightIK.weight = right ? 1f : 0f;
-        if (leftIK != null) leftIK.weight = left ? 1f : 0f;
-    }
-
-    public void SetIK()
-    {
-        if (aim != null) {
-            aim.HandRIKTarget = rightHandTarget;
-            aim.HandLIKTarget = leftHandTarget;
-        }
-        // if (rightHandTarget != null && rightTarget != null)
-        // {
-        //     rightHandTarget.position = rightTarget.position;
-        //     rightHandTarget.rotation = rightTarget.rotation;
-        // }
-        // else if (rightHandTarget != null && idleRightHandTarget != null)
-        // {
-        //     rightHandTarget.position = idleRightHandTarget.position;
-        //     rightHandTarget.rotation = idleRightHandTarget.rotation;
-        // }
-        // if (leftHandTarget != null && leftTarget != null)
-        // {
-        //     leftHandTarget.position = leftTarget.position;
-        //     leftHandTarget.rotation = leftTarget.rotation;
-        // }
-        // else if (leftHandTarget != null && idleLeftHandTarget != null)
-        // {
-        //     leftHandTarget.position = idleLeftHandTarget.position;
-        //     leftHandTarget.rotation = idleLeftHandTarget.rotation;
-        // }
     }
 
     public virtual void Attack(Mob mob)
@@ -311,7 +274,7 @@ public class Mob : Object
         if (a)
         {
             if (aimOffRoutine != null) { StopCoroutine(aimOffRoutine); aimOffRoutine = null; }
-            aim.Aim();
+            if (hands != null) hands.SetAiming(true);
             // item.Aim(true);
         }
         else
@@ -319,7 +282,7 @@ public class Mob : Object
             if (aimOffRoutine != null) StopCoroutine(aimOffRoutine);
             aimOffRoutine = StartCoroutine(DelayAction(1f, () =>
             {
-                aim.StopAiming();
+                if (hands != null) hands.SetAiming(false);
                 aimOffRoutine = null;
             }));
         }

@@ -16,6 +16,7 @@ public class Item : MonoBehaviour
         public string equipAnimation;
         public bool rightHand;
         public bool leftHand;
+        public HandSide primaryHand; // dominant hand, places a two-handed or hand-less item; one-handed items use their flagged hand
     }
     public Transform handL;
     public Transform handR;
@@ -32,7 +33,6 @@ public class Item : MonoBehaviour
     // public bool isTool;
     public bool triggerHeld;
     public Transform holdTransform;
-    public Transform holdTarget;
     // protected Transform holdTargetBase;
     // protected Transform aimPoint;
     public Transform aimTarget;
@@ -68,7 +68,6 @@ public class Item : MonoBehaviour
         if (anim == null) anim = GetComponent<Animator>();
         if (holder != null)
         {
-            holdTarget = holder.itemHoldTarget;
             // aimTarget = holder.itemAimTarget;
             // aimPoint = holder.itemAimPoint;
             // holdTargetBase = new GameObject().transform;
@@ -81,6 +80,33 @@ public class Item : MonoBehaviour
         {
             hitIndicator = ((Player)holder).hitIndicator;
         }
+    }
+
+    public bool UsesHands
+    {
+        get { return equipInfo.rightHand || equipInfo.leftHand; }
+    }
+
+    public bool IsTwoHanded
+    {
+        get { return equipInfo.rightHand && equipInfo.leftHand; }
+    }
+
+    public HandSide DefaultHand
+    {
+        get
+        {
+            if (equipInfo.leftHand && !equipInfo.rightHand) return HandSide.Left;
+            if (equipInfo.rightHand && !equipInfo.leftHand) return HandSide.Right;
+            return equipInfo.primaryHand;
+        }
+    }
+
+    // Falls back to the other grip so a one-handed item moved to the other hand still has one.
+    public Transform GripFor(HandSide side)
+    {
+        if (side == HandSide.Left) return handL != null ? handL : handR;
+        return handR != null ? handR : handL;
     }
 
     public virtual bool CanTrigger()

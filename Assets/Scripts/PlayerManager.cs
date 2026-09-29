@@ -111,11 +111,11 @@ public class PlayerManager : MonoBehaviour
         bool primaryPressed = primaryInputContext.started;
         if (primaryPressed)
         {
-            mob.item?.SlapTrigger(true);
+            if (mob.hands != null) mob.hands.ForEachItem(it => it.SlapTrigger(true));
         }
         else if (primaryInputContext.canceled)
         {
-            mob.item?.SlapTrigger(false);
+            if (mob.hands != null) mob.hands.ForEachItem(it => it.SlapTrigger(false));
         }
     }
 
@@ -217,9 +217,12 @@ public class PlayerManager : MonoBehaviour
         if (!playerInputEnabled) return;
         if (reloadContext.started)
         {
-            if (mob.item is Gun gun)
+            if (mob.hands != null)
             {
-                gun.StartReload();
+                mob.hands.ForEachItem(it =>
+                {
+                    if (it is Gun gun) gun.StartReload();
+                });
             }
         }
     }
