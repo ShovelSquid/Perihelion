@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-09-14 — Phase 01 execution started
+Last activity: 2026-09-29 - Completed quick task 260929-k6v: Refactor hand/item handling into per-hand HandRig slot system
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -91,6 +91,12 @@ None yet.
 - [Phase 3]: Mid-mission take-over state transfer and resolver shape are flagged for a spike before `60-Handoff.md` is written.
 - [Phase 4]: No .NET SDK installed on the dev machine (runtimes only); needed before the port.
 - [v2]: `Assets/Management/` duplicate `Building` compile break must clear before any Unity view or shooter adapter lands; not a v1 concern.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260929-k6v | Refactor hand/item handling into per-hand HandRig slot system | 2026-09-29 | d495058 | [260929-k6v-refactor-hand-item-handling-into-per-han](./quick/260929-k6v-refactor-hand-item-handling-into-per-han/) |
 
 ## Deferred Items
 
