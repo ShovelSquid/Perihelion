@@ -44,6 +44,9 @@ public class HandRig : MonoBehaviour
     [Range(1, 4)] public int aimIterations = 2; // correction passes; the muzzle is offset from the pivot, so one pass undershoots
     public float maxAimCorrectionAngle = 60f; // degrees; caps the correction so aim points behind or far off-axis can't spin the item
     public float minAimDistance = 0.5f; // meters beyond the muzzle's reach from the socket; closer aim points are pushed out to this
+    [Range(0f, 1f)] public float uprightWeight = 1f; // how hard the muzzle's up is pulled to the character's up (0 = keep the hand's roll)
+    public float rollPerYaw = 0.1f; // degrees of roll per degree the muzzle points left/right of the character's forward; negative flips direction
+    public float maxAimRoll = 15f; // degrees; caps the yaw-driven roll
     [Header("Recoil")]
     public float recoilFrequency = 8f; // Hz; the spring's natural frequency; higher snaps back faster
     [Range(0f, 2f)] public float recoilDampingRatio = 0.6f; // 1 = critically damped; below 1 overshoots slightly
@@ -362,6 +365,13 @@ public class HandRig : MonoBehaviour
         Quaternion total = Quaternion.identity;
         for (int i = 0; i < aimIterations; i++)
         {
+            // Roll before the aim step so the last operation of each pass is the aim; rolling about
+            // the socket shifts the barrel sideways a little and the aim step then cancels that.
+            Quaternion roll = RollCorrection(r * muzzleRotLocal);
+            total = roll * total;
+            r = roll * r;
+            p = pivot + roll * (p - pivot);
+
             Vector3 muzzlePos = p + r * muzzleOffset;
             Vector3 muzzleFwd = r * (muzzleRotLocal * Vector3.forward);
             Vector3 toAim = target - muzzlePos;
@@ -375,11 +385,37 @@ public class HandRig : MonoBehaviour
             p = pivot + step * (p - pivot);
         }
 
-        total = Quaternion.RotateTowards(Quaternion.identity, total, maxAimCorrectionAngle);
+        // Cap on how far the barrel swings, not on total rotation, so the roll fix doesn't eat the budget.
+        Vector3 baseFwd = baseRot * (muzzleRotLocal * Vector3.forward);
+        float swing = Vector3.Angle(baseFwd, total * baseFwd);
+        if (swing > maxAimCorrectionAngle)
+        {
+            total = Quaternion.Slerp(Quaternion.identity, total, maxAimCorrectionAngle / swing);
+        }
         // Weighting the accumulated rotation, not each iteration, keeps the weight linear in angle.
         total = Quaternion.Slerp(Quaternion.identity, total, aimWeight);
         rot = total * baseRot;
         pos = pivot + total * (basePos - pivot);
+    }
+
+    // Rotation about the muzzle's forward that turns its up toward the character's up, tilted by
+    // rollPerYaw as the muzzle swings left/right. FromToRotation alone never touches roll, so
+    // without this the item keeps whatever roll the hand bone gives it.
+    Quaternion RollCorrection(Quaternion muzzleRot)
+    {
+        if (uprightWeight <= 0f) return Quaternion.identity;
+        Vector3 fwd = muzzleRot * Vector3.forward;
+        Vector3 up = transform.up;
+        // Looking nearly straight up or down: "upright" is undefined, so leave the roll alone.
+        if (Mathf.Abs(Vector3.Dot(fwd, up)) > 0.98f) return Quaternion.identity;
+
+        float yaw = Vector3.SignedAngle(Vector3.ProjectOnPlane(transform.forward, up), Vector3.ProjectOnPlane(fwd, up), up);
+        float rollAngle = Mathf.Clamp(yaw * rollPerYaw, -maxAimRoll, maxAimRoll);
+        Vector3 desiredUp = Quaternion.AngleAxis(rollAngle, fwd) * up;
+
+        Quaternion desired = Quaternion.LookRotation(fwd, desiredUp);
+        Quaternion fix = desired * Quaternion.Inverse(muzzleRot);
+        return Quaternion.Slerp(Quaternion.identity, fix, uprightWeight);
     }
 
     // Moved from Mob's old IK target-assignment method; kept for reference.
