@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-29T23:45:56.583Z"
+last_updated: "2026-09-29T23:56:01.552Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: f5280dde61a9b527dcadca84eb17280cdaf14a76
+state_head: 4715da8a1ad81171a0913cec30867e1f71d15f6d
 progress:
   total_phases: 4
   completed_phases: 0
@@ -99,6 +99,7 @@ None yet.
 | 260929-k6v | Refactor hand/item handling into per-hand HandRig slot system | 2026-09-29 | d495058 | [260929-k6v-refactor-hand-item-handling-into-per-han](./quick/260929-k6v-refactor-hand-item-handling-into-per-han/) |
 | 260929-m2y | Snap held items to sockets with muzzle aim correction and spring recoil | 2026-09-29 | 6bdaec9 | [260929-m2y-snap-held-items-to-sockets-with-muzzle-a](./quick/260929-m2y-snap-held-items-to-sockets-with-muzzle-a/) |
 | 3 | Upright roll fix with yaw-driven tilt for aimed items | 2026-09-29 | f5280dd | — |
+| 4 | Primary/secondary fire left/right hand items | 2026-09-29 | 4715da8 | — |
 
 ## Deferred Items
 
