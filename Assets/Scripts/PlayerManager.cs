@@ -13,6 +13,8 @@ public class PlayerManager : MonoBehaviour
     private bool cursorLocked = false;
     public bool playerInputEnabled = true;
     private Vector2 rawMoveInput;
+    private bool leftHeld; // primary (left hand) button down
+    private bool rightHeld; // secondary (right hand) button down
     [Header("Hotwheel")]
     [SerializeField] float scrollStep = 1f; // accumulated scroll delta needed to change one slot (tune per platform/device)
     private float scrollAccum;
@@ -108,29 +110,39 @@ public class PlayerManager : MonoBehaviour
     public void OnPrimary(InputAction.CallbackContext primaryInputContext)
     {
         if (!playerInputEnabled) return;
-        bool primaryPressed = primaryInputContext.started;
-        if (primaryPressed)
-        {
-            if (mob.hands != null) mob.hands.ForEachItem(it => it.SlapTrigger(true));
-        }
-        else if (primaryInputContext.canceled)
-        {
-            if (mob.hands != null) mob.hands.ForEachItem(it => it.SlapTrigger(false));
-        }
+        HandInput(primaryInputContext, HandSide.Left);
     }
 
     public void OnSecondary(InputAction.CallbackContext secondaryInputContext)
     {
         if (!playerInputEnabled) return;
-        bool secondaryPressed = secondaryInputContext.started;
-        if (secondaryPressed)
+        HandInput(secondaryInputContext, HandSide.Right);
+    }
+
+    // Each button drives the item in its matching hand. Pressing either one aims; aim only
+    // starts releasing once both are up, so letting go of one hand doesn't drop the other's aim.
+    void HandInput(InputAction.CallbackContext context, HandSide side)
+    {
+        if (context.started)
         {
+            SetHandHeld(side, true);
             mob.Aim(true);
+            Item held = mob.hands != null ? mob.hands.GetItem(side) : null;
+            if (held != null) held.SlapTrigger(true);
         }
-        else if (secondaryInputContext.canceled)
+        else if (context.canceled)
         {
-            mob.Aim(false);
+            SetHandHeld(side, false);
+            if (!leftHeld && !rightHeld) mob.Aim(false);
+            Item held = mob.hands != null ? mob.hands.GetItem(side) : null;
+            if (held != null) held.SlapTrigger(false);
         }
+    }
+
+    void SetHandHeld(HandSide side, bool held)
+    {
+        if (side == HandSide.Left) leftHeld = held;
+        else rightHeld = held;
     }
 
     public void OnLook(InputAction.CallbackContext lookInputContext)
