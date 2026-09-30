@@ -24,6 +24,7 @@ public class HandRig : MonoBehaviour
         public Rig ikRig; // weight 1 while this hand grips, 0 otherwise
         public Item item; // equipped item, or null
         [System.NonSerialized] public bool places; // true when this slot's socket positions the item
+        [System.NonSerialized] public Item supporting; // one-handed item this empty hand steadies; refreshed on equip/release, not per frame
         [System.NonSerialized] public Rigidbody body; // the placed item's body, held kinematic while in this hand
         [System.NonSerialized] public bool savedKinematic; // body.isKinematic from before it was held, restored on release
         [System.NonSerialized] public RigidbodyInterpolation savedInterpolation; // body.interpolation from before it was held, restored on release
@@ -34,6 +35,7 @@ public class HandRig : MonoBehaviour
     }
 
     [Header("Hands")]
+    public HandSide defaultHand = HandSide.Right; // dominant hand: equips go here unless a side is given; holds hand1 of two-handed items
     public HandSlot right = new HandSlot();
     public HandSlot left = new HandSlot();
     [Header("Aim")]
@@ -116,8 +118,8 @@ public class HandRig : MonoBehaviour
     public bool Equip(Item item, HandSide side)
     {
         if (item == null) return false;
-        // A two-handed item always places from its default hand, so hand1/hand2 keep their orientation.
-        if (item.IsTwoHanded) side = item.DefaultHand;
+        // A two-handed item always places from the default hand, so hand1/hand2 keep their orientation.
+        if (item.IsTwoHanded) side = defaultHand;
 
         HandSlot slot = GetSlot(side);
         // Already placed in this hand: re-equipping is a no-op (Hotwheel re-equips the current item).
@@ -166,6 +168,7 @@ public class HandRig : MonoBehaviour
             Debug.LogWarning($"{name}: HandRig {side} slot has no socket, so {item.name} can't be placed in the hand.", this);
         }
 
+        RefreshSupport();
         return true;
     }
 
@@ -213,6 +216,7 @@ public class HandRig : MonoBehaviour
     {
         ReleaseSlot(right, item);
         ReleaseSlot(left, item);
+        RefreshSupport();
         if (hide && item != null)
         {
             item.equipped = false;
@@ -245,22 +249,29 @@ public class HandRig : MonoBehaviour
     {
         if (item == null) return false;
         HandSlot slot = null;
-        HandSide side = HandSide.Right;
-        if (right.item == item && right.places) slot = right;
-        else if (left.item == item && left.places) { slot = left; side = HandSide.Left; }
+        HandSlot other = null;
+        if (right.item == item && right.places) { slot = right; other = left; }
+        else if (left.item == item && left.places) { slot = left; other = right; }
         if (slot == null) return false;
-        float scale = SupportedItem(Other(side)) == item ? supportRecoilScale : 1f;
+        float scale = other.supporting == item ? supportRecoilScale : 1f;
         slot.recoilPosVelocity += linearKick * scale;
         slot.recoilRotVelocity += angularKick * scale;
         return true;
     }
 
-    // The one-handed item this empty hand is steadying, if any: the other hand must be placing it
-    // and the item must allow a support hand.
-    Item SupportedItem(HandSide side)
+    // Support only changes when a hand's contents change, so it is cached here from Equip/Release
+    // instead of being re-derived every frame.
+    void RefreshSupport()
     {
-        if (GetSlot(side).item != null) return null;
-        HandSlot other = GetSlot(Other(side));
+        right.supporting = FindSupported(right, left);
+        left.supporting = FindSupported(left, right);
+    }
+
+    // The one-handed item this empty hand steadies, if any: the other hand must be placing it
+    // and the item must allow a support hand.
+    static Item FindSupported(HandSlot slot, HandSlot other)
+    {
+        if (slot.item != null) return null;
         if (other.item == null || !other.places || !other.item.CanBeSupported) return null;
         return other.item;
     }
@@ -477,11 +488,7 @@ public class HandRig : MonoBehaviour
         HandSlot slot = GetSlot(side);
         Transform grip = null;
         if (slot.item != null) grip = slot.item.GripFor(slot.places);
-        else
-        {
-            Item supported = SupportedItem(side);
-            if (supported != null) grip = supported.GripFor(false);
-        }
+        else if (slot.supporting != null) grip = slot.supporting.GripFor(false);
         float weight;
         if (grip != null && slot.ikTarget != null)
         {

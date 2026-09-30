@@ -144,7 +144,7 @@ public class PlayerManager : MonoBehaviour
     Item TriggerItem(HandSide side)
     {
         Item held = mob.hands != null ? mob.hands.GetItem(side) : null;
-        if (held != null && held.IsTwoHanded && held.DefaultHand != side) return null;
+        if (held != null && held.IsTwoHanded && mob.hands.defaultHand != side) return null;
         return held;
     }
 

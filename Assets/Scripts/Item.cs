@@ -14,9 +14,7 @@ public class Item : MonoBehaviour
         public Sprite bigUIIcon;
         public string label;
         public string equipAnimation;
-        [UnityEngine.Serialization.FormerlySerializedAs("primaryHand")]
-        public HandSide defaultHand; // hand that holds hand1; equips go here unless a side is given, and a two-handed item always places from it
-        public bool twoHanded; // occupies both hands: defaultHand holds hand1, the other hand holds hand2
+        public bool twoHanded; // occupies both hands: the HandRig's defaultHand holds hand1, the other hand holds hand2
         public bool supportHand; // one-handed only: while the other hand is empty it grips hand2 and damps recoil
     }
     // Grips are where a hand bone goes (any transform under the item, bones included).
@@ -90,11 +88,6 @@ public class Item : MonoBehaviour
     public bool CanBeSupported
     {
         get { return !equipInfo.twoHanded && equipInfo.supportHand && hand2 != null; }
-    }
-
-    public HandSide DefaultHand
-    {
-        get { return equipInfo.defaultHand; }
     }
 
     // Grips follow role, not side: the placing hand takes hand1 (falling back to hand2 if hand1 is

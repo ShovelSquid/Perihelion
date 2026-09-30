@@ -116,7 +116,7 @@ public class Mob : Object
     public virtual void Equip(Item i)
     {
         if (i == null) return;
-        Equip(i, i.DefaultHand);
+        Equip(i, hands != null ? hands.defaultHand : HandSide.Right);
     }
 
     public virtual void Equip(Item i, HandSide side)
