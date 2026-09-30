@@ -80,6 +80,17 @@ public class Item : MonoBehaviour
         }
     }
 
+    public HitIndicator HitIndicator
+    {
+        get { return hitIndicator; }
+    }
+
+    // Lets a screen-space indicator (GunIndicator) take over this item's display while it's held.
+    public virtual void SetHitIndicator(HitIndicator indicator)
+    {
+        hitIndicator = indicator;
+    }
+
     public bool IsTwoHanded
     {
         get { return equipInfo.twoHanded; }

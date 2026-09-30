@@ -82,6 +82,16 @@ public class Gun : Item
         get { return firePoint != null ? firePoint : transform; }
     }
 
+    // A newly attached indicator starts blank, so show this gun's current ammo and crit window right away.
+    public override void SetHitIndicator(HitIndicator indicator)
+    {
+        base.SetHitIndicator(indicator);
+        if (indicator == null) return;
+        indicator.SetAmmo(ammoInMagazine + bulletChambered, magazineSize + 1);
+        if (charge.enabled) indicator.SetCritRange(charge.critRange.x, charge.critRange.y);
+        else indicator.SetCritRange(0f, 0f);
+    }
+
     private void OnChargeBegin(float max)
     {
         if (hitIndicator != null) hitIndicator.StartCharge(max);
