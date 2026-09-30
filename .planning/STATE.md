@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T02:55:49.592Z"
+last_updated: "2026-09-30T03:08:08.322Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: d0192e16ba17d9c33547c1a9fbf7d0d26c2cae8a
+state_head: 22849c8eeeda3a723ce0b643a488af9e5ab8080d
 progress:
   total_phases: 4
   completed_phases: 0
@@ -116,6 +116,7 @@ None yet.
 | 18 | Cursor dot on real shot direction at shared depth | 2026-09-30 | 7eef1c6 | — |
 | 19 | Cursor dot own-depth raycast | 2026-09-30 | 4e4b7ec | — |
 | 20 | Bullet hole decals (URP Decal Projector) | 2026-09-30 | d0192e1 | — |
+| 21 | Depth-smoothed aim target and honest cursor center | 2026-09-30 | 22849c8 | — |
 
 ## Deferred Items
 
