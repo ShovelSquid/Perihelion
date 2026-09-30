@@ -318,14 +318,15 @@ public class HandRig : MonoBehaviour
     }
 
     // Kicks the aim state of the slot placing this item. kickback is meters in the muzzle's local
-    // frame (back is -z). rise and side are deg/s added to the aim-offset velocity in the muzzle's own
-    // frame: rise along the muzzle's up (so a rolled or swaying gun lifts along its own tilt), side along
-    // the offset's current sideways drift (none when the offset is still). bloom is degrees added to the
-    // hand's spread, scaled by supportBloomScale while the other hand steadies the item; the kicks are not.
-    // flipRise/flipSide are degrees of visual-only flip, thrown the same way as rise/side. Kickback and flip
-    // stack on what is currently shown and restart the return curve, so automatic fire stays up until you stop.
+    // frame (back is -z). bloom is degrees added to the hand's spread, scaled by supportBloomScale while
+    // the other hand steadies the item. The aim offset is not thrown: the shot only picks a new rest point
+    // and the offset spring carries the dot there, so every place the dot visibly goes is somewhere a later
+    // shot can land. The punch you see comes from the visual flip instead: flipRise along the muzzle's up
+    // (so a rolled or swaying gun lifts along its own tilt), flipSide along the offset's current sideways
+    // drift, in degrees. Kickback and flip stack on what is currently shown and restart the return curve,
+    // so automatic fire stays up until you stop.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 kickback, float rise, float side, float bloom, float flipRise = 0f, float flipSide = 0f)
+    public bool Kick(Item item, Vector3 kickback, float bloom, float flipRise = 0f, float flipSide = 0f)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -336,9 +337,8 @@ public class HandRig : MonoBehaviour
         bool supported = other.supporting == item;
         slot.bloom += bloom * (supported ? supportBloomScale : 1f);
         float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
-        slot.offsetVelocity += new Vector2(drift * side, rise);
-        // Where the shot lands the dot: anywhere in the bloom circle, evenly by area (insideUnitCircle is
-        // area-uniform, so it doesn't cluster at the center). The rise/side velocity is how it gets there.
+        // Where the shot sends the dot: anywhere in the bloom circle, evenly by area (insideUnitCircle is
+        // area-uniform, so it doesn't cluster at the center).
         slot.restPoint = UnityEngine.Random.insideUnitCircle;
         slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
         slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);

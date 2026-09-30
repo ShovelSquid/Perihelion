@@ -39,13 +39,11 @@ public class Gun : Item
 
     [Header("Recoil Info")]
     public Vector3 recoilOffset; // muzzle-local tilt added to the straight-back kickback direction and the loose-gun impulse; every serialized value is zero today
-    public float recoilForce; // overall strength; scales kickback, rise and side
+    public float recoilForce; // overall strength; scales the visual kickback and flip (and the loose-gun impulse)
     public float recoilLerpSpeed; // currently unused; kept for its serialized data
     public float kickbackDistance = 0.01f; // meters of visual slide back along the barrel per unit of recoilForce; never moves the shots
-    public float kickRise = 60f; // deg/s added to the holding hand's aim-offset velocity per unit of recoilForce, along the gun's own up; 60 matches every serialized gun's old rise
-    public float kickSide = 20f; // deg/s per unit of recoilForce, thrown sideways along the direction the aim offset is already drifting
     public float flipAngle = 1.5f; // degrees per unit of recoilForce of visual-only muzzle flip along the gun's own up; never moves the shots
-    public float flipSideAngle = 0.3f; // degrees per unit of recoilForce of visual-only sideways flip, same drift direction as kickSide
+    public float flipSideAngle = 0.3f; // degrees per unit of recoilForce of visual-only sideways flip, along the direction the aim offset is already drifting
     // Shape of the visual kick's return, 0..1 in time over recoilReturnTime, 1 = full kick, 0 = home.
     // Default holds the kick for 40% of the time, then eases home.
     public AnimationCurve recoilReturn = new AnimationCurve(
@@ -99,7 +97,7 @@ public class Gun : Item
         Vector3 kickDir = (Vector3.back + recoilOffset).normalized;
         // Held: the gun is kinematic, so kick the hand's aim offset and visual kick instead of the body.
         Vector3 kickback = kickDir * (recoilForce * kickbackDistance);
-        if (holder != null && holder.hands != null && holder.hands.Kick(this, kickback, kickRise * recoilForce, kickSide * recoilForce, bloomPerShot, flipAngle * recoilForce, flipSideAngle * recoilForce)) return;
+        if (holder != null && holder.hands != null && holder.hands.Kick(this, kickback, bloomPerShot, flipAngle * recoilForce, flipSideAngle * recoilForce)) return;
         // Loose dynamic gun: keep the physics impulse (same as the old formula with a zero recoilOffset).
         // A kinematic unheld gun gets no recoil.
         if (rb != null && !rb.isKinematic)
