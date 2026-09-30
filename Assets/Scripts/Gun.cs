@@ -28,6 +28,7 @@ public class Gun : Item
     public float bloomPerShot = 1.5f; // degrees added to the holding hand's bloom per shot
     public float bloomRecovery = 4f; // per second; exponential pull back toward baseSpread; framerate independent
     [Range(0f, 1f)] public float swayAmount = 0.75f; // fraction of the current bloom radius the sway can wander; 0 = no sway
+    [Range(0f, 2f)] public float shotSpread = 1f; // per-shot scatter around the dot, as a fraction of the bloom radius; results are always kept inside the bloom
     // Floor bloom sources: each is rate x amount, capped on its own, then added to baseSpread (and the total capped by maxSpread).
     public float moveBloom = 0.3f; // degrees per m/s of the holder's horizontal speed
     public float maxMoveBloom = 2f; // degrees; most that moving can add
@@ -59,6 +60,11 @@ public class Gun : Item
     public AudioSource emptyClickSound;
 
     protected bool cooldownPending;
+    // Shot cone captured at the trigger pull (before the kick), used by that shot's projectiles.
+    Vector3 coneOrigin;
+    Quaternion coneAimRot;
+    Quaternion coneIdealRot;
+    float coneBloom;
 
     void Start()
     {
@@ -191,6 +197,10 @@ public class Gun : Item
         {
             bulletChambered--;
             cooldownPending = true;
+            // Read the cone before AddRecoil: the kick grows bloom, and that growth belongs to the next shot,
+            // so a burst's first shot is as tight as the reticle showed when the trigger was pulled.
+            bool hasCone = holder != null && holder.hands != null
+                && holder.hands.TryGetShotCone(this, out coneOrigin, out coneAimRot, out coneIdealRot, out coneBloom);
             AddRecoil();
             // if (!aim) Aim(true);
             bool ch = charge.enabled;
@@ -212,19 +222,14 @@ public class Gun : Item
                 int actualShotCount = 0;
                 if (shotCount == Vector2.zero) actualShotCount = 1;
                 else actualShotCount = Random.Range((int)shotCount.x, (int)shotCount.y + 1);
-                // Bullets leave along the aimed muzzle recorded by the hand (before its visual kickback and flip),
-                // so the gun can be thrown around on screen while shots still go where the cursor dot is.
+                // Bullets leave from the aimed muzzle recorded by the hand (before its visual kickback and flip),
+                // so the gun can be thrown around on screen while shots stay inside the reticle.
                 // A gun that isn't held falls back to its real muzzle.
                 Transform muzzle = Muzzle;
-                Vector3 shotOrigin = muzzle.position;
-                Quaternion shotRot = muzzle.rotation;
-                if (holder != null && holder.hands != null && holder.hands.TryGetAimPose(this, out Vector3 aimPos, out Quaternion aimRot))
-                {
-                    shotOrigin = aimPos;
-                    shotRot = aimRot;
-                }
+                Vector3 shotOrigin = hasCone ? coneOrigin : muzzle.position;
                 for (int i = 0; i < actualShotCount; i++)
                 {
+                    Quaternion shotRot = hasCone ? ConeShot(coneAimRot, coneIdealRot, coneBloom) : muzzle.rotation;
                     // xy spread baesd off of x and y of spreadAngle
                     Vector2 angleOffset = new Vector2(
                         Random.Range(-spreadNoise.x, spreadNoise.x),
@@ -252,6 +257,23 @@ public class Gun : Item
             charge.Cancel();
             if (anim != null) anim.SetTrigger("Shoot");
         }
+    }
+
+    // Per-shot bloom: each projectile picks its own direction inside the reticle. The spread is centered on the
+    // dot (the aimed muzzle, carrying sway, look drag and the rest point), is evenly distributed by area over
+    // shotSpread x bloom, and the result is clamped to the bloom circle around the reticle's center, so no
+    // shot ever leaves the prongs. Angles use HandRig's convention: x = yaw right, y = pitch up, Euler(-y, x, 0).
+    Quaternion ConeShot(Quaternion aimRot, Quaternion idealRot, float bloom)
+    {
+        Vector3 local = Quaternion.Inverse(idealRot) * (aimRot * Vector3.forward);
+        Vector2 dot = new Vector2(
+            Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg,
+            Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg);
+        Vector2 angle = dot + Random.insideUnitCircle * (bloom * shotSpread);
+        angle = Vector2.ClampMagnitude(angle, bloom);
+        // Roll is kept from the aimed muzzle so spreadNoise and pellet axes line up with the gun.
+        Vector3 dir = idealRot * (Quaternion.Euler(-angle.y, angle.x, 0f) * Vector3.forward);
+        return Quaternion.LookRotation(dir, aimRot * Vector3.up);
     }
 
     public override void Update()

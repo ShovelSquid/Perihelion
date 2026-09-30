@@ -748,6 +748,21 @@ public class HandRig : MonoBehaviour
     }
 
     // Where this hand's gun points with no sway or kick (same solve, zero offset). For the cursor's center.
+    // Everything a shot needs to pick its direction inside the reticle: the aimed muzzle (sway, drag and rest
+    // point included, i.e. the dot), the zero-offset muzzle (the reticle's center) and the current bloom radius.
+    public bool TryGetShotCone(Item item, out Vector3 origin, out Quaternion aimRot, out Quaternion idealRot, out float bloom)
+    {
+        HandSlot slot = null;
+        if (item != null && right.item == item && right.places) slot = right;
+        else if (item != null && left.item == item && left.places) slot = left;
+        bool ok = slot != null && slot.hasAimPose;
+        origin = ok ? slot.aimMuzzlePos : default;
+        aimRot = ok ? slot.aimMuzzleRot : Quaternion.identity;
+        idealRot = ok ? slot.idealMuzzleRot : Quaternion.identity;
+        bloom = ok ? slot.bloom : 0f;
+        return ok;
+    }
+
     public bool TryGetIdealPose(HandSide side, out Vector3 pos, out Quaternion rot)
     {
         HandSlot slot = GetSlot(side);
