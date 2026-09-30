@@ -32,7 +32,6 @@ public class AimCursor : MonoBehaviour
     Canvas canvas;
     bool? partsActive; // null until the first frame, so the first toggle always applies
     float depth; // smoothed distance from the muzzle to the cursor along the ideal ray
-    float dotDepth; // smoothed distance along the real shot ray, so the dot sits where the bullet actually lands
     bool hasDepth; // false after the cursor was hidden, so the first frame back snaps instead of sliding
 
     void Awake()
@@ -80,19 +79,15 @@ public class AimCursor : MonoBehaviour
         }
         Vector3 idealDir = idealRot * Vector3.forward;
 
-        Vector3 actualDir = aimRot * Vector3.forward;
         float hitDistance = CastDistance(idealOrigin, idealDir);
-        float dotHitDistance = CastDistance(origin, actualDir);
         if (!hasDepth)
         {
             depth = hitDistance;
-            dotDepth = dotHitDistance;
             hasDepth = true;
         }
         else
         {
             depth = SmoothDepth(depth, hitDistance);
-            dotDepth = SmoothDepth(dotDepth, dotHitDistance);
         }
 
         // The cursor frame sits on the ideal ray; the dot shows where the shot actually lands inside it.
@@ -100,11 +95,10 @@ public class AimCursor : MonoBehaviour
         anchor.SetWorldPoint(idealPoint);
 
         float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));
-        // The dot uses the real shot direction (what Gun fires along) at its OWN smoothed hit depth, so it
-        // lands where the bullet does even when that ray hits something nearer or farther than the center
-        // ray (the muzzle isn't at the camera, so a depth change shifts the impact sideways on screen).
-        // Smoothing that depth, like the anchor's, turns edge crossings into a quick slide instead of a jump.
-        Vector3 actualPoint = origin + actualDir * dotDepth;
+        // The dot is drawn exactly on the hand's shot target, the same point Gun fires at: one raycast, one
+        // truth, no smoothing, so the dot is where the next bullet lands (projectile gravity aside).
+        Vector3 actualPoint = origin + (aimRot * Vector3.forward) * depth;
+        if (hands.TryGetShotTarget(hand, out Vector3 shotTarget)) actualPoint = shotTarget;
         Place(dot, DotOffset(idealPoint, actualPoint));
         Place(prongUp, Vector2.up * radius);
         Place(prongDown, Vector2.down * radius);

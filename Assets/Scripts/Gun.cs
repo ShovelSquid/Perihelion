@@ -222,6 +222,13 @@ public class Gun : Item
                 {
                     shotOrigin = aimPos;
                     shotRot = aimRot;
+                    // Fire straight at the hand's shot target (the point the cursor dot is drawn on), so the dot
+                    // and the impact can't disagree. Up is kept from the aim pose so spreadNoise axes don't flip.
+                    if (holder.hands.TryGetShotTarget(this, out Vector3 target))
+                    {
+                        Vector3 toTarget = target - shotOrigin;
+                        if (toTarget.sqrMagnitude > 1e-6f) shotRot = Quaternion.LookRotation(toTarget, aimRot * Vector3.up);
+                    }
                 }
                 for (int i = 0; i < actualShotCount; i++)
                 {
