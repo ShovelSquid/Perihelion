@@ -40,6 +40,7 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 aimMuzzlePos; // muzzle pose after the aim solve, before kickback/flip: where shots actually leave from
         [System.NonSerialized] public Quaternion aimMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
+        [System.NonSerialized] public Vector2 restPoint; // unit disk; where the last shot threw the dot, scaled by bloom and eased back to center
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
@@ -66,6 +67,14 @@ public class HandRig : MonoBehaviour
     [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps stacked kicks from automatic fire
     [UnityEngine.Serialization.FormerlySerializedAs("supportRecoilScale")] [Range(0f, 1f)] public float supportBloomScale = 0.5f; // bloom-per-shot multiplier while a free hand steadies a one-handed item
     [Range(0f, 1f)] public float supportSwayScale = 0.5f; // sway-radius multiplier while a free hand steadies a one-handed item
+    [Header("Look and Movement")]
+    public Transform lookSource; // whose rotation counts as "looking"; defaults to Camera.main
+    public Rigidbody moveBody; // whose speed counts as "moving" (airborne included, since it's speed-based); defaults to this object's Rigidbody
+    public float lookSmoothing = 12f; // per second; smooths the measured look rate so single-frame mouse spikes don't jolt the dot
+    public float fullDragLookSpeed = 180f; // deg/s of look at which lookDragCurve reaches its end
+    // Look speed (0..1 of fullDragLookSpeed) to drag strength (0..1, times the gun's lookDrag, as a fraction
+    // of the bloom radius). The spring provides the lag in time; this only shapes how far the dot trails.
+    public AnimationCurve lookDragCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
     [Header("Visual Kick")]
     // Cosmetic kickback slide and muzzle flip, layered after the aim pose is recorded, so they can be as big
     // as you like without moving shots or the cursor dot. Each shot sets a peak; the held gun's recoilReturn
@@ -75,6 +84,9 @@ public class HandRig : MonoBehaviour
     public float maxFlip = 45f; // degrees; clamps stacked flips from automatic fire
 
     float aimWeight;
+    Vector2 lookRate; // smoothed deg/s, x = yaw (right +), y = pitch (up +)
+    Vector3 lastLookForward;
+    bool hasLastLook;
 
     public bool IsEmpty
     {
@@ -85,6 +97,8 @@ public class HandRig : MonoBehaviour
     {
         // Start at the resting weight so there is no blend-in on the first frame.
         aimWeight = idleAimWeight;
+        if (lookSource == null && Camera.main != null) lookSource = Camera.main.transform;
+        if (moveBody == null) moveBody = GetComponent<Rigidbody>();
         // Seeded per hand and per rig, so the two hands and different characters sway out of sync.
         right.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
         left.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
@@ -286,6 +300,7 @@ public class HandRig : MonoBehaviour
         slot.flip = Vector2.zero;
         slot.flipPeak = Vector2.zero;
         slot.recoverTime = 0f;
+        slot.restPoint = Vector2.zero;
         slot.hasAimPose = false;
         slot.bloom = 0f;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
@@ -311,6 +326,9 @@ public class HandRig : MonoBehaviour
         slot.bloom += bloom * (supported ? supportBloomScale : 1f);
         float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
         slot.offsetVelocity += new Vector2(drift * side, rise);
+        // Where the shot lands the dot: anywhere in the bloom circle, evenly by area (insideUnitCircle is
+        // area-uniform, so it doesn't cluster at the center). The rise/side velocity is how it gets there.
+        slot.restPoint = UnityEngine.Random.insideUnitCircle;
         slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
         slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);
         slot.recoverTime = 0f;
@@ -322,19 +340,26 @@ public class HandRig : MonoBehaviour
     {
         Gun gun = slot.item as Gun;
         // Non-gun items have no spread or sway, but both springs still step so a kick never sticks.
+        float recovery = gun != null ? 1f - Mathf.Exp(-Mathf.Max(0f, gun.bloomRecovery) * dt) : 1f;
         if (gun == null)
         {
             slot.bloom = 0f;
         }
         else
         {
-            float floor = Mathf.Max(0f, gun.baseSpread);
-            float ceiling = Mathf.Max(floor, gun.maxSpread);
-            // The floor lifts a fresh equip (bloom 0) to baseSpread on its first frame. Clamping here instead
-            // of in Kick is enough: Kick runs before HandRig.Update in the same frame and nothing reads bloom in between.
-            slot.bloom = Mathf.Lerp(slot.bloom, floor, 1f - Mathf.Exp(-Mathf.Max(0f, gun.bloomRecovery) * dt));
-            slot.bloom = Mathf.Clamp(slot.bloom, floor, ceiling);
+            // Moving and looking raise the floor bloom recovers toward; shots add on top and decay back to it.
+            // Speed is the full velocity, so jumping and falling count without a separate airborne rule.
+            float moveSpeed = moveBody != null ? moveBody.linearVelocity.magnitude : 0f;
+            float ceiling = Mathf.Max(gun.baseSpread, gun.maxSpread);
+            float floor = Mathf.Max(0f, gun.baseSpread + moveSpeed * gun.moveBloom + lookRate.magnitude * gun.lookBloom);
+            floor = Mathf.Min(floor, ceiling);
+            // Recovering both ways means starting to run widens the reticle smoothly instead of popping.
+            slot.bloom = Mathf.Lerp(slot.bloom, floor, recovery);
+            // Floor at baseSpread (not the moving floor) so a fresh equip starts sized but shots can still sit above it.
+            slot.bloom = Mathf.Clamp(slot.bloom, Mathf.Max(0f, gun.baseSpread), ceiling);
         }
+        // The thrown-to point eases back to center at the same rate bloom recovers, so the dot re-centers as the reticle tightens.
+        slot.restPoint = Vector2.Lerp(slot.restPoint, Vector2.zero, recovery);
 
         bool supported = GetSlot(Other(side)).supporting == slot.item;
         slot.noiseTime += dt * swayFrequency;
@@ -342,10 +367,18 @@ public class HandRig : MonoBehaviour
             Mathf.PerlinNoise(slot.noiseSeed, slot.noiseTime) * 2f - 1f,
             Mathf.PerlinNoise(slot.noiseSeed + 37.1f, slot.noiseTime) * 2f - 1f);
         n = Vector2.ClampMagnitude(n, 1f);
-        // The sway target lives inside the bloom circle: a small drift at idle (bloom at baseSpread)
-        // and a wider wander right after firing.
+        // Target = where the last shot threw the dot + sway around it + drag trailing the look, all as
+        // fractions of the bloom radius; the leash below keeps the sum inside the circle.
         Vector2 swayTarget = Vector2.zero;
-        if (gun != null) swayTarget = n * (slot.bloom * gun.swayAmount * (supported ? supportSwayScale : 1f));
+        if (gun != null)
+        {
+            Vector2 sway = n * (gun.swayAmount * (supported ? supportSwayScale : 1f));
+            // Trail behind the turn: turning right leaves the dot left, looking up leaves it low.
+            float lookT = fullDragLookSpeed > 0f ? Mathf.Clamp01(lookRate.magnitude / fullDragLookSpeed) : 0f;
+            float dragAmount = lookDragCurve != null && lookDragCurve.length > 0 ? lookDragCurve.Evaluate(lookT) : lookT;
+            Vector2 drag = lookRate.sqrMagnitude > 1e-6f ? -lookRate.normalized * (dragAmount * gun.lookDrag) : Vector2.zero;
+            swayTarget = (slot.restPoint + sway + drag) * slot.bloom;
+        }
 
         Vector3 offset = slot.offset;
         Vector3 offsetVelocity = slot.offsetVelocity;
@@ -647,6 +680,7 @@ public class HandRig : MonoBehaviour
     {
         float target = aiming ? 1f : idleAimWeight;
         aimWeight = Mathf.Lerp(aimWeight, target, 1f - Mathf.Exp(-aimBlendSharpness * Time.deltaTime));
+        UpdateLookRate(Time.deltaTime);
 
         // Both slots are posed before any IK write, so a two-handed item placed by either hand
         // is final before its off-hand IK target is written.
@@ -654,6 +688,25 @@ public class HandRig : MonoBehaviour
         PoseSlot(HandSide.Left);
         WriteIK(HandSide.Right);
         WriteIK(HandSide.Left);
+    }
+
+    // Measures how fast the view is turning from the look source's rotation change, so mouse and gamepad
+    // behave the same. Yaw is around the character's up; pitch is the change in elevation.
+    void UpdateLookRate(float dt)
+    {
+        if (lookSource == null || dt <= 0f) return;
+        Vector3 up = transform.up;
+        Vector3 fwd = lookSource.forward;
+        Vector2 raw = Vector2.zero;
+        if (hasLastLook)
+        {
+            float yaw = Vector3.SignedAngle(Vector3.ProjectOnPlane(lastLookForward, up), Vector3.ProjectOnPlane(fwd, up), up);
+            float pitch = (Mathf.Asin(Mathf.Clamp(Vector3.Dot(fwd, up), -1f, 1f)) - Mathf.Asin(Mathf.Clamp(Vector3.Dot(lastLookForward, up), -1f, 1f))) * Mathf.Rad2Deg;
+            raw = new Vector2(yaw, pitch) / dt;
+        }
+        lastLookForward = fwd;
+        hasLastLook = true;
+        lookRate = Vector2.Lerp(lookRate, raw, 1f - Mathf.Exp(-lookSmoothing * dt));
     }
 
     void WriteIK(HandSide side)

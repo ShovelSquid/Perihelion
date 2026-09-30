@@ -28,6 +28,9 @@ public class Gun : Item
     public float bloomPerShot = 1.5f; // degrees added to the holding hand's bloom per shot
     public float bloomRecovery = 4f; // per second; exponential pull back toward baseSpread; framerate independent
     [Range(0f, 1f)] public float swayAmount = 0.75f; // fraction of the current bloom radius the sway can wander; 0 = no sway
+    public float moveBloom = 0.3f; // degrees of floor bloom per m/s of holder speed (running, jumping and falling alike)
+    public float lookBloom = 0.01f; // degrees of floor bloom per deg/s of look turn rate
+    [Range(0f, 1f)] public float lookDrag = 0.8f; // fraction of the bloom radius the dot trails behind a full-speed turn (HandRig.lookDragCurve shapes it)
 
     [Header("Recoil Info")]
     public Vector3 recoilOffset; // muzzle-local tilt added to the straight-back kickback direction and the loose-gun impulse; every serialized value is zero today
