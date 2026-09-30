@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-09-29 - Completed quick task 260929-p4y: Bloom/sway recoil model with per-hand aim cursors
+Last activity: 2026-09-30 - Completed quick task 260930-8le: Add FxManager pooled particle effects
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -110,6 +110,7 @@ None yet.
 | 12 | Bloom leash on aim offset + visual-only flip layer | 2026-09-30 | 04547bd | — |
 | 13 | Curve-driven visual recoil return | 2026-09-30 | 9e96db1 | — |
 | 14 | Shot rest point, look drag and look/move bloom floor | 2026-09-30 | 02b0018 | — |
+| 260930-8le | Add FxManager pooled particle effects | 2026-09-30 | f5e14a9 | [260930-8le-add-fxmanager-pooled-particle-effects](./quick/260930-8le-add-fxmanager-pooled-particle-effects/) |
 | 15 | Per-source move/air/look bloom caps | 2026-09-30 | 5890004 | — |
 | 16 | Disable unused aim cursors | 2026-09-30 | b53e384 | — |
 | 17 | Angular cursor dot and depth-only anchor smoothing | 2026-09-30 | 9b67939 | — |
