@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.Collections;
 using System;
 using Unity.Mathematics;
 using System.Collections.Generic;
@@ -101,6 +100,9 @@ public class Move : MonoBehaviour
 
     void FixedUpdate()
     {
+        // Runs before the dead branch so a ragdolling corpse keeps inAir/fallSpeed correct;
+        // side effects in OnLand are gated by !mob.dead.
+        UpdateGroundState();
         if (mob.dead)
         {
             if (moving)
@@ -109,6 +111,9 @@ public class Move : MonoBehaviour
                 if (xzVelo.magnitude < 0.1f) moving = false;
                 else rb.AddForce(new Vector3(-xzVelo.x, 0, -xzVelo.y).normalized * math.remap(0f, maxGroundSpeed, 0f, groundDeceleration, xzVelo.magnitude), ForceMode.Acceleration);
             }
+            // The early return skips the end-of-step clear below.
+            wallNormals.Clear();
+            grounded = false;
             return;
         }
         if (grounded && groundNormal.y > 0.5f)
@@ -131,7 +136,6 @@ public class Move : MonoBehaviour
             float maxSpeedForce = maxSpeedForceGround;
             mob.anim.SetFloat("Speed", math.clamp(math.remap(0f, maxspeeed, 0f, 1f, velocityMagnitude), 0f, 1f));
             playFootsteps = mob.anim.GetFloat("Speed") > 0.3f;
-            InAir();
             if (inAir)
             {
                 playFootsteps = false;
@@ -180,30 +184,6 @@ public class Move : MonoBehaviour
 
     bool CanJump() => !mob.dead && (!inAir || airJumps > 0);
 
-    void OnCollisionEnter(Collision collision)
-    {
-        if ((groundLayer.value & (1 << collision.gameObject.layer)) == 0) return;
-        Vector3 normal = Vector3.zero;
-        foreach (var c in collision.contacts)
-            if (c.normal.y > normal.y) normal = c.normal;
-        if (normal.y <= 0.5f) return;
-        mob.anim.SetTrigger("Land");
-        PlayLandingSound();
-        if (jumpFXPoint != null && groundJumpParticle != null)
-        {
-            jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
-            Instantiate(groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
-        }
-        airJumps = maxAirJumps;
-        InAir();
-        StartCoroutine(DelayAction(0.1f, InAir));
-        if (fallSpeed > mob.fallDamageSpeedMin)
-        {
-            // fix this to be aligned with the normal later
-            mob.FallDamage(fallSpeed, normal.y);
-        }
-    }
-
     void OnCollisionStay(Collision collision)
     {
         if ((groundLayer.value & (1 << collision.gameObject.layer)) == 0) return;
@@ -218,11 +198,6 @@ public class Move : MonoBehaviour
         }
     }
 
-    void OnCollisionExit(Collision collision)
-    {
-        if ((groundLayer.value & (1 << collision.gameObject.layer)) != 0) InAir();
-    }
-
     void OnTriggerEnter(Collider other)
     {
         if ((groundLayer.value & (1 << other.gameObject.layer)) != 0 && other.CompareTag("Platform"))
@@ -234,12 +209,6 @@ public class Move : MonoBehaviour
         if ((groundLayer.value & (1 << other.gameObject.layer)) != 0 && other.CompareTag("Platform"))
             onExitPlat.Invoke(other);
         if (other.gameObject.layer == LayerMask.NameToLayer("Bounds")) Respawn();
-    }
-
-    private IEnumerator DelayAction(float delay, Action action)
-    {
-        yield return new WaitForSeconds(delay);
-        action?.Invoke();
     }
 
     // Kept public in case animation events call it; the real work is UpdateGroundState.
@@ -297,8 +266,15 @@ public class Move : MonoBehaviour
     public void Jump()
     {
         if (!CanJump()) return;
-        StartCoroutine(DelayAction(0.05f, InAir));
-        InAir();
+        bool airJump = inAir;
+        // Force airborne immediately so a second press in the same step consumes an air jump.
+        // The lockout keeps the ground check from reporting ground while the feet still touch.
+        jumpLockUntil = Time.time + jumpGroundLockout;
+        if (!inAir)
+        {
+            inAir = true;
+            mob.anim.SetBool("inAir", true);
+        }
         jump = false;
         mob.anim.SetTrigger("Jump");
         mob.adio.PlayOneShot(jumpSound);
@@ -309,7 +285,7 @@ public class Move : MonoBehaviour
         horizontalWeight = math.clamp(math.remap(0f, maxGroundSpeed, 0f, horizontalWeightMax, rb.linearVelocity.magnitude), 0f, horizontalWeightMax);
         jumpForceMoveMult = math.clamp(math.remap(0f, maxGroundSpeed, 1f, jumpForceMoveMultMax, rb.linearVelocity.magnitude), 0f, jumpForceMoveMultMax);
         jumpForceUpMult = math.clamp(math.remap(0f, maxGroundSpeed, 1f, jumpForceUpMultMax, rb.linearVelocity.magnitude), 0f, jumpForceUpMultMax);
-        if (inAir)
+        if (airJump)
         {
             mob.anim.SetFloat("Flip", 1);
             jumpforce = jumpForceAir;
@@ -329,7 +305,7 @@ public class Move : MonoBehaviour
         rb.AddForce(Vector3.up * (1 - horizontalWeight) * (jumpforce * jumpForceUpMult), ForceMode.Impulse);
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, new Vector3(0, rb.linearVelocity.y, 0), horizontalWeight);
         rb.AddForce(moveVec * horizontalWeight * (jumpforce * jumpForceMoveMult), ForceMode.Impulse);
-        if (inAir) airJumps--;
+        if (airJump) airJumps--;
     }
 
     public void SetMoveDirection(Vector2 direction)
