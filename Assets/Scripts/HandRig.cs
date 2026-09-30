@@ -30,12 +30,13 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public bool savedKinematic; // body.isKinematic from before it was held, restored on release
         [System.NonSerialized] public RigidbodyInterpolation savedInterpolation; // body.interpolation from before it was held, restored on release
         [System.NonSerialized] public float bloom; // degrees; this hand's current spread radius; floored at the held gun's baseSpread
-        [System.NonSerialized] public Vector3 kickback; // meters, muzzle-local position offset along the barrel
-        [System.NonSerialized] public Vector3 kickbackVelocity; // m/s, muzzle-local
+        [System.NonSerialized] public Vector3 kickback; // meters, muzzle-local position offset along the barrel (displayed)
+        [System.NonSerialized] public Vector3 kickbackPeak; // meters; what the last shot pushed kickback to, scaled down by the return curve
         [System.NonSerialized] public Vector2 offset; // degrees the muzzle points away from the ideal aim direction, in the muzzle's own frame; x right, y up
         [System.NonSerialized] public Vector2 offsetVelocity; // deg/s
         [System.NonSerialized] public Vector2 flip; // degrees of visual-only muzzle flip, muzzle frame (x right, y up); never affects aim
-        [System.NonSerialized] public Vector2 flipVelocity; // deg/s
+        [System.NonSerialized] public Vector2 flipPeak; // degrees; what the last shot pushed flip to, scaled down by the return curve
+        [System.NonSerialized] public float recoverTime; // seconds since the last kick; drives the gun's recoilReturn curve
         [System.NonSerialized] public Vector3 aimMuzzlePos; // muzzle pose after the aim solve, before kickback/flip: where shots actually leave from
         [System.NonSerialized] public Quaternion aimMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
@@ -65,16 +66,12 @@ public class HandRig : MonoBehaviour
     [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps stacked kicks from automatic fire
     [UnityEngine.Serialization.FormerlySerializedAs("supportRecoilScale")] [Range(0f, 1f)] public float supportBloomScale = 0.5f; // bloom-per-shot multiplier while a free hand steadies a one-handed item
     [Range(0f, 1f)] public float supportSwayScale = 0.5f; // sway-radius multiplier while a free hand steadies a one-handed item
-    [Header("Kickback")]
-    [UnityEngine.Serialization.FormerlySerializedAs("recoilFrequency")] public float kickbackFrequency = 8f; // Hz; higher slides back into the hand faster
-    // A new field on purpose, not carried over: the old serialized ratio was heavily underdamped, and kickback should not overshoot.
-    [Range(0.1f, 2f)] public float kickbackDampingRatio = 1f; // 1 = critically damped, no overshoot
+    [Header("Visual Kick")]
+    // Cosmetic kickback slide and muzzle flip, layered after the aim pose is recorded, so they can be as big
+    // as you like without moving shots or the cursor dot. Each shot sets a peak; the held gun's recoilReturn
+    // curve over recoilReturnTime scales it back to zero, so the gun can hang up and then ease home.
+    public float visualAttackSharpness = 30f; // per second; how fast the display chases the envelope, so the snap-up isn't a one-frame pop
     [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilDistance")] public float maxKickback = 0.2f; // meters; clamps stacked kickback
-    [Header("Visual Flip")]
-    // Cosmetic muzzle flip about the hand, layered after the aim pose is recorded, so it can be as big as
-    // you like without moving shots or the cursor dot.
-    public float flipFrequency = 7f; // Hz; higher snaps back faster
-    [Range(0.1f, 2f)] public float flipDampingRatio = 0.8f; // below 1 settles with a small, readable bounce
     public float maxFlip = 45f; // degrees; clamps stacked flips from automatic fire
 
     float aimWeight;
@@ -283,24 +280,26 @@ public class HandRig : MonoBehaviour
     void ResetAimState(HandSlot slot)
     {
         slot.kickback = Vector3.zero;
-        slot.kickbackVelocity = Vector3.zero;
+        slot.kickbackPeak = Vector3.zero;
         slot.offset = Vector2.zero;
         slot.offsetVelocity = Vector2.zero;
         slot.flip = Vector2.zero;
-        slot.flipVelocity = Vector2.zero;
+        slot.flipPeak = Vector2.zero;
+        slot.recoverTime = 0f;
         slot.hasAimPose = false;
         slot.bloom = 0f;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
 
-    // Kicks the aim state of the slot placing this item. kickbackVelocity is m/s in the muzzle's local
+    // Kicks the aim state of the slot placing this item. kickback is meters in the muzzle's local
     // frame (back is -z). rise and side are deg/s added to the aim-offset velocity in the muzzle's own
     // frame: rise along the muzzle's up (so a rolled or swaying gun lifts along its own tilt), side along
     // the offset's current sideways drift (none when the offset is still). bloom is degrees added to the
     // hand's spread, scaled by supportBloomScale while the other hand steadies the item; the kicks are not.
-    // flipRise/flipSide are deg/s for the visual-only flip, thrown the same way as rise/side.
+    // flipRise/flipSide are degrees of visual-only flip, thrown the same way as rise/side. Kickback and flip
+    // stack on what is currently shown and restart the return curve, so automatic fire stays up until you stop.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 kickbackVelocity, float rise, float side, float bloom, float flipRise = 0f, float flipSide = 0f)
+    public bool Kick(Item item, Vector3 kickback, float rise, float side, float bloom, float flipRise = 0f, float flipSide = 0f)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -312,8 +311,9 @@ public class HandRig : MonoBehaviour
         slot.bloom += bloom * (supported ? supportBloomScale : 1f);
         float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
         slot.offsetVelocity += new Vector2(drift * side, rise);
-        slot.flipVelocity += new Vector2(drift * flipSide, flipRise);
-        slot.kickbackVelocity += kickbackVelocity;
+        slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
+        slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);
+        slot.recoverTime = 0f;
         return true;
     }
 
@@ -365,17 +365,29 @@ public class HandRig : MonoBehaviour
         slot.offset = offset;
         slot.offsetVelocity = offsetVelocity;
 
-        StepSpring(ref slot.kickback, ref slot.kickbackVelocity, Vector3.zero, kickbackFrequency, kickbackDampingRatio, dt);
-        slot.kickback = Vector3.ClampMagnitude(slot.kickback, maxKickback);
-
-        Vector3 flip = slot.flip;
-        Vector3 flipVelocity = slot.flipVelocity;
-        StepSpring(ref flip, ref flipVelocity, Vector3.zero, flipFrequency, flipDampingRatio, dt);
-        slot.flip = Vector2.ClampMagnitude(flip, maxFlip);
-        slot.flipVelocity = flipVelocity;
+        // Visual kick envelope: peak * curve(t / returnTime). The curve owns the shape (hold, then ease home);
+        // the display chases it at visualAttackSharpness so the jump to a new peak still reads as a snap.
+        slot.recoverTime += dt;
+        float envelope = RecoilEnvelope(gun, slot.recoverTime);
+        float chase = 1f - Mathf.Exp(-visualAttackSharpness * dt);
+        slot.kickback = Vector3.Lerp(slot.kickback, slot.kickbackPeak * envelope, chase);
+        slot.flip = Vector2.Lerp(slot.flip, slot.flipPeak * envelope, chase);
     }
 
-    // Semi-implicit spring pulling x toward target; serves both the aim offset and the kickback.
+    // 1 right after a kick, 0 once the gun is home. Falls back to a linear 0.3 s return for items without a
+    // curve, so a kick never sticks.
+    static float RecoilEnvelope(Gun gun, float t)
+    {
+        float duration = gun != null ? Mathf.Max(0.01f, gun.recoilReturnTime) : 0.3f;
+        float u = Mathf.Clamp01(t / duration);
+        if (gun != null && gun.recoilReturn != null && gun.recoilReturn.length > 0)
+        {
+            return gun.recoilReturn.Evaluate(u);
+        }
+        return 1f - u;
+    }
+
+    // Semi-implicit spring pulling x toward target; serves the aim offset.
     static void StepSpring(ref Vector3 x, ref Vector3 v, Vector3 target, float frequency, float dampingRatio, float dt)
     {
         if (dt <= 0f) return;
