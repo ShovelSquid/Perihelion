@@ -32,7 +32,6 @@ public class AimCursor : MonoBehaviour
     Canvas canvas;
     bool? partsActive; // null until the first frame, so the first toggle always applies
     float depth; // smoothed distance from the muzzle to the cursor along the ideal ray
-    float dotDepth; // smoothed distance along the real shot ray, so the dot sits where the bullet actually lands
     bool hasDepth; // false after the cursor was hidden, so the first frame back snaps instead of sliding
 
     void Awake()
@@ -60,10 +59,12 @@ public class AimCursor : MonoBehaviour
         Transform muzzle = item.Muzzle;
         if (muzzle == null) muzzle = item.transform;
 
-        // Prongs: HandRig's measured zero-offset pose (same solve, same aim weight and cap, just no sway or kick),
-        // so the reticle's center is where the gun really points without them, not a guess from undoing the offset.
-        // Dot: the recorded aim pose (before visual kickback/flip), the same one Gun fires from, so it follows the
-        // shots rather than the thrown-around gun model.
+        // One ray: the muzzle with the hand's aim offset undone, for the prongs. HandRig applies the offset in
+        // the muzzle frame as Euler(-y, x, 0), so the inverse of that gives the direction the gun would point
+        // without it. The dot is placed by angle, not by a second ray: two rays hitting different depths at a
+        // collider edge project far apart on screen (the muzzle isn't at the camera), which made the dot jump.
+        // Read the hand's recorded aim pose (before visual kickback/flip), the same one Gun fires from,
+        // so the dot follows the shots rather than the thrown-around gun model.
         Vector3 origin = muzzle.position;
         Quaternion aimRot = muzzle.rotation;
         if (hands.TryGetAimPose(hand, out Vector3 aimPos, out Quaternion recorded))
@@ -71,52 +72,36 @@ public class AimCursor : MonoBehaviour
             origin = aimPos;
             aimRot = recorded;
         }
-        Vector3 idealOrigin = origin;
-        Quaternion idealRot = aimRot;
-        if (hands.TryGetIdealPose(hand, out Vector3 idealPos, out Quaternion idealRecorded))
-        {
-            idealOrigin = idealPos;
-            idealRot = idealRecorded;
-        }
-        Vector3 idealDir = idealRot * Vector3.forward;
+        Vector2 offset = hands.GetAimOffset(hand);
+        Vector3 idealDir = aimRot * (Quaternion.Inverse(Quaternion.Euler(-offset.y, offset.x, 0f)) * Vector3.forward);
 
-        Vector3 actualDir = aimRot * Vector3.forward;
-        float hitDistance = CastDistance(idealOrigin, idealDir);
-        float dotHitDistance = CastDistance(origin, actualDir);
+        float hitDistance = CastDistance(origin, idealDir);
         if (!hasDepth)
         {
             depth = hitDistance;
-            dotDepth = dotHitDistance;
             hasDepth = true;
         }
         else
         {
-            depth = SmoothDepth(depth, hitDistance);
-            dotDepth = SmoothDepth(dotDepth, dotHitDistance);
+            float sharpness = hitDistance < depth ? depthInSharpness : depthOutSharpness;
+            depth = Mathf.Lerp(depth, hitDistance, 1f - Mathf.Exp(-sharpness * Time.deltaTime));
         }
 
         // The cursor frame sits on the ideal ray; the dot shows where the shot actually lands inside it.
-        Vector3 idealPoint = idealOrigin + idealDir * depth;
+        Vector3 idealPoint = origin + idealDir * depth;
         anchor.SetWorldPoint(idealPoint);
 
         float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));
-        // The dot uses the real shot direction (what Gun fires along) at its OWN smoothed hit depth, so it
-        // lands where the bullet does even when that ray hits something nearer or farther than the center
-        // ray (the muzzle isn't at the camera, so a depth change shifts the impact sideways on screen).
-        // Smoothing that depth, like the anchor's, turns edge crossings into a quick slide instead of a jump.
-        Vector3 actualPoint = origin + actualDir * dotDepth;
+        // The dot uses the real shot direction (what Gun fires along), put at the SAME smoothed depth as the
+        // anchor. Sharing one depth removes the edge parallax jump; using the real direction instead of the
+        // requested offset keeps it on the bullets when aim weight, the correction cap or solver undershoot
+        // means the gun turned less than the offset asked for.
+        Vector3 actualPoint = origin + (aimRot * Vector3.forward) * depth;
         Place(dot, DotOffset(idealPoint, actualPoint));
         Place(prongUp, Vector2.up * radius);
         Place(prongDown, Vector2.down * radius);
         Place(prongLeft, Vector2.left * radius);
         Place(prongRight, Vector2.right * radius);
-    }
-
-    // Asymmetric: closer hits arrive almost instantly (a wall appearing matters), farther ones ease out.
-    float SmoothDepth(float current, float target)
-    {
-        float sharpness = target < current ? depthInSharpness : depthOutSharpness;
-        return Mathf.Lerp(current, target, 1f - Mathf.Exp(-sharpness * Time.deltaTime));
     }
 
     float CastDistance(Vector3 origin, Vector3 dir)
@@ -129,7 +114,7 @@ public class AimCursor : MonoBehaviour
     }
 
     // Screen-space gap between the two points, in canvas units, projected through the world camera
-    // (ScreenAnchor.cam) so gun roll and muzzle/camera parallax are baked in.
+    // (ScreenAnchor.cam) so gun roll is baked in. Both points share one depth, so there's no edge parallax jump.
     Vector2 DotOffset(Vector3 idealPoint, Vector3 actualPoint)
     {
         Camera cam = anchor.cam;
