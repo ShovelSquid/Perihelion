@@ -88,10 +88,16 @@ public class AimCursor : MonoBehaviour
         }
 
         // The cursor frame sits on the ideal ray; the dot shows where the shot actually lands inside it.
-        anchor.SetWorldPoint(origin + idealDir * depth);
+        Vector3 idealPoint = origin + idealDir * depth;
+        anchor.SetWorldPoint(idealPoint);
 
         float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));
-        Place(dot, DotOffset(offset, aimRot));
+        // The dot uses the real shot direction (what Gun fires along), put at the SAME smoothed depth as the
+        // anchor. Sharing one depth removes the edge parallax jump; using the real direction instead of the
+        // requested offset keeps it on the bullets when aim weight, the correction cap or solver undershoot
+        // means the gun turned less than the offset asked for.
+        Vector3 actualPoint = origin + (aimRot * Vector3.forward) * depth;
+        Place(dot, DotOffset(idealPoint, actualPoint));
         Place(prongUp, Vector2.up * radius);
         Place(prongDown, Vector2.down * radius);
         Place(prongLeft, Vector2.left * radius);
@@ -107,23 +113,17 @@ public class AimCursor : MonoBehaviour
         return missDistance;
     }
 
-    // The dot's offset inside the cursor, in canvas units, straight from the aim offset angle. Same
-    // degrees-to-pixels mapping as the prongs, so "dot at a prong tip" means exactly "at the bloom edge",
-    // and nothing here depends on hit depth. The muzzle's right/up are projected onto the camera's screen
-    // axes so a rolled gun throws the dot along its own tilt.
-    Vector2 DotOffset(Vector2 offset, Quaternion muzzleRot)
+    // Screen-space gap between the two points, in canvas units, projected through the world camera
+    // (ScreenAnchor.cam) so gun roll is baked in. Both points share one depth, so there's no edge parallax jump.
+    Vector2 DotOffset(Vector3 idealPoint, Vector3 actualPoint)
     {
         Camera cam = anchor.cam;
         if (cam == null) return Vector2.zero;
-        Transform c = cam.transform;
-        Vector3 right = muzzleRot * Vector3.right;
-        Vector3 up = muzzleRot * Vector3.up;
-        Vector2 screenRight = new Vector2(Vector3.Dot(right, c.right), Vector3.Dot(right, c.up));
-        Vector2 screenUp = new Vector2(Vector3.Dot(up, c.right), Vector3.Dot(up, c.up));
-        // Normalized so looking steeply along the barrel doesn't shrink the axes; a degenerate axis contributes nothing.
-        screenRight = screenRight.sqrMagnitude > 1e-6f ? screenRight.normalized : Vector2.zero;
-        screenUp = screenUp.sqrMagnitude > 1e-6f ? screenUp.normalized : Vector2.zero;
-        return screenRight * anchor.AngleToCanvasUnits(offset.x) + screenUp * anchor.AngleToCanvasUnits(offset.y);
+        Vector3 a = cam.WorldToScreenPoint(idealPoint);
+        Vector3 b = cam.WorldToScreenPoint(actualPoint);
+        if (a.z <= 0f || b.z <= 0f) return Vector2.zero;
+        Vector2 pixels = new Vector2(b.x - a.x, b.y - a.y);
+        return canvas != null ? pixels / canvas.scaleFactor : pixels;
     }
 
     // The parts are toggled, not this object: a disabled cursor would stop its own LateUpdate and could
