@@ -9,8 +9,8 @@ public class Gun : Item
     public float damage;
     public float projectileSpeed;
     public Vector2 shotCount;
-    public Vector2 spreadAngle;
-    public Vector2 spreadNoise;
+    public Vector2 spreadAngle; // degrees (x pitch, y yaw) of pellet pattern; only used when one shot fires more than one projectile. The hand's bloom and sway now carry aim inaccuracy
+    public Vector2 spreadNoise; // degrees (x pitch, y yaw) of small per-projectile jitter for texture; applied to every projectile
     public float critMult;
     public bool automatic;
     public int bulletChambered;
@@ -21,6 +21,12 @@ public class Gun : Item
     public int totalAmmo;
     [Header("Charge Info")]
     public Charge charge = new Charge();
+
+    [Header("Spread")]
+    public float baseSpread = 0.5f; // degrees; the resting bloom radius, which is the cursor's idle size
+    public float maxSpread = 6f; // degrees; bloom cap under sustained fire
+    public float bloomPerShot = 1.5f; // degrees added to the holding hand's bloom per shot
+    public float bloomRecovery = 4f; // per second; exponential pull back toward baseSpread; framerate independent
 
     [Header("Recoil Info")]
     public Vector3 recoilOffset; // muzzle-local tilt added to the straight-back kick direction; every serialized value is zero today
@@ -75,7 +81,7 @@ public class Gun : Item
         // Held: the gun is kinematic, so kick the hand's recoil spring instead of the body.
         Vector3 linearKick = kickDir * (recoilForce * recoilKickback);
         Vector3 angularKick = recoilRise * recoilForce;
-        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, angularKick)) return;
+        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, angularKick, bloomPerShot)) return;
         // Loose dynamic gun: keep the physics impulse (same as the old formula with a zero recoilOffset).
         // A kinematic unheld gun gets no recoil.
         if (rb != null && !rb.isKinematic)
@@ -190,24 +196,30 @@ public class Gun : Item
                 int actualShotCount = 0;
                 if (shotCount == Vector2.zero) actualShotCount = 1;
                 else actualShotCount = Random.Range((int)shotCount.x, (int)shotCount.y + 1);
+                // Bullets leave along the real muzzle, so where the hand points the gun is where the shot goes.
+                Transform muzzle = Muzzle;
                 for (int i = 0; i < actualShotCount; i++)
                 {
                     // xy spread baesd off of x and y of spreadAngle
                     Vector2 angleOffset = new Vector2(
-                        Random.Range(-spreadAngle.x, spreadAngle.x),
-                        Random.Range(-spreadAngle.y, spreadAngle.y)
-                    );
-                    angleOffset += new Vector2(
                         Random.Range(-spreadNoise.x, spreadNoise.x),
                         Random.Range(-spreadNoise.y, spreadNoise.y)
                     );
-                    Quaternion spreadRotation = Quaternion.Euler(angleOffset.x, angleOffset.y, 0f);
-                    Vector3 shotDirection = spreadRotation * firePoint.forward;
+                    // spreadAngle is only the pellet pattern of multi-projectile shots; single shots get just the small jitter.
+                    if (actualShotCount > 1)
+                    {
+                        angleOffset += new Vector2(
+                            Random.Range(-spreadAngle.x, spreadAngle.x),
+                            Random.Range(-spreadAngle.y, spreadAngle.y)
+                        );
+                    }
+                    // Jitter in the muzzle's own frame, so the spread axes stay put as the gun turns.
+                    Vector3 shotDirection = muzzle.rotation * (Quaternion.Euler(angleOffset.x, angleOffset.y, 0f) * Vector3.forward);
                     // create bullet
                     Projectile p = bulletManager.Get(projectilePrefab);
-                    p.Proj.position = firePoint.position;
+                    p.Proj.position = muzzle.position;
                     p.speed = effectiveProjectileSpeed;
-                    p.direction = firePoint.forward;
+                    p.direction = muzzle.forward;
                     p.damage = effectiveDamage;
                     p.Fire(shotDirection);
                 }
@@ -220,7 +232,8 @@ public class Gun : Item
     public override void Update()
     {
         base.Update();
-        Debug.DrawRay(firePoint.position, firePoint.forward * 655f, Color.red);
+        Transform m = Muzzle;
+        Debug.DrawRay(m.position, m.forward * 655f, Color.red);
         if (charge.enabled && equipped && triggerHeld)
         {
             // if (!charge.charging && CanCharge()) charge.Begin();

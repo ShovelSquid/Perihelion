@@ -32,6 +32,7 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 recoilPosVelocity; // m/s, muzzle-local
         [System.NonSerialized] public Vector3 recoilRot; // degrees, muzzle-local Euler recoil offset
         [System.NonSerialized] public Vector3 recoilRotVelocity; // deg/s, muzzle-local
+        [System.NonSerialized] public float bloom; // degrees; this hand's current spread radius; floored at the held gun's baseSpread
     }
 
     [Header("Hands")]
@@ -94,6 +95,20 @@ public class HandRig : MonoBehaviour
     public Item GetItem(HandSide side)
     {
         return GetSlot(side).item;
+    }
+
+    // The item this hand positions, or null (empty hand, or the off hand of a two-handed item). Cursors and UI read it.
+    public Item GetPlacedItem(HandSide side)
+    {
+        HandSlot slot = GetSlot(side);
+        return slot.places ? slot.item : null;
+    }
+
+    // Degrees of spread this hand currently has, or 0 when it places nothing. Cursors and UI read it.
+    public float GetBloom(HandSide side)
+    {
+        HandSlot slot = GetSlot(side);
+        return slot.places && slot.item != null ? slot.bloom : 0f;
     }
 
     static HandSide Other(HandSide side)
@@ -240,12 +255,14 @@ public class HandRig : MonoBehaviour
         slot.recoilPosVelocity = Vector3.zero;
         slot.recoilRot = Vector3.zero;
         slot.recoilRotVelocity = Vector3.zero;
+        slot.bloom = 0f;
     }
 
     // Kicks the recoil spring of the slot placing this item. Velocities are in the muzzle's local
-    // frame, so back is -z and muzzle rise is negative x (m/s and deg/s).
+    // frame, so back is -z and muzzle rise is negative x (m/s and deg/s). Bloom is degrees added
+    // to the hand's spread; it is not scaled by the recoil support scale.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 linearKick, Vector3 angularKick)
+    public bool Kick(Item item, Vector3 linearKick, Vector3 angularKick, float bloom)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -256,7 +273,26 @@ public class HandRig : MonoBehaviour
         float scale = other.supporting == item ? supportRecoilScale : 1f;
         slot.recoilPosVelocity += linearKick * scale;
         slot.recoilRotVelocity += angularKick * scale;
+        slot.bloom += bloom;
         return true;
+    }
+
+    // Advances the slot's angular aim state (bloom) by dt.
+    void StepAimState(HandSide side, HandSlot slot, float dt)
+    {
+        Gun gun = slot.item as Gun;
+        // Non-gun items have no spread.
+        if (gun == null)
+        {
+            slot.bloom = 0f;
+            return;
+        }
+        float floor = Mathf.Max(0f, gun.baseSpread);
+        float ceiling = Mathf.Max(floor, gun.maxSpread);
+        // The floor lifts a fresh equip (bloom 0) to baseSpread on its first frame. Clamping here instead
+        // of in Kick is enough: Kick runs before HandRig.Update in the same frame and nothing reads bloom in between.
+        slot.bloom = Mathf.Lerp(slot.bloom, floor, 1f - Mathf.Exp(-Mathf.Max(0f, gun.bloomRecovery) * dt));
+        slot.bloom = Mathf.Clamp(slot.bloom, floor, ceiling);
     }
 
     // Support only changes when a hand's contents change, so it is cached here from Equip/Release
@@ -355,6 +391,7 @@ public class HandRig : MonoBehaviour
         Vector3 pivot = slot.socket.position;
         Vector3 pos = basePos;
         Quaternion rot = baseRot;
+        StepAimState(side, slot, Time.deltaTime);
         ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, ref pos, ref rot);
         // Recoil goes on top of the aimed pose, so the item springs back onto the aim point.
         StepRecoil(slot, Time.deltaTime);
