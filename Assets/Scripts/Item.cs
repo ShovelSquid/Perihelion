@@ -18,8 +18,10 @@ public class Item : MonoBehaviour
         public bool leftHand;
         public HandSide primaryHand; // dominant hand, places a two-handed or hand-less item; one-handed items use their flagged hand
     }
-    public Transform handL;
-    public Transform handR;
+    // Grips are where a hand bone goes (any transform under the item, bones included).
+    // hand1 is held by the primaryHand (or whichever hand holds a one-handed item); hand2 is the off-hand grip.
+    [UnityEngine.Serialization.FormerlySerializedAs("handR")] public Transform hand1;
+    [UnityEngine.Serialization.FormerlySerializedAs("handL")] public Transform hand2;
     public EquipInfo equipInfo;
     public bool pickupable;
     // public bool inInventory;
@@ -32,7 +34,6 @@ public class Item : MonoBehaviour
     // public bool aim = false;
     // public bool isTool;
     public bool triggerHeld;
-    public Transform holdTransform;
     // protected Transform holdTargetBase;
     // protected Transform aimPoint;
     // public float holdLerpSpeed;
@@ -74,7 +75,6 @@ public class Item : MonoBehaviour
             // holdTargetBase.position = holdTarget.position;
             // holdTargetBase.rotation = holdTarget.rotation;
         }
-        if (holdTransform == null) holdTransform = transform;
         if (hitIndicator == null && holder is Player && ((Player)holder).hitIndicator != null)
         {
             hitIndicator = ((Player)holder).hitIndicator;
@@ -101,11 +101,13 @@ public class Item : MonoBehaviour
         }
     }
 
-    // Falls back to the other grip so a one-handed item moved to the other hand still has one.
+    // Grips follow role, not side: a one-handed item always uses hand1 in whichever hand holds it;
+    // a two-handed item gives hand1 to its primaryHand and hand2 to the other. Falls back to the other grip if one is empty.
     public Transform GripFor(HandSide side)
     {
-        if (side == HandSide.Left) return handL != null ? handL : handR;
-        return handR != null ? handR : handL;
+        bool primary = !IsTwoHanded || side == equipInfo.primaryHand;
+        if (primary) return hand1 != null ? hand1 : hand2;
+        return hand2 != null ? hand2 : hand1;
     }
 
     // The point and forward the item aims with. HandRig turns the item so this forward hits its
