@@ -52,6 +52,7 @@ public class HandRig : MonoBehaviour
     [Range(0f, 2f)] public float recoilDampingRatio = 0.6f; // 1 = critically damped; below 1 overshoots slightly
     public float maxRecoilDistance = 0.2f; // meters; clamps stacked kicks from automatic fire
     public float maxRecoilAngle = 25f; // degrees; same clamp for rotation
+    [Range(0f, 1f)] public float supportRecoilScale = 0.5f; // recoil multiplier while a free hand steadies a one-handed item
 
     float aimWeight;
 
@@ -115,6 +116,8 @@ public class HandRig : MonoBehaviour
     public bool Equip(Item item, HandSide side)
     {
         if (item == null) return false;
+        // A two-handed item always places from its default hand, so hand1/hand2 keep their orientation.
+        if (item.IsTwoHanded) side = item.DefaultHand;
 
         HandSlot slot = GetSlot(side);
         // Already placed in this hand: re-equipping is a no-op (Hotwheel re-equips the current item).
@@ -242,12 +245,24 @@ public class HandRig : MonoBehaviour
     {
         if (item == null) return false;
         HandSlot slot = null;
+        HandSide side = HandSide.Right;
         if (right.item == item && right.places) slot = right;
-        else if (left.item == item && left.places) slot = left;
+        else if (left.item == item && left.places) { slot = left; side = HandSide.Left; }
         if (slot == null) return false;
-        slot.recoilPosVelocity += linearKick;
-        slot.recoilRotVelocity += angularKick;
+        float scale = SupportedItem(Other(side)) == item ? supportRecoilScale : 1f;
+        slot.recoilPosVelocity += linearKick * scale;
+        slot.recoilRotVelocity += angularKick * scale;
         return true;
+    }
+
+    // The one-handed item this empty hand is steadying, if any: the other hand must be placing it
+    // and the item must allow a support hand.
+    Item SupportedItem(HandSide side)
+    {
+        if (GetSlot(side).item != null) return null;
+        HandSlot other = GetSlot(Other(side));
+        if (other.item == null || !other.places || !other.item.CanBeSupported) return null;
+        return other.item;
     }
 
     void StepRecoil(HandSlot slot, float dt)
@@ -291,7 +306,7 @@ public class HandRig : MonoBehaviour
             rot = default;
             return false;
         }
-        Transform grip = item.GripFor(side);
+        Transform grip = item.GripFor(true);
         if (grip == null)
         {
             pos = socket.position;
@@ -460,7 +475,13 @@ public class HandRig : MonoBehaviour
     void WriteIK(HandSide side)
     {
         HandSlot slot = GetSlot(side);
-        Transform grip = (slot.item != null && slot.item.UsesHands) ? slot.item.GripFor(side) : null;
+        Transform grip = null;
+        if (slot.item != null) grip = slot.item.GripFor(slot.places);
+        else
+        {
+            Item supported = SupportedItem(side);
+            if (supported != null) grip = supported.GripFor(false);
+        }
         float weight;
         if (grip != null && slot.ikTarget != null)
         {

@@ -14,12 +14,13 @@ public class Item : MonoBehaviour
         public Sprite bigUIIcon;
         public string label;
         public string equipAnimation;
-        public bool rightHand;
-        public bool leftHand;
-        public HandSide primaryHand; // dominant hand, places a two-handed or hand-less item; one-handed items use their flagged hand
+        [UnityEngine.Serialization.FormerlySerializedAs("primaryHand")]
+        public HandSide defaultHand; // hand that holds hand1; equips go here unless a side is given, and a two-handed item always places from it
+        public bool twoHanded; // occupies both hands: defaultHand holds hand1, the other hand holds hand2
+        public bool supportHand; // one-handed only: while the other hand is empty it grips hand2 and damps recoil
     }
     // Grips are where a hand bone goes (any transform under the item, bones included).
-    // hand1 is held by the primaryHand (or whichever hand holds a one-handed item); hand2 is the off-hand grip.
+    // hand1 is held by the hand placing the item; hand2 by the off hand (two-handed) or the support hand.
     [UnityEngine.Serialization.FormerlySerializedAs("handR")] public Transform hand1;
     [UnityEngine.Serialization.FormerlySerializedAs("handL")] public Transform hand2;
     public EquipInfo equipInfo;
@@ -81,33 +82,27 @@ public class Item : MonoBehaviour
         }
     }
 
-    public bool UsesHands
-    {
-        get { return equipInfo.rightHand || equipInfo.leftHand; }
-    }
-
     public bool IsTwoHanded
     {
-        get { return equipInfo.rightHand && equipInfo.leftHand; }
+        get { return equipInfo.twoHanded; }
+    }
+
+    public bool CanBeSupported
+    {
+        get { return !equipInfo.twoHanded && equipInfo.supportHand && hand2 != null; }
     }
 
     public HandSide DefaultHand
     {
-        get
-        {
-            if (equipInfo.leftHand && !equipInfo.rightHand) return HandSide.Left;
-            if (equipInfo.rightHand && !equipInfo.leftHand) return HandSide.Right;
-            return equipInfo.primaryHand;
-        }
+        get { return equipInfo.defaultHand; }
     }
 
-    // Grips follow role, not side: a one-handed item always uses hand1 in whichever hand holds it;
-    // a two-handed item gives hand1 to its primaryHand and hand2 to the other. Falls back to the other grip if one is empty.
-    public Transform GripFor(HandSide side)
+    // Grips follow role, not side: the placing hand takes hand1 (falling back to hand2 if hand1 is
+    // empty); the off/support hand takes hand2 only, so an item without hand2 never pulls a second hand in.
+    public Transform GripFor(bool placing)
     {
-        bool primary = !IsTwoHanded || side == equipInfo.primaryHand;
-        if (primary) return hand1 != null ? hand1 : hand2;
-        return hand2 != null ? hand2 : hand1;
+        if (placing) return hand1 != null ? hand1 : hand2;
+        return hand2;
     }
 
     // The point and forward the item aims with. HandRig turns the item so this forward hits its

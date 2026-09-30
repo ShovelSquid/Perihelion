@@ -139,12 +139,12 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
-    // A two-handed item sits in both slots but only answers its primaryHand button; the off-hand
+    // A two-handed item sits in both slots but only answers its defaultHand button; the off-hand
     // button still aims, it just doesn't touch the trigger.
     Item TriggerItem(HandSide side)
     {
         Item held = mob.hands != null ? mob.hands.GetItem(side) : null;
-        if (held != null && held.IsTwoHanded && held.equipInfo.primaryHand != side) return null;
+        if (held != null && held.IsTwoHanded && held.DefaultHand != side) return null;
         return held;
     }
 
