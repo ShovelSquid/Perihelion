@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.Collections;
 using System;
 using Unity.Mathematics;
 using System.Collections.Generic;
@@ -75,10 +74,16 @@ public class Move : MonoBehaviour
     public LayerMask groundLayer;
     public float groundCheckDistance = 0.1f;
     public float fallSpeed;
+    [Range(0.1f, 1f)]
+    public float groundProbeRadius = 0.9f; // Fraction of the collider's horizontal radius used by the ground sphere probe
+    public float groundProbeSkin = 0.05f; // How far inside the collider bottom the probe starts
+    public float jumpGroundLockout = 0.1f; // Seconds after a jump during which ground is ignored
 
     private readonly List<Vector3> wallNormals = new List<Vector3>();
     private Vector3 groundNormal = Vector3.up;
     private bool grounded;
+    private float jumpLockUntil;
+    private Vector3 lastGroundNormal = Vector3.up;
 
     void Start()
     {
@@ -95,6 +100,9 @@ public class Move : MonoBehaviour
 
     void FixedUpdate()
     {
+        // Runs before the dead branch so a ragdolling corpse keeps inAir/fallSpeed correct;
+        // side effects in OnLand are gated by !mob.dead.
+        UpdateGroundState();
         if (mob.dead)
         {
             if (moving)
@@ -103,6 +111,9 @@ public class Move : MonoBehaviour
                 if (xzVelo.magnitude < 0.1f) moving = false;
                 else rb.AddForce(new Vector3(-xzVelo.x, 0, -xzVelo.y).normalized * math.remap(0f, maxGroundSpeed, 0f, groundDeceleration, xzVelo.magnitude), ForceMode.Acceleration);
             }
+            // The early return skips the end-of-step clear below.
+            wallNormals.Clear();
+            grounded = false;
             return;
         }
         if (grounded && groundNormal.y > 0.5f)
@@ -125,7 +136,6 @@ public class Move : MonoBehaviour
             float maxSpeedForce = maxSpeedForceGround;
             mob.anim.SetFloat("Speed", math.clamp(math.remap(0f, maxspeeed, 0f, 1f, velocityMagnitude), 0f, 1f));
             playFootsteps = mob.anim.GetFloat("Speed") > 0.3f;
-            InAir();
             if (inAir)
             {
                 playFootsteps = false;
@@ -174,30 +184,6 @@ public class Move : MonoBehaviour
 
     bool CanJump() => !mob.dead && (!inAir || airJumps > 0);
 
-    void OnCollisionEnter(Collision collision)
-    {
-        if ((groundLayer.value & (1 << collision.gameObject.layer)) == 0) return;
-        Vector3 normal = Vector3.zero;
-        foreach (var c in collision.contacts)
-            if (c.normal.y > normal.y) normal = c.normal;
-        if (normal.y <= 0.5f) return;
-        mob.anim.SetTrigger("Land");
-        PlayLandingSound();
-        if (jumpFXPoint != null && groundJumpParticle != null)
-        {
-            jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
-            Instantiate(groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
-        }
-        airJumps = maxAirJumps;
-        InAir();
-        StartCoroutine(DelayAction(0.1f, InAir));
-        if (fallSpeed > mob.fallDamageSpeedMin)
-        {
-            // fix this to be aligned with the normal later
-            mob.FallDamage(fallSpeed, normal.y);
-        }
-    }
-
     void OnCollisionStay(Collision collision)
     {
         if ((groundLayer.value & (1 << collision.gameObject.layer)) == 0) return;
@@ -210,11 +196,6 @@ public class Move : MonoBehaviour
             }
             else if (c.normal.y < 0.4f) wallNormals.Add(c.normal);
         }
-    }
-
-    void OnCollisionExit(Collision collision)
-    {
-        if ((groundLayer.value & (1 << collision.gameObject.layer)) != 0) InAir();
     }
 
     void OnTriggerEnter(Collider other)
@@ -230,24 +211,70 @@ public class Move : MonoBehaviour
         if (other.gameObject.layer == LayerMask.NameToLayer("Bounds")) Respawn();
     }
 
-    private IEnumerator DelayAction(float delay, Action action)
-    {
-        yield return new WaitForSeconds(delay);
-        action?.Invoke();
-    }
-
+    // Kept public in case animation events call it; the real work is UpdateGroundState.
     public void InAir()
     {
-        Vector3 origin = new Vector3(transform.position.x, transform.position.y - moveCollider.bounds.size.y / 2, transform.position.z);
-        inAir = !Physics.Raycast(origin, Vector3.down, out _, groundCheckDistance, groundLayer, QueryTriggerInteraction.Ignore);
-        mob.anim.SetBool("inAir", inAir);
+        UpdateGroundState();
+    }
+
+    // The only place inAir is computed. Runs at the top of every FixedUpdate so it is fresh
+    // even while idle or in a standing jump.
+    private void UpdateGroundState()
+    {
+        // Contact term: OnCollisionStay set these during the previous physics step.
+        bool contact = grounded && groundNormal.y > 0.5f;
+
+        // Probe term: sphere derived from the collider bounds, so it does not depend on the pivot
+        // sitting at the collider centre. It starts inside the collider (skin above the bottom),
+        // which also means the mob's own collider is never reported as a hit.
+        Bounds b = moveCollider.bounds;
+        float r = groundProbeRadius * Mathf.Min(b.extents.x, b.extents.z);
+        Vector3 origin = new Vector3(b.center.x, b.center.y - b.extents.y + r + groundProbeSkin, b.center.z);
+        bool probeHit = Physics.SphereCast(origin, r, Vector3.down, out RaycastHit hit, groundCheckDistance + groundProbeSkin, groundLayer, QueryTriggerInteraction.Ignore)
+            && hit.normal.y > 0.5f;
+
+        // While the jump lockout is active the feet may still touch the floor; report airborne.
+        bool nowGrounded = Time.time >= jumpLockUntil && (contact || probeHit);
+        if (nowGrounded) lastGroundNormal = contact ? groundNormal : hit.normal;
+
+        bool wasAir = inAir;
+        inAir = !nowGrounded;
+        if (wasAir != inAir) mob.anim.SetBool("inAir", inAir); // write only on change
+        if (wasAir && !inAir) OnLand();
+    }
+
+    // Single landing handler (airborne -> grounded).
+    private void OnLand()
+    {
+        if (!mob.dead)
+        {
+            mob.anim.SetTrigger("Land");
+            PlayLandingSound();
+            if (jumpFXPoint != null && groundJumpParticle != null)
+            {
+                jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
+                Instantiate(groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
+            }
+            // Capture fall damage before fallSpeed is reset below.
+            if (fallSpeed > mob.fallDamageSpeedMin) mob.FallDamage(fallSpeed, lastGroundNormal.y);
+        }
+        // Resets run even when dead so a respawn does not fire a spurious landing with stale fallSpeed.
+        airJumps = maxAirJumps;
+        fallSpeed = 0f;
     }
 
     public void Jump()
     {
         if (!CanJump()) return;
-        StartCoroutine(DelayAction(0.05f, InAir));
-        InAir();
+        bool airJump = inAir;
+        // Force airborne immediately so a second press in the same step consumes an air jump.
+        // The lockout keeps the ground check from reporting ground while the feet still touch.
+        jumpLockUntil = Time.time + jumpGroundLockout;
+        if (!inAir)
+        {
+            inAir = true;
+            mob.anim.SetBool("inAir", true);
+        }
         jump = false;
         mob.anim.SetTrigger("Jump");
         mob.adio.PlayOneShot(jumpSound);
@@ -258,7 +285,7 @@ public class Move : MonoBehaviour
         horizontalWeight = math.clamp(math.remap(0f, maxGroundSpeed, 0f, horizontalWeightMax, rb.linearVelocity.magnitude), 0f, horizontalWeightMax);
         jumpForceMoveMult = math.clamp(math.remap(0f, maxGroundSpeed, 1f, jumpForceMoveMultMax, rb.linearVelocity.magnitude), 0f, jumpForceMoveMultMax);
         jumpForceUpMult = math.clamp(math.remap(0f, maxGroundSpeed, 1f, jumpForceUpMultMax, rb.linearVelocity.magnitude), 0f, jumpForceUpMultMax);
-        if (inAir)
+        if (airJump)
         {
             mob.anim.SetFloat("Flip", 1);
             jumpforce = jumpForceAir;
@@ -278,7 +305,7 @@ public class Move : MonoBehaviour
         rb.AddForce(Vector3.up * (1 - horizontalWeight) * (jumpforce * jumpForceUpMult), ForceMode.Impulse);
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, new Vector3(0, rb.linearVelocity.y, 0), horizontalWeight);
         rb.AddForce(moveVec * horizontalWeight * (jumpforce * jumpForceMoveMult), ForceMode.Impulse);
-        if (inAir) airJumps--;
+        if (airJump) airJumps--;
     }
 
     public void SetMoveDirection(Vector2 direction)
