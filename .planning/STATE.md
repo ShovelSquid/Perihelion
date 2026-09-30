@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T00:09:47.327Z"
+last_updated: "2026-09-30T00:33:37.352Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 101aec06c69a87e70824c01fb309d695b483bdc8
+state_head: 6240db945538ab96983c2b3b52cf213add814cf4
 progress:
   total_phases: 4
   completed_phases: 0
@@ -103,6 +103,7 @@ None yet.
 | 5 | Two-handed items fire from primaryHand button only | 2026-09-29 | 8a3c4fe | — |
 | 6 | Root-relative grip pose (grips under item bones) | 2026-09-30 | ffb5b55 | — |
 | 7 | Role-based grips hand1/hand2, remove holdTransform | 2026-09-30 | 101aec0 | — |
+| 8 | defaultHand/twoHanded/supportHand equip model with support-hand recoil damping | 2026-09-30 | 6240db9 | — |
 
 ## Deferred Items
 
