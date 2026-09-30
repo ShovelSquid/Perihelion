@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T00:37:54.071Z"
+last_updated: "2026-09-30T01:22:26.792Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 010ab975d12def5f74c079936a8d7d11fda4c1ef
+state_head: b6e684ebf52225816a2890348f1f327d7aba9762
 progress:
   total_phases: 4
   completed_phases: 0
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-09-29 - Completed quick task 260929-m2y: Snap held items to sockets with muzzle aim correction and spring recoil
+Last activity: 2026-09-29 - Completed quick task 260929-p4y: Bloom/sway recoil model with per-hand aim cursors
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -105,6 +105,7 @@ None yet.
 | 7 | Role-based grips hand1/hand2, remove holdTransform | 2026-09-30 | 101aec0 | — |
 | 8 | defaultHand/twoHanded/supportHand equip model with support-hand recoil damping | 2026-09-30 | 6240db9 | — |
 | 9 | defaultHand on HandRig, cached support hand | 2026-09-30 | 010ab97 | — |
+| 260929-p4y | Bloom/sway recoil model with per-hand aim cursors | 2026-09-30 | b6e684e | [260929-p4y-bloom-sway-recoil-model-with-per-hand-cu](./quick/260929-p4y-bloom-sway-recoil-model-with-per-hand-cu/) |
 
 ## Deferred Items
 
