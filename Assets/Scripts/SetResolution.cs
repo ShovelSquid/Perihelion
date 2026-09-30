@@ -1,12 +1,11 @@
 using UnityEngine;
-using UnityEngine.UI;
-using System.Collections.Generic;
 
+// Canvases rendered into renderTexture keep a fixed CanvasScaler reference resolution,
+// so they scale with the RT (and therefore the window) instead of staying a fixed pixel size.
 [ExecuteAlways]
 public class SetResolution : MonoBehaviour
 {
     public RenderTexture renderTexture;
-    public List<CanvasScaler> targetCanvases = new List<CanvasScaler>();
     [Min(1)] public int downscale = 1;
 
     int lastWidth;
@@ -53,15 +52,6 @@ public class SetResolution : MonoBehaviour
             {
                 cam.targetTexture = null;
                 cam.targetTexture = renderTexture;
-            }
-        }
-
-        foreach (var canvas in targetCanvases)
-        {
-            if (canvas != null)
-            {
-                canvas.referencePixelsPerUnit = 100f;
-                canvas.referenceResolution = new Vector2(w, h);
             }
         }
     }
