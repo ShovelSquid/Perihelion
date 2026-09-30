@@ -117,6 +117,115 @@ public class LegSolver : MonoBehaviour
         targetVelocity = new Vector3(direction.x, 0f, direction.y) * maxSpeed;
     }
 
+    void FixedUpdate()
+    {
+        ApplyLegForces();
+        ApplyUprightAndYaw();
+    }
+
+    void ApplyLegForces()
+    {
+        plantedCount = 0;
+        Vector3 normalSum = Vector3.zero;
+        for (int i = 0; i < legSet.Length; i++)
+        {
+            Leg leg = legSet[i];
+            if (leg == null || leg.hipSocket == null || !leg.planted) continue;
+            plantedCount++;
+            normalSum += leg.groundNormal;
+        }
+        avgGroundNormal = normalSum.sqrMagnitude > 1e-6f ? normalSum.normalized : Vector3.up;
+        if (plantedCount == 0) return; // Airborne: no force
+
+        Vector3 heading = Vector3.zero;
+        float desiredSpeed = targetVelocity.magnitude;
+        if (desiredSpeed >= 0.01f) heading = targetVelocity / desiredSpeed;
+
+        // Scale per-unit-mass gains by mass and share the load between planted legs so tuning is mass-independent.
+        float massScale = hip.mass / plantedCount;
+
+        for (int i = 0; i < legSet.Length; i++)
+        {
+            Leg leg = legSet[i];
+            if (leg == null || leg.hipSocket == null || !leg.planted) continue;
+
+            Vector3 socket = leg.hipSocket.position;
+            Vector3 v = hip.GetPointVelocity(socket);
+
+            Vector3 probeDir = leg.groundNormal.sqrMagnitude > 1e-6f ? -leg.groundNormal : Vector3.down;
+            RaycastHit hit;
+            if (!ProbeGround(socket, probeDir, leg.maxLength + probeDistance, out hit))
+            {
+                // Lost the ground: treat as airborne, stepping will send it looking for a new footing
+                leg.planted = false;
+                leg.gripUsage = 0f;
+                leg.lastForce = Vector3.zero;
+                continue;
+            }
+
+            // plantPoint is the pinned foot; the hit only supplies length and normal
+            leg.groundNormal = hit.normal;
+            float length = hit.distance;
+            leg.lastLength = length;
+            Vector3 n = hit.normal;
+
+            // Suspension: feet push, never pull
+            float fs = Mathf.Max(0f, (springK * (leg.restLength - length) - damperC * Vector3.Dot(v, n)) * massScale);
+
+            // Lateral grip (cancels slip, or all horizontal slip = braking when no heading) plus drive along heading
+            Vector3 slip = Vector3.ProjectOnPlane(v, n);
+            Vector3 lateral = heading == Vector3.zero ? slip : slip - Vector3.Project(slip, heading);
+            Vector3 fLat = -lateral * lateralGrip * massScale;
+
+            Vector3 fDrive = Vector3.zero;
+            if (heading != Vector3.zero)
+            {
+                Vector3 velError = Vector3.ProjectOnPlane(targetVelocity - v, n);
+                fDrive = Vector3.Project(velError, heading) * driveGain * massScale;
+            }
+
+            // Friction cone: tangential force cannot exceed mu * normal force
+            Vector3 fTan = fLat + fDrive;
+            float limit = mu * fs;
+            float requested = fTan.magnitude;
+            if (limit <= 1e-4f)
+            {
+                leg.gripUsage = requested > 1e-4f ? 1f : 0f;
+                fTan = Vector3.zero;
+            }
+            else
+            {
+                leg.gripUsage = requested / limit; // Unclamped so stepping can react to saturation
+                if (leg.gripUsage > 1f) fTan /= leg.gripUsage;
+            }
+
+            Vector3 force = n * fs + fTan;
+            leg.lastForce = force;
+            hip.AddForceAtPosition(force, socket, ForceMode.Force);
+        }
+    }
+
+    void ApplyUprightAndYaw()
+    {
+        if (plantedCount == 0) return; // Do not torque an airborne body
+
+        Vector3 upAxis = useAverageGroundNormal ? avgGroundNormal : Vector3.up;
+
+        // hip.mass scaling keeps gains mass-independent (same intent as Move.cs using ForceMode.Acceleration)
+        Vector3 tilt = Vector3.Cross(hip.transform.up, upAxis);
+        Vector3 torque = (tilt * uprightK - hip.angularVelocity * uprightD) * hip.mass;
+
+        if (new Vector3(targetVelocity.x, 0f, targetVelocity.z).sqrMagnitude > 0.01f)
+        {
+            Vector3 desiredFwd = Vector3.ProjectOnPlane(targetVelocity, upAxis).normalized;
+            Vector3 fwd = Vector3.ProjectOnPlane(hip.transform.forward, upAxis);
+            float yawErr = Vector3.SignedAngle(fwd, desiredFwd, upAxis) * Mathf.Deg2Rad;
+            torque += upAxis * (yawErr * yawK - Vector3.Dot(hip.angularVelocity, upAxis) * yawD) * hip.mass;
+        }
+
+        hip.AddTorque(torque, ForceMode.Force);
+    }
+
     bool ProbeGround(Vector3 origin, Vector3 dir, float range, out RaycastHit hit)
     {
         return Physics.Raycast(origin, dir, out hit, range, groundLayer, QueryTriggerInteraction.Ignore);
