@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T02:18:47.013Z"
+last_updated: "2026-09-30T02:27:57.088Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: b53e3843e3c1e4d7c04bc7ad0260085b4e1a5cc6
+state_head: 9b67939981eaf67af6d365f009777d2228e21885
 progress:
   total_phases: 4
   completed_phases: 0
@@ -112,6 +112,7 @@ None yet.
 | 14 | Shot rest point, look drag and look/move bloom floor | 2026-09-30 | 02b0018 | — |
 | 15 | Per-source move/air/look bloom caps | 2026-09-30 | 5890004 | — |
 | 16 | Disable unused aim cursors | 2026-09-30 | b53e384 | — |
+| 17 | Angular cursor dot and depth-only anchor smoothing | 2026-09-30 | 9b67939 | — |
 
 ## Deferred Items
 
