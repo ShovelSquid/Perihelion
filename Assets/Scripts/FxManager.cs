@@ -49,7 +49,12 @@ public class FxManager : MonoBehaviour
     {
         if (prefab == null) return;
         Queue<ParticleSystem> pool = GetPool(prefab);
-        for (int i = 0; i < count; i++) pool.Enqueue(Spawn(prefab));
+        for (int i = 0; i < count; i++)
+        {
+            ParticleSystem ps = Spawn(prefab);
+            ps.GetComponent<FxPoolItem>().inPool = true;
+            pool.Enqueue(ps);
+        }
     }
 
     private ParticleSystem Spawn(ParticleSystem prefab)
@@ -79,6 +84,7 @@ public class FxManager : MonoBehaviour
         ParticleSystem ps = null;
         while (pool.Count > 0 && ps == null) ps = pool.Dequeue(); // skip destroyed entries
         if (ps == null) ps = Spawn(prefab);
+        ps.GetComponent<FxPoolItem>().inPool = false;
 
         ps.transform.SetPositionAndRotation(pos, rot);
         // Clear BEFORE Play so a reused instance doesn't flash its previous particles.
@@ -89,6 +95,11 @@ public class FxManager : MonoBehaviour
     public void Return(ParticleSystem ps, ParticleSystem key)
     {
         if (ps == null) return;
+        // Spawn's Stop() can raise the stop callback on a fresh instance, possibly after Play has already
+        // restarted it. Ignore anything still alive or already queued, or one instance ends up queued twice.
+        FxPoolItem item = ps.GetComponent<FxPoolItem>();
+        if (ps.IsAlive(true) || (item != null && item.inPool)) return;
+        if (item != null) item.inPool = true;
         Queue<ParticleSystem> pool;
         if (key != null && pools.TryGetValue(key, out pool)) pool.Enqueue(ps);
         else Destroy(ps.gameObject);
@@ -99,6 +110,7 @@ public class FxPoolItem : MonoBehaviour
 {
     [HideInInspector] public FxManager manager;
     [HideInInspector] public ParticleSystem prefabKey;
+    [HideInInspector] public bool inPool;
 
     // Only fires because FxManager sets main.stopAction = Callback on the root system.
     void OnParticleSystemStopped()
