@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T01:48:02.507Z"
+last_updated: "2026-09-30T01:57:38.174Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 04547bdac75951b5adbb518165cdf2884e2dbd37
+state_head: 9e96db1b3c7367a6f4f2c66a99fe71613a468e85
 progress:
   total_phases: 4
   completed_phases: 0
@@ -108,6 +108,7 @@ None yet.
 | 260929-p4y | Bloom/sway recoil model with per-hand aim cursors | 2026-09-30 | b6e684e | [260929-p4y-bloom-sway-recoil-model-with-per-hand-cu](./quick/260929-p4y-bloom-sway-recoil-model-with-per-hand-cu/) |
 | 11 | AimCursor dot shows actual hit inside unswayed prong frame | 2026-09-30 | 908f82e | — |
 | 12 | Bloom leash on aim offset + visual-only flip layer | 2026-09-30 | 04547bd | — |
+| 13 | Curve-driven visual recoil return | 2026-09-30 | 9e96db1 | — |
 
 ## Deferred Items
 
