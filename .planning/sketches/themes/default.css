@@ -1,0 +1,53 @@
+/* Survival-grid pragmatic: dense, legible, low chrome. Dark neutral panels over a live game view,
+   one warm accent for "valid / selected", red only for "no". */
+:root {
+  /* Colors */
+  --color-bg: #0e1012;
+  --color-world: #1b2126;
+  --color-surface: rgba(18, 21, 24, 0.92);
+  --color-surface-2: #1f2428;
+  --color-slot: #262c31;
+  --color-slot-hover: #30373d;
+  --color-border: #3a4248;
+  --color-border-strong: #58626a;
+  --color-text: #e6e3dc;
+  --color-text-muted: #8c948f;
+  --color-primary: #e0a83a;        /* amber: valid drop, default hand, selection */
+  --color-primary-hover: #f0bd55;
+  --color-primary-dim: rgba(224, 168, 58, 0.18);
+  --color-accent: #6fb3a8;         /* teal: support hand / secondary info */
+  --color-danger: #d4574a;
+  --color-success: #7fb069;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+
+  /* Spacing (tight grid) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-6: 12px;
+  --space-8: 16px;
+  --space-12: 24px;
+
+  /* Shapes: square-ish, functional */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.6);
+
+  /* Slot size */
+  --slot: 64px;
+}
