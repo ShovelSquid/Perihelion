@@ -7,7 +7,14 @@ public class BulletManager : MonoBehaviour
     // public ParticleSystem hitEffect;
     // public int growthSize = 20;
 
+    public BulletDecals decals; // optional; found on this object or in the scene if unset
     private List<Projectile> activeBullets = new List<Projectile>();
+
+    void Awake()
+    {
+        if (decals == null) decals = GetComponent<BulletDecals>();
+        if (decals == null) decals = FindObjectOfType<BulletDecals>();
+    }
     private Dictionary<GameObject, Queue<Projectile>> pools = new Dictionary<GameObject, Queue<Projectile>>();
 
     public void Prewarm(GameObject prefab)
@@ -103,6 +110,7 @@ public class BulletManager : MonoBehaviour
         }
         if (bullet.hitEffect != null)
             Instantiate(bullet.hitEffect, hit.point, Quaternion.LookRotation(hit.normal));
+        if (decals != null) decals.Spawn(hit);
         bullet.End();
     }
 
