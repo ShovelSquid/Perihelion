@@ -347,11 +347,17 @@ public class HandRig : MonoBehaviour
         }
         else
         {
-            // Moving and looking raise the floor bloom recovers toward; shots add on top and decay back to it.
-            // Speed is the full velocity, so jumping and falling count without a separate airborne rule.
-            float moveSpeed = moveBody != null ? moveBody.linearVelocity.magnitude : 0f;
+            // Moving, being airborne and looking raise the floor bloom recovers toward; shots add on top and
+            // decay back to it. Velocity is split around the character's up: horizontal is movement, vertical
+            // is airborne, so jumping and falling count without a ground check. Each source has its own cap.
+            Vector3 velocity = moveBody != null ? moveBody.linearVelocity : Vector3.zero;
+            float verticalSpeed = Mathf.Abs(Vector3.Dot(velocity, transform.up));
+            float horizontalSpeed = Vector3.ProjectOnPlane(velocity, transform.up).magnitude;
+            float moveAdd = Mathf.Min(horizontalSpeed * gun.moveBloom, gun.maxMoveBloom);
+            float airAdd = Mathf.Min(verticalSpeed * gun.airBloom, gun.maxAirBloom);
+            float lookAdd = Mathf.Min(lookRate.magnitude * gun.lookBloom, gun.maxLookBloom);
             float ceiling = Mathf.Max(gun.baseSpread, gun.maxSpread);
-            float floor = Mathf.Max(0f, gun.baseSpread + moveSpeed * gun.moveBloom + lookRate.magnitude * gun.lookBloom);
+            float floor = Mathf.Max(0f, gun.baseSpread + moveAdd + airAdd + lookAdd);
             floor = Mathf.Min(floor, ceiling);
             // Recovering both ways means starting to run widens the reticle smoothly instead of popping.
             slot.bloom = Mathf.Lerp(slot.bloom, floor, recovery);

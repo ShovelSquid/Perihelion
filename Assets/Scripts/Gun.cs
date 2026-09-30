@@ -28,8 +28,13 @@ public class Gun : Item
     public float bloomPerShot = 1.5f; // degrees added to the holding hand's bloom per shot
     public float bloomRecovery = 4f; // per second; exponential pull back toward baseSpread; framerate independent
     [Range(0f, 1f)] public float swayAmount = 0.75f; // fraction of the current bloom radius the sway can wander; 0 = no sway
-    public float moveBloom = 0.3f; // degrees of floor bloom per m/s of holder speed (running, jumping and falling alike)
-    public float lookBloom = 0.01f; // degrees of floor bloom per deg/s of look turn rate
+    // Floor bloom sources: each is rate x amount, capped on its own, then added to baseSpread (and the total capped by maxSpread).
+    public float moveBloom = 0.3f; // degrees per m/s of the holder's horizontal speed
+    public float maxMoveBloom = 2f; // degrees; most that moving can add
+    public float airBloom = 0.3f; // degrees per m/s of the holder's vertical speed (jumping, falling)
+    public float maxAirBloom = 3f; // degrees; most that being airborne can add
+    public float lookBloom = 0.01f; // degrees per deg/s of look turn rate
+    public float maxLookBloom = 2f; // degrees; most that looking can add
     [Range(0f, 1f)] public float lookDrag = 0.8f; // fraction of the bloom radius the dot trails behind a full-speed turn (HandRig.lookDragCurve shapes it)
 
     [Header("Recoil Info")]
