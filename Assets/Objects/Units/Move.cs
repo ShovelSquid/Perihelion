@@ -75,10 +75,16 @@ public class Move : MonoBehaviour
     public LayerMask groundLayer;
     public float groundCheckDistance = 0.1f;
     public float fallSpeed;
+    [Range(0.1f, 1f)]
+    public float groundProbeRadius = 0.9f; // Fraction of the collider's horizontal radius used by the ground sphere probe
+    public float groundProbeSkin = 0.05f; // How far inside the collider bottom the probe starts
+    public float jumpGroundLockout = 0.1f; // Seconds after a jump during which ground is ignored
 
     private readonly List<Vector3> wallNormals = new List<Vector3>();
     private Vector3 groundNormal = Vector3.up;
     private bool grounded;
+    private float jumpLockUntil;
+    private Vector3 lastGroundNormal = Vector3.up;
 
     void Start()
     {
@@ -236,11 +242,56 @@ public class Move : MonoBehaviour
         action?.Invoke();
     }
 
+    // Kept public in case animation events call it; the real work is UpdateGroundState.
     public void InAir()
     {
-        Vector3 origin = new Vector3(transform.position.x, transform.position.y - moveCollider.bounds.size.y / 2, transform.position.z);
-        inAir = !Physics.Raycast(origin, Vector3.down, out _, groundCheckDistance, groundLayer, QueryTriggerInteraction.Ignore);
-        mob.anim.SetBool("inAir", inAir);
+        UpdateGroundState();
+    }
+
+    // The only place inAir is computed. Runs at the top of every FixedUpdate so it is fresh
+    // even while idle or in a standing jump.
+    private void UpdateGroundState()
+    {
+        // Contact term: OnCollisionStay set these during the previous physics step.
+        bool contact = grounded && groundNormal.y > 0.5f;
+
+        // Probe term: sphere derived from the collider bounds, so it does not depend on the pivot
+        // sitting at the collider centre. It starts inside the collider (skin above the bottom),
+        // which also means the mob's own collider is never reported as a hit.
+        Bounds b = moveCollider.bounds;
+        float r = groundProbeRadius * Mathf.Min(b.extents.x, b.extents.z);
+        Vector3 origin = new Vector3(b.center.x, b.center.y - b.extents.y + r + groundProbeSkin, b.center.z);
+        bool probeHit = Physics.SphereCast(origin, r, Vector3.down, out RaycastHit hit, groundCheckDistance + groundProbeSkin, groundLayer, QueryTriggerInteraction.Ignore)
+            && hit.normal.y > 0.5f;
+
+        // While the jump lockout is active the feet may still touch the floor; report airborne.
+        bool nowGrounded = Time.time >= jumpLockUntil && (contact || probeHit);
+        if (nowGrounded) lastGroundNormal = contact ? groundNormal : hit.normal;
+
+        bool wasAir = inAir;
+        inAir = !nowGrounded;
+        if (wasAir != inAir) mob.anim.SetBool("inAir", inAir); // write only on change
+        if (wasAir && !inAir) OnLand();
+    }
+
+    // Single landing handler (airborne -> grounded).
+    private void OnLand()
+    {
+        if (!mob.dead)
+        {
+            mob.anim.SetTrigger("Land");
+            PlayLandingSound();
+            if (jumpFXPoint != null && groundJumpParticle != null)
+            {
+                jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
+                Instantiate(groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
+            }
+            // Capture fall damage before fallSpeed is reset below.
+            if (fallSpeed > mob.fallDamageSpeedMin) mob.FallDamage(fallSpeed, lastGroundNormal.y);
+        }
+        // Resets run even when dead so a respawn does not fire a spurious landing with stale fallSpeed.
+        airJumps = maxAirJumps;
+        fallSpeed = 0f;
     }
 
     public void Jump()
