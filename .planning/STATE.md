@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T02:11:51.150Z"
+last_updated: "2026-09-30T02:15:06.693Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 02b00186c44ba9b7b318000b28b0c0ff66dd7a2f
+state_head: 589000406269b78c29cc1308eed11d42ca397eba
 progress:
   total_phases: 4
   completed_phases: 0
@@ -110,6 +110,7 @@ None yet.
 | 12 | Bloom leash on aim offset + visual-only flip layer | 2026-09-30 | 04547bd | — |
 | 13 | Curve-driven visual recoil return | 2026-09-30 | 9e96db1 | — |
 | 14 | Shot rest point, look drag and look/move bloom floor | 2026-09-30 | 02b0018 | — |
+| 15 | Per-source move/air/look bloom caps | 2026-09-30 | 5890004 | — |
 
 ## Deferred Items
 
