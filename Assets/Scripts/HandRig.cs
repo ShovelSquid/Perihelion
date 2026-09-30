@@ -42,8 +42,7 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
         [System.NonSerialized] public Vector3 idealMuzzlePos; // muzzle pose from the same solve with zero offset: where the gun points without sway/kick
         [System.NonSerialized] public Quaternion idealMuzzleRot = Quaternion.identity;
-        [System.NonSerialized] public Vector2 restPoint; // unit disk; where firing last sent the dot, scaled by the live bloom
-        [System.NonSerialized] public float lastRerollTime = -999f; // Time.time the rest point was last re-rolled
+        [System.NonSerialized] public Vector2 restPoint; // unit disk; where the last shot threw the dot, scaled by bloom and eased back to center
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
@@ -313,7 +312,6 @@ public class HandRig : MonoBehaviour
         slot.flipPeak = Vector2.zero;
         slot.recoverTime = 0f;
         slot.restPoint = Vector2.zero;
-        slot.lastRerollTime = -999f;
         slot.hasAimPose = false;
         slot.bloom = 0f;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
@@ -339,18 +337,9 @@ public class HandRig : MonoBehaviour
         bool supported = other.supporting == item;
         slot.bloom += bloom * (supported ? supportBloomScale : 1f);
         float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
-        // Where firing sends the dot: anywhere in the bloom circle, evenly by area (insideUnitCircle is
-        // area-uniform, so it doesn't cluster at the center). Re-rolled on the gun's interval, not every shot:
-        // a fast gun re-rolling per shot hands the offset spring a new random target before it can arrive, so
-        // the aim averages them out near the center. Waiting lets the dot actually travel, and every bullet
-        // fired on the way goes exactly where the dot is.
-        Gun gun = item as Gun;
-        float interval = gun != null ? gun.restRerollInterval : 0f;
-        if (Time.time - slot.lastRerollTime >= interval)
-        {
-            slot.restPoint = UnityEngine.Random.insideUnitCircle;
-            slot.lastRerollTime = Time.time;
-        }
+        // Where the shot sends the dot: anywhere in the bloom circle, evenly by area (insideUnitCircle is
+        // area-uniform, so it doesn't cluster at the center).
+        slot.restPoint = UnityEngine.Random.insideUnitCircle;
         slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
         slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);
         slot.recoverTime = 0f;
@@ -386,8 +375,8 @@ public class HandRig : MonoBehaviour
             // Floor at baseSpread (not the moving floor) so a fresh equip starts sized but shots can still sit above it.
             slot.bloom = Mathf.Clamp(slot.bloom, Mathf.Max(0f, gun.baseSpread), ceiling);
         }
-        // The rest point does not fade on its own: it's scaled by the live bloom, so the reticle shrinking
-        // is what brings the dot back in. A separate fade made it shrink twice as fast as the reticle.
+        // The thrown-to point eases back to center at the same rate bloom recovers, so the dot re-centers as the reticle tightens.
+        slot.restPoint = Vector2.Lerp(slot.restPoint, Vector2.zero, recovery);
 
         bool supported = GetSlot(Other(side)).supporting == slot.item;
         slot.noiseTime += dt * swayFrequency;
