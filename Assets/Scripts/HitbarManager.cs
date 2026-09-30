@@ -3,16 +3,19 @@ using UnityEngine;
 /// <summary>
 /// Manages the hitbars for the game objects, updating their display based on damage taken and other relevant events.
 /// </summary>
-/// Spawns one screen-space Healthbar per registered SetHealthbarAnchor, keeps it on the anchor through a
+/// Spawns one screen-space panel per registered SetHealthbarAnchor, keeps it on the anchor through a
 /// ScreenAnchor, and decides when it shows: for a few seconds after the object takes damage, and while the
-/// crosshair is on it. Object keeps calling healthbar.SetHealth as before; this just assigns that healthbar.
+/// crosshair is on it. The panel is any UI prefab: a Healthbar anywhere inside it becomes the object's
+/// healthbar (Object keeps calling SetHealth as before), and every IObjectPanelWidget inside it is bound
+/// to the object, so new info is added in the prefab, not here.
 
 public class HitbarManager : MonoBehaviour
 {
-    [Header("Bars")]
-    public Healthbar healthbarPrefab; // screen-space bar (worldSpace off); a ScreenAnchor is added if the prefab lacks one
+    [Header("Panels")]
+    public GameObject panelPrefab; // screen-space UI root (RectTransform); may hold a Healthbar and any IObjectPanelWidgets; a ScreenAnchor is added if missing
     public Canvas canvas; // Screen Space Overlay/Camera canvas the bars live on; defaults to the canvas this sits under
-    public Vector3 barScale = Vector3.one; // applied to each spawned bar, in case the prefab was authored at world-space scale
+    [UnityEngine.Serialization.FormerlySerializedAs("barScale")]
+    public Vector3 panelScale = Vector3.one; // applied to each spawned panel, in case the prefab was authored at world-space scale
     [Header("Visibility")]
     public float showAfterDamage = 3f; // seconds a bar stays up after its object takes damage
     public bool showWhenAimedAt = true; // also show while the crosshair (camera center) is on the object
@@ -23,7 +26,8 @@ public class HitbarManager : MonoBehaviour
     {
         public SetHealthbarAnchor anchor;
         public Object obj;
-        public Healthbar bar;
+        public GameObject panel;
+        public Healthbar bar; // optional; the panel may have no healthbar
         public int lastHp;
         public float lastDamageTime = -999f;
     }
@@ -35,14 +39,14 @@ public class HitbarManager : MonoBehaviour
     {
         if (canvas == null) canvas = GetComponentInParent<Canvas>();
         cam = Camera.main;
-        if (healthbarPrefab == null) Debug.LogWarning($"{name}: HitbarManager has no healthbar prefab, so no bars will spawn.", this);
+        if (panelPrefab == null) Debug.LogWarning($"{name}: HitbarManager has no panel prefab, so no panels will spawn.", this);
         if (canvas == null) Debug.LogWarning($"{name}: HitbarManager needs a screen-space Canvas (assign one or put this under it).", this);
     }
 
     public void AddHitbar(SetHealthbarAnchor anchor)
     {
         // Called from every SetHealthbarAnchor at initiation to add to the hitbar manager.
-        if (anchor == null || healthbarPrefab == null || canvas == null) return;
+        if (anchor == null || panelPrefab == null || canvas == null) return;
         Object obj = anchor.GetComponentInParent<Object>();
         if (obj == null)
         {
@@ -53,20 +57,28 @@ public class HitbarManager : MonoBehaviour
         // An existing world-space bar would double up with the screen one; the screen bar takes over.
         if (obj.healthbar != null && obj.healthbar.worldSpace) obj.healthbar.gameObject.SetActive(false);
 
-        Healthbar bar = Instantiate(healthbarPrefab, canvas.transform);
-        bar.worldSpace = false;
-        bar.transform.localScale = barScale;
+        GameObject panel = Instantiate(panelPrefab, canvas.transform);
+        panel.transform.localScale = panelScale;
         // Parented before adding, so ScreenAnchor.Awake finds this canvas.
-        ScreenAnchor screen = bar.GetComponent<ScreenAnchor>();
-        if (screen == null) screen = bar.gameObject.AddComponent<ScreenAnchor>();
+        ScreenAnchor screen = panel.GetComponent<ScreenAnchor>();
+        if (screen == null) screen = panel.AddComponent<ScreenAnchor>();
         screen.target = anchor.healthbarAnchor;
 
-        bar.SetMaxHealth(obj.max_hp);
-        bar.SetHealth((int)obj.hp);
-        obj.healthbar = bar;
-        bar.gameObject.SetActive(false);
+        Healthbar bar = panel.GetComponentInChildren<Healthbar>(true);
+        if (bar != null)
+        {
+            bar.worldSpace = false;
+            bar.SetMaxHealth(obj.max_hp);
+            bar.SetHealth((int)obj.hp);
+            obj.healthbar = bar;
+        }
+        foreach (IObjectPanelWidget widget in panel.GetComponentsInChildren<IObjectPanelWidget>(true))
+        {
+            widget.Bind(obj);
+        }
+        panel.SetActive(false);
 
-        entries.Add(new Entry { anchor = anchor, obj = obj, bar = bar, lastHp = (int)obj.hp });
+        entries.Add(new Entry { anchor = anchor, obj = obj, panel = panel, bar = bar, lastHp = (int)obj.hp });
     }
 
     void Update()
@@ -77,22 +89,25 @@ public class HitbarManager : MonoBehaviour
         for (int i = entries.Count - 1; i >= 0; i--)
         {
             Entry e = entries[i];
-            // Unity null: Object.End destroys the bar along with the object.
-            if (e.bar == null || e.obj == null || e.anchor == null)
+            // Unity null: the object (and with Object.End, its healthbar) can be destroyed at any time.
+            // The panel is ours, so it goes when the object does.
+            if (e.obj == null || e.anchor == null || e.panel == null)
             {
+                if (e.panel != null) Destroy(e.panel);
                 entries.RemoveAt(i);
                 continue;
             }
 
-            // Damage is read from the bar itself, which Object already updates on every hit.
-            if (e.bar.hp < e.lastHp) e.lastDamageTime = now;
-            e.lastHp = e.bar.hp;
+            // Damage is read from the object's hp, which works whether or not the panel has a healthbar.
+            int hp = (int)e.obj.hp;
+            if (hp < e.lastHp) e.lastDamageTime = now;
+            e.lastHp = hp;
 
             e.anchor.hovering = e.anchor == aimed;
             e.anchor.active = !e.obj.destroyed && (now - e.lastDamageTime < showAfterDamage || e.anchor.hovering);
 
-            // Toggled here in Update so the bar's ScreenAnchor positions it in this same frame's LateUpdate.
-            if (e.bar.gameObject.activeSelf != e.anchor.active) e.bar.gameObject.SetActive(e.anchor.active);
+            // Toggled here in Update so the panel's ScreenAnchor positions it in this same frame's LateUpdate.
+            if (e.panel.activeSelf != e.anchor.active) e.panel.SetActive(e.anchor.active);
         }
     }
 
