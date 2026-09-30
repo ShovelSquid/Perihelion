@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T01:57:38.174Z"
+last_updated: "2026-09-30T02:11:51.150Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 9e96db1b3c7367a6f4f2c66a99fe71613a468e85
+state_head: 02b00186c44ba9b7b318000b28b0c0ff66dd7a2f
 progress:
   total_phases: 4
   completed_phases: 0
@@ -109,6 +109,7 @@ None yet.
 | 11 | AimCursor dot shows actual hit inside unswayed prong frame | 2026-09-30 | 908f82e | — |
 | 12 | Bloom leash on aim offset + visual-only flip layer | 2026-09-30 | 04547bd | — |
 | 13 | Curve-driven visual recoil return | 2026-09-30 | 9e96db1 | — |
+| 14 | Shot rest point, look drag and look/move bloom floor | 2026-09-30 | 02b0018 | — |
 
 ## Deferred Items
 
