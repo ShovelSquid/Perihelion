@@ -187,22 +187,16 @@ public class Mob : Object
 
     public void DoHitEffect(Vector3 hitPoint, Vector3 hitNormal, float hitForce)
     {
-        if (directionalHitParticle != null)
-        {
-            var d = Instantiate(directionalHitParticle, hitPoint, Quaternion.LookRotation(hitNormal));
-        }
+        FxManager.PlayOrInstantiate(fxManager, directionalHitParticle, hitPoint, Quaternion.LookRotation(hitNormal));
     }
 
     public void OnCollisionEnter(Collision other)
     {
-        Debug.Log(gameObject.name + " collided with " + other.gameObject.name);
         if (damageOnTouch) {
             if (other.gameObject.layer == LayerMask.NameToLayer("Mobs"))
             {
-                Debug.Log(gameObject.name + " is on good terms with " + other.gameObject.name);
                 if (other.gameObject.tag != gameObject.tag)
                 {
-                    Debug.Log(gameObject.name + " would like to go out with " + other.gameObject.name);
                     Attack(other.gameObject.GetComponent<Mob>());
                 }
             }
