@@ -7,6 +7,7 @@ public class Object : MonoBehaviour
     public Animator anim;
     protected Rigidbody rb;
     protected Inventory body;
+    protected FxManager fxManager;
     public Team team;
     public Healthbar healthbar;
     public bool invincible = false;
@@ -40,6 +41,7 @@ public class Object : MonoBehaviour
 
     protected virtual void Awake()
     {
+        fxManager = FindObjectOfType<FxManager>();
         if (body == null) body = GetComponent<Inventory>();
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (anim == null) anim = GetComponent<Animator>();
@@ -213,11 +215,6 @@ public class Object : MonoBehaviour
         {
             rb.AddForceAtPosition(-normal * force * rb.mass, point, ForceMode.Impulse);
         }
-        if (hitMistParticle != null)
-        {
-            var hmp = Instantiate(hitMistParticle, point, Quaternion.LookRotation(normal));
-            // hmp.transform.position = point;
-            // hmp.transform.rotation = Quaternion.LookRotation(normal);
-        }
+        FxManager.PlayOrInstantiate(fxManager, hitMistParticle, point, Quaternion.LookRotation(normal));
     }
 }
