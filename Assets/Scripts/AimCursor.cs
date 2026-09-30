@@ -59,12 +59,10 @@ public class AimCursor : MonoBehaviour
         Transform muzzle = item.Muzzle;
         if (muzzle == null) muzzle = item.transform;
 
-        // One ray: the muzzle with the hand's aim offset undone, for the prongs. HandRig applies the offset in
-        // the muzzle frame as Euler(-y, x, 0), so the inverse of that gives the direction the gun would point
-        // without it. The dot is placed by angle, not by a second ray: two rays hitting different depths at a
-        // collider edge project far apart on screen (the muzzle isn't at the camera), which made the dot jump.
-        // Read the hand's recorded aim pose (before visual kickback/flip), the same one Gun fires from,
-        // so the dot follows the shots rather than the thrown-around gun model.
+        // Prongs: HandRig's measured zero-offset pose (same solve, same aim weight and cap, just no sway or kick),
+        // so the reticle's center is where the gun really points without them, not a guess from undoing the offset.
+        // Dot: the recorded aim pose (before visual kickback/flip), the same one Gun fires from, so it follows the
+        // shots rather than the thrown-around gun model.
         Vector3 origin = muzzle.position;
         Quaternion aimRot = muzzle.rotation;
         if (hands.TryGetAimPose(hand, out Vector3 aimPos, out Quaternion recorded))
@@ -72,10 +70,16 @@ public class AimCursor : MonoBehaviour
             origin = aimPos;
             aimRot = recorded;
         }
-        Vector2 offset = hands.GetAimOffset(hand);
-        Vector3 idealDir = aimRot * (Quaternion.Inverse(Quaternion.Euler(-offset.y, offset.x, 0f)) * Vector3.forward);
+        Vector3 idealOrigin = origin;
+        Quaternion idealRot = aimRot;
+        if (hands.TryGetIdealPose(hand, out Vector3 idealPos, out Quaternion idealRecorded))
+        {
+            idealOrigin = idealPos;
+            idealRot = idealRecorded;
+        }
+        Vector3 idealDir = idealRot * Vector3.forward;
 
-        float hitDistance = CastDistance(origin, idealDir);
+        float hitDistance = CastDistance(idealOrigin, idealDir);
         if (!hasDepth)
         {
             depth = hitDistance;
@@ -88,7 +92,7 @@ public class AimCursor : MonoBehaviour
         }
 
         // The cursor frame sits on the ideal ray; the dot shows where the shot actually lands inside it.
-        Vector3 idealPoint = origin + idealDir * depth;
+        Vector3 idealPoint = idealOrigin + idealDir * depth;
         anchor.SetWorldPoint(idealPoint);
 
         float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));

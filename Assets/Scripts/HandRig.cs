@@ -40,6 +40,8 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 aimMuzzlePos; // muzzle pose after the aim solve, before kickback/flip: where shots actually leave from
         [System.NonSerialized] public Quaternion aimMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
+        [System.NonSerialized] public Vector3 idealMuzzlePos; // muzzle pose from the same solve with zero offset: where the gun points without sway/kick
+        [System.NonSerialized] public Quaternion idealMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public Vector2 restPoint; // unit disk; where the last shot threw the dot, scaled by bloom and eased back to center
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
@@ -52,6 +54,12 @@ public class HandRig : MonoBehaviour
     [Header("Aim")]
     public bool aiming; // while true, the aim weight blends toward 1
     public Transform aimPoint; // shared point AimInput moves; placed items turn their muzzle toward it
+    // aimPoint snaps from a near hit to its far fallback when the crosshair slides off a collider, and the
+    // muzzle isn't at the camera, so aiming straight at it swings the gun across the parallax gap in one
+    // frame. The gun aims at a copy that keeps aimPoint's exact direction from the camera and only eases
+    // its distance: fast when it comes closer (a wall appeared), slower when it goes farther.
+    public float aimDepthInSharpness = 40f; // per second
+    public float aimDepthOutSharpness = 12f; // per second
     [Range(0f, 1f)] public float idleAimWeight = 0f; // correction applied when not aiming (0 = pure animation)
     public float aimBlendSharpness = 10f; // per second; higher blends faster; framerate independent
     [Range(1, 4)] public int aimIterations = 2; // correction passes; the muzzle is offset from the pivot, so one pass undershoots
@@ -84,6 +92,9 @@ public class HandRig : MonoBehaviour
     public float maxFlip = 45f; // degrees; clamps stacked flips from automatic fire
 
     float aimWeight;
+    Vector3 aimTarget; // smoothed-depth copy of aimPoint the guns actually aim at
+    float aimDistance; // smoothed camera-to-aimPoint distance
+    bool hasAimDistance;
     Vector2 lookRate; // smoothed deg/s, x = yaw (right +), y = pitch (up +)
     Vector3 lastLookForward;
     bool hasLastLook;
@@ -548,6 +559,14 @@ public class HandRig : MonoBehaviour
         Vector3 pos = basePos;
         Quaternion rot = baseRot;
         StepAimState(side, slot, Time.deltaTime);
+        // A second solve with zero offset gives where the gun points without sway or kick, after the same
+        // aim weight and cap, so the cursor's center is measured rather than guessed from the offset.
+        Vector3 idealPos = basePos;
+        Quaternion idealRot = baseRot;
+        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, Vector2.zero, ref idealPos, ref idealRot);
+        slot.idealMuzzlePos = idealPos + idealRot * muzzleOffset;
+        slot.idealMuzzleRot = idealRot * muzzleRotLocal;
+
         ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, slot.offset, ref pos, ref rot);
 
         // Record the aim pose here, before any visual layer: Gun fires and AimCursor casts from this,
@@ -572,7 +591,7 @@ public class HandRig : MonoBehaviour
         rot = baseRot;
         if (aimPoint == null || aimWeight <= 0.0001f) return;
 
-        Vector3 target = aimPoint.position;
+        Vector3 target = aimTarget;
         Vector3 fromPivot = target - pivot;
         if (fromPivot.sqrMagnitude < 1e-6f) return;
 
@@ -687,6 +706,7 @@ public class HandRig : MonoBehaviour
         float target = aiming ? 1f : idleAimWeight;
         aimWeight = Mathf.Lerp(aimWeight, target, 1f - Mathf.Exp(-aimBlendSharpness * Time.deltaTime));
         UpdateLookRate(Time.deltaTime);
+        UpdateAimTarget(Time.deltaTime);
 
         // Both slots are posed before any IK write, so a two-handed item placed by either hand
         // is final before its off-hand IK target is written.
@@ -694,6 +714,47 @@ public class HandRig : MonoBehaviour
         PoseSlot(HandSide.Left);
         WriteIK(HandSide.Right);
         WriteIK(HandSide.Left);
+    }
+
+    void UpdateAimTarget(float dt)
+    {
+        if (aimPoint == null) return;
+        // Without a look source there's no camera to hold the direction from, so aim at the raw point.
+        if (lookSource == null)
+        {
+            aimTarget = aimPoint.position;
+            return;
+        }
+        Vector3 eye = lookSource.position;
+        Vector3 toPoint = aimPoint.position - eye;
+        float distance = toPoint.magnitude;
+        if (distance < 1e-4f)
+        {
+            aimTarget = aimPoint.position;
+            return;
+        }
+        if (!hasAimDistance)
+        {
+            aimDistance = distance;
+            hasAimDistance = true;
+        }
+        else
+        {
+            float sharpness = distance < aimDistance ? aimDepthInSharpness : aimDepthOutSharpness;
+            aimDistance = Mathf.Lerp(aimDistance, distance, 1f - Mathf.Exp(-sharpness * dt));
+        }
+        // Exact direction, eased depth: the crosshair stays on target while the gun slides across edges.
+        aimTarget = eye + toPoint / distance * aimDistance;
+    }
+
+    // Where this hand's gun points with no sway or kick (same solve, zero offset). For the cursor's center.
+    public bool TryGetIdealPose(HandSide side, out Vector3 pos, out Quaternion rot)
+    {
+        HandSlot slot = GetSlot(side);
+        bool ok = slot.places && slot.item != null && slot.hasAimPose;
+        pos = ok ? slot.idealMuzzlePos : default;
+        rot = ok ? slot.idealMuzzleRot : Quaternion.identity;
+        return ok;
     }
 
     // Measures how fast the view is turning from the look source's rotation change, so mouse and gamepad
