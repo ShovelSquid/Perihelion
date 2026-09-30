@@ -43,8 +43,6 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 idealMuzzlePos; // muzzle pose from the same solve with zero offset: where the gun points without sway/kick
         [System.NonSerialized] public Quaternion idealMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public Vector2 restPoint; // unit disk; where the last shot threw the dot, scaled by bloom and eased back to center
-        [System.NonSerialized] public Transform shotTarget; // where this hand's shots go: the aim ray's hit, refreshed every pose; the gun fires at it and the cursor dot draws on it
-        [System.NonSerialized] public bool hasShotTarget;
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
@@ -77,12 +75,6 @@ public class HandRig : MonoBehaviour
     [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps stacked kicks from automatic fire
     [UnityEngine.Serialization.FormerlySerializedAs("supportRecoilScale")] [Range(0f, 1f)] public float supportBloomScale = 0.5f; // bloom-per-shot multiplier while a free hand steadies a one-handed item
     [Range(0f, 1f)] public float supportSwayScale = 0.5f; // sway-radius multiplier while a free hand steadies a one-handed item
-    [Header("Shot Target")]
-    // One raycast per hand along its aimed muzzle is the single source of truth: Gun fires straight at the
-    // hit and AimCursor draws its dot on it, so the dot and the impact can't disagree.
-    public LayerMask shotMask = Physics.DefaultRaycastLayers; // exclude the player's own layer so the ray doesn't hit the body
-    public float shotRange = 1000f; // meters the shot ray searches
-    public float shotMissDistance = 150f; // meters along the ray used when nothing is hit; direction is what matters there
     [Header("Look and Movement")]
     public Transform lookSource; // whose rotation counts as "looking"; defaults to Camera.main
     public Rigidbody moveBody; // whose speed counts as "moving" (airborne included, since it's speed-based); defaults to this object's Rigidbody
@@ -119,9 +111,6 @@ public class HandRig : MonoBehaviour
         if (lookSource == null && Camera.main != null) lookSource = Camera.main.transform;
         if (moveBody == null) moveBody = GetComponent<Rigidbody>();
         // Seeded per hand and per rig, so the two hands and different characters sway out of sync.
-        // Real transforms so the targets can be watched in the Scene view while tuning.
-        right.shotTarget = new GameObject($"{name} ShotTarget Right").transform;
-        left.shotTarget = new GameObject($"{name} ShotTarget Left").transform;
         right.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
         left.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
     }
@@ -324,7 +313,6 @@ public class HandRig : MonoBehaviour
         slot.recoverTime = 0f;
         slot.restPoint = Vector2.zero;
         slot.hasAimPose = false;
-        slot.hasShotTarget = false;
         slot.bloom = 0f;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
@@ -586,7 +574,6 @@ public class HandRig : MonoBehaviour
         slot.aimMuzzlePos = pos + rot * muzzleOffset;
         slot.aimMuzzleRot = rot * muzzleRotLocal;
         slot.hasAimPose = true;
-        UpdateShotTarget(slot);
 
         // Kickback slides along the aimed barrel; visual only, it never changes where the muzzle points.
         Vector3 beforeKickback = pos;
@@ -761,40 +748,6 @@ public class HandRig : MonoBehaviour
     }
 
     // Where this hand's gun points with no sway or kick (same solve, zero offset). For the cursor's center.
-    // Raw, unsmoothed hit of the aimed muzzle ray: exactly where a shot fired now would land (gravity aside).
-    void UpdateShotTarget(HandSlot slot)
-    {
-        if (slot.shotTarget == null) return;
-        Vector3 dir = slot.aimMuzzleRot * Vector3.forward;
-        Vector3 point = Physics.Raycast(slot.aimMuzzlePos, dir, out RaycastHit hit, shotRange, shotMask, QueryTriggerInteraction.Ignore)
-            ? hit.point
-            : slot.aimMuzzlePos + dir * shotMissDistance;
-        slot.shotTarget.position = point;
-        slot.hasShotTarget = true;
-    }
-
-    public bool TryGetShotTarget(HandSide side, out Vector3 point)
-    {
-        HandSlot slot = GetSlot(side);
-        bool ok = slot.places && slot.item != null && slot.hasShotTarget && slot.shotTarget != null;
-        point = ok ? slot.shotTarget.position : default;
-        return ok;
-    }
-
-    public bool TryGetShotTarget(Item item, out Vector3 point)
-    {
-        if (item != null && right.item == item && right.places) return TryGetShotTarget(HandSide.Right, out point);
-        if (item != null && left.item == item && left.places) return TryGetShotTarget(HandSide.Left, out point);
-        point = default;
-        return false;
-    }
-
-    void OnDestroy()
-    {
-        if (right.shotTarget != null) Destroy(right.shotTarget.gameObject);
-        if (left.shotTarget != null) Destroy(left.shotTarget.gameObject);
-    }
-
     public bool TryGetIdealPose(HandSide side, out Vector3 pos, out Quaternion rot)
     {
         HandSlot slot = GetSlot(side);

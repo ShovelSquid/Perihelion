@@ -222,13 +222,6 @@ public class Gun : Item
                 {
                     shotOrigin = aimPos;
                     shotRot = aimRot;
-                    // Fire straight at the hand's shot target (the point the cursor dot is drawn on), so the dot
-                    // and the impact can't disagree. Up is kept from the aim pose so spreadNoise axes don't flip.
-                    if (holder.hands.TryGetShotTarget(this, out Vector3 target))
-                    {
-                        Vector3 toTarget = target - shotOrigin;
-                        if (toTarget.sqrMagnitude > 1e-6f) shotRot = Quaternion.LookRotation(toTarget, aimRot * Vector3.up);
-                    }
                 }
                 for (int i = 0; i < actualShotCount; i++)
                 {
@@ -265,18 +258,7 @@ public class Gun : Item
     {
         base.Update();
         Transform m = Muzzle;
-        // Draws the line shots actually take: from the hand's recorded aim muzzle to its shot target when held
-        // (the visible barrel is tilted by the visual flip, so it isn't the shot line), else the real muzzle.
-        if (holder != null && holder.hands != null
-            && holder.hands.TryGetAimPose(this, out Vector3 aimPos, out Quaternion _)
-            && holder.hands.TryGetShotTarget(this, out Vector3 target))
-        {
-            Debug.DrawLine(aimPos, target, Color.red);
-        }
-        else
-        {
-            Debug.DrawRay(m.position, m.forward * 655f, Color.red);
-        }
+        Debug.DrawRay(m.position, m.forward * 655f, Color.red);
         if (charge.enabled && equipped && triggerHeld)
         {
             // if (!charge.charging && CanCharge()) charge.Begin();
