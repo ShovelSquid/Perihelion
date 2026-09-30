@@ -265,7 +265,18 @@ public class Gun : Item
     {
         base.Update();
         Transform m = Muzzle;
-        Debug.DrawRay(m.position, m.forward * 655f, Color.red);
+        // Draws the line shots actually take: from the hand's recorded aim muzzle to its shot target when held
+        // (the visible barrel is tilted by the visual flip, so it isn't the shot line), else the real muzzle.
+        if (holder != null && holder.hands != null
+            && holder.hands.TryGetAimPose(this, out Vector3 aimPos, out Quaternion _)
+            && holder.hands.TryGetShotTarget(this, out Vector3 target))
+        {
+            Debug.DrawLine(aimPos, target, Color.red);
+        }
+        else
+        {
+            Debug.DrawRay(m.position, m.forward * 655f, Color.red);
+        }
         if (charge.enabled && equipped && triggerHeld)
         {
             // if (!charge.charging && CanCharge()) charge.Begin();
