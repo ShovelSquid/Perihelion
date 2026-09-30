@@ -9,8 +9,9 @@ public enum HandSide
     Left
 }
 
-// Owns both hands: which item each hand holds, that item's pose (hand socket, then muzzle aim
-// correction, then recoil spring), and the TwoBoneIK targets. This is the only script that writes IK targets.
+// Owns both hands: which item each hand holds, that item's pose (hand socket, then the muzzle aim
+// correction toward the aim point rotated by the hand's sway/recoil offset, then kickback), and the
+// TwoBoneIK targets. This is the only script that writes IK targets.
 // Runs after the default-order scripts so it reads the aim point AimInput moved this frame and any
 // recoil fired this frame. The Animator and rig still evaluate after every Update regardless of order.
 [DefaultExecutionOrder(100)]
@@ -28,11 +29,13 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Rigidbody body; // the placed item's body, held kinematic while in this hand
         [System.NonSerialized] public bool savedKinematic; // body.isKinematic from before it was held, restored on release
         [System.NonSerialized] public RigidbodyInterpolation savedInterpolation; // body.interpolation from before it was held, restored on release
-        [System.NonSerialized] public Vector3 recoilPos; // meters, muzzle-local recoil offset
-        [System.NonSerialized] public Vector3 recoilPosVelocity; // m/s, muzzle-local
-        [System.NonSerialized] public Vector3 recoilRot; // degrees, muzzle-local Euler recoil offset
-        [System.NonSerialized] public Vector3 recoilRotVelocity; // deg/s, muzzle-local
         [System.NonSerialized] public float bloom; // degrees; this hand's current spread radius; floored at the held gun's baseSpread
+        [System.NonSerialized] public Vector3 kickback; // meters, muzzle-local position offset along the barrel
+        [System.NonSerialized] public Vector3 kickbackVelocity; // m/s, muzzle-local
+        [System.NonSerialized] public Vector2 offset; // degrees the muzzle points away from the ideal aim direction, in the muzzle's own frame; x right, y up
+        [System.NonSerialized] public Vector2 offsetVelocity; // deg/s
+        [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
+        [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
 
     [Header("Hands")]
@@ -50,12 +53,18 @@ public class HandRig : MonoBehaviour
     [Range(0f, 1f)] public float uprightWeight = 1f; // how hard the muzzle's up is pulled to the character's up (0 = keep the hand's roll)
     public float rollPerYaw = 0.1f; // degrees of roll per degree the muzzle points left/right of the character's forward; negative flips direction
     public float maxAimRoll = 15f; // degrees; caps the yaw-driven roll
-    [Header("Recoil")]
-    public float recoilFrequency = 8f; // Hz; the spring's natural frequency; higher snaps back faster
-    [Range(0f, 2f)] public float recoilDampingRatio = 0.6f; // 1 = critically damped; below 1 overshoots slightly
-    public float maxRecoilDistance = 0.2f; // meters; clamps stacked kicks from automatic fire
-    public float maxRecoilAngle = 25f; // degrees; same clamp for rotation
-    [Range(0f, 1f)] public float supportRecoilScale = 0.5f; // recoil multiplier while a free hand steadies a one-handed item
+    [Header("Sway and Recoil")]
+    public float offsetFrequency = 6f; // Hz; how quickly the aim offset follows the sway target and recovers from kicks
+    [Range(0.1f, 2f)] public float offsetDampingRatio = 1f; // 1 = critically damped, no overshoot
+    public float swayFrequency = 0.5f; // noise units per second; how fast the sway target wanders
+    [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps stacked kicks from automatic fire
+    [UnityEngine.Serialization.FormerlySerializedAs("supportRecoilScale")] [Range(0f, 1f)] public float supportBloomScale = 0.5f; // bloom-per-shot multiplier while a free hand steadies a one-handed item
+    [Range(0f, 1f)] public float supportSwayScale = 0.5f; // sway-radius multiplier while a free hand steadies a one-handed item
+    [Header("Kickback")]
+    [UnityEngine.Serialization.FormerlySerializedAs("recoilFrequency")] public float kickbackFrequency = 8f; // Hz; higher slides back into the hand faster
+    // A new field on purpose, not carried over: the old serialized ratio was heavily underdamped, and kickback should not overshoot.
+    [Range(0.1f, 2f)] public float kickbackDampingRatio = 1f; // 1 = critically damped, no overshoot
+    [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilDistance")] public float maxKickback = 0.2f; // meters; clamps stacked kickback
 
     float aimWeight;
 
@@ -68,6 +77,9 @@ public class HandRig : MonoBehaviour
     {
         // Start at the resting weight so there is no blend-in on the first frame.
         aimWeight = idleAimWeight;
+        // Seeded per hand and per rig, so the two hands and different characters sway out of sync.
+        right.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
+        left.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
     }
 
     void Start()
@@ -109,6 +121,14 @@ public class HandRig : MonoBehaviour
     {
         HandSlot slot = GetSlot(side);
         return slot.places && slot.item != null ? slot.bloom : 0f;
+    }
+
+    // Degrees this hand's muzzle points off the aim point (muzzle frame, x right, y up), or zero when it
+    // places nothing. For UI and debugging.
+    public Vector2 GetAimOffset(HandSide side)
+    {
+        HandSlot slot = GetSlot(side);
+        return slot.places && slot.item != null ? slot.offset : Vector2.zero;
     }
 
     static HandSide Other(HandSide side)
@@ -167,7 +187,7 @@ public class HandRig : MonoBehaviour
         item.equipped = true;
         Rigidbody body = item.rb != null ? item.rb : item.GetComponent<Rigidbody>();
         if (body != null) HoldBody(slot, body);
-        ResetRecoil(slot);
+        ResetAimState(slot);
 
         if (TryGetHoldPose(side, item, out Vector3 pos, out Quaternion rot))
         {
@@ -244,25 +264,28 @@ public class HandRig : MonoBehaviour
         if (slot.item != item) return;
         // Restore physics before the item is hidden or re-held by the other hand.
         if (slot.places) ReleaseBody(slot);
-        ResetRecoil(slot);
+        ResetAimState(slot);
         slot.item = null;
         slot.places = false;
     }
 
-    void ResetRecoil(HandSlot slot)
+    void ResetAimState(HandSlot slot)
     {
-        slot.recoilPos = Vector3.zero;
-        slot.recoilPosVelocity = Vector3.zero;
-        slot.recoilRot = Vector3.zero;
-        slot.recoilRotVelocity = Vector3.zero;
+        slot.kickback = Vector3.zero;
+        slot.kickbackVelocity = Vector3.zero;
+        slot.offset = Vector2.zero;
+        slot.offsetVelocity = Vector2.zero;
         slot.bloom = 0f;
+        // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
 
-    // Kicks the recoil spring of the slot placing this item. Velocities are in the muzzle's local
-    // frame, so back is -z and muzzle rise is negative x (m/s and deg/s). Bloom is degrees added
-    // to the hand's spread; it is not scaled by the recoil support scale.
+    // Kicks the aim state of the slot placing this item. kickbackVelocity is m/s in the muzzle's local
+    // frame (back is -z). rise and side are deg/s added to the aim-offset velocity in the muzzle's own
+    // frame: rise along the muzzle's up (so a rolled or swaying gun lifts along its own tilt), side along
+    // the offset's current sideways drift (none when the offset is still). bloom is degrees added to the
+    // hand's spread, scaled by supportBloomScale while the other hand steadies the item; the kicks are not.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 linearKick, Vector3 angularKick, float bloom)
+    public bool Kick(Item item, Vector3 kickbackVelocity, float rise, float side, float bloom)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -270,29 +293,69 @@ public class HandRig : MonoBehaviour
         if (right.item == item && right.places) { slot = right; other = left; }
         else if (left.item == item && left.places) { slot = left; other = right; }
         if (slot == null) return false;
-        float scale = other.supporting == item ? supportRecoilScale : 1f;
-        slot.recoilPosVelocity += linearKick * scale;
-        slot.recoilRotVelocity += angularKick * scale;
-        slot.bloom += bloom;
+        bool supported = other.supporting == item;
+        slot.bloom += bloom * (supported ? supportBloomScale : 1f);
+        float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
+        slot.offsetVelocity += new Vector2(drift * side, rise);
+        slot.kickbackVelocity += kickbackVelocity;
         return true;
     }
 
-    // Advances the slot's angular aim state (bloom) by dt.
+    // Advances the slot's angular aim state (bloom, sway target, aim offset) and its kickback by dt.
     void StepAimState(HandSide side, HandSlot slot, float dt)
     {
         Gun gun = slot.item as Gun;
-        // Non-gun items have no spread.
+        // Non-gun items have no spread or sway, but both springs still step so a kick never sticks.
         if (gun == null)
         {
             slot.bloom = 0f;
-            return;
         }
-        float floor = Mathf.Max(0f, gun.baseSpread);
-        float ceiling = Mathf.Max(floor, gun.maxSpread);
-        // The floor lifts a fresh equip (bloom 0) to baseSpread on its first frame. Clamping here instead
-        // of in Kick is enough: Kick runs before HandRig.Update in the same frame and nothing reads bloom in between.
-        slot.bloom = Mathf.Lerp(slot.bloom, floor, 1f - Mathf.Exp(-Mathf.Max(0f, gun.bloomRecovery) * dt));
-        slot.bloom = Mathf.Clamp(slot.bloom, floor, ceiling);
+        else
+        {
+            float floor = Mathf.Max(0f, gun.baseSpread);
+            float ceiling = Mathf.Max(floor, gun.maxSpread);
+            // The floor lifts a fresh equip (bloom 0) to baseSpread on its first frame. Clamping here instead
+            // of in Kick is enough: Kick runs before HandRig.Update in the same frame and nothing reads bloom in between.
+            slot.bloom = Mathf.Lerp(slot.bloom, floor, 1f - Mathf.Exp(-Mathf.Max(0f, gun.bloomRecovery) * dt));
+            slot.bloom = Mathf.Clamp(slot.bloom, floor, ceiling);
+        }
+
+        bool supported = GetSlot(Other(side)).supporting == slot.item;
+        slot.noiseTime += dt * swayFrequency;
+        Vector2 n = new Vector2(
+            Mathf.PerlinNoise(slot.noiseSeed, slot.noiseTime) * 2f - 1f,
+            Mathf.PerlinNoise(slot.noiseSeed + 37.1f, slot.noiseTime) * 2f - 1f);
+        n = Vector2.ClampMagnitude(n, 1f);
+        // The sway target lives inside the bloom circle: a small drift at idle (bloom at baseSpread)
+        // and a wider wander right after firing.
+        Vector2 swayTarget = Vector2.zero;
+        if (gun != null) swayTarget = n * (slot.bloom * gun.swayAmount * (supported ? supportSwayScale : 1f));
+
+        Vector3 offset = slot.offset;
+        Vector3 offsetVelocity = slot.offsetVelocity;
+        StepSpring(ref offset, ref offsetVelocity, swayTarget, offsetFrequency, offsetDampingRatio, dt);
+        slot.offset = Vector2.ClampMagnitude(offset, maxAimOffset);
+        slot.offsetVelocity = offsetVelocity;
+
+        StepSpring(ref slot.kickback, ref slot.kickbackVelocity, Vector3.zero, kickbackFrequency, kickbackDampingRatio, dt);
+        slot.kickback = Vector3.ClampMagnitude(slot.kickback, maxKickback);
+    }
+
+    // Semi-implicit spring pulling x toward target; serves both the aim offset and the kickback.
+    static void StepSpring(ref Vector3 x, ref Vector3 v, Vector3 target, float frequency, float dampingRatio, float dt)
+    {
+        if (dt <= 0f) return;
+        float omega = 2f * Mathf.PI * Mathf.Max(frequency, 0.01f);
+        float k = omega * omega;
+        float c = 2f * dampingRatio * omega;
+        // Substeps keep a stiff spring stable at low framerates.
+        int steps = Mathf.Max(1, Mathf.CeilToInt(dt * 120f));
+        float h = dt / steps;
+        for (int i = 0; i < steps; i++)
+        {
+            v += (-k * (x - target) - c * v) * h;
+            x += v * h;
+        }
     }
 
     // Support only changes when a hand's contents change, so it is cached here from Equip/Release
@@ -312,36 +375,13 @@ public class HandRig : MonoBehaviour
         return other.item;
     }
 
-    void StepRecoil(HandSlot slot, float dt)
+    // Slides the item along its aimed barrel by the kickback offset. Position only: the angular part
+    // of recoil is the aim offset, applied inside ApplyAim.
+    void ApplyKickback(HandSlot slot, Quaternion muzzleRotLocal, ref Vector3 pos, Quaternion rot)
     {
-        if (dt <= 0f) return;
-        float omega = 2f * Mathf.PI * Mathf.Max(recoilFrequency, 0.01f);
-        float k = omega * omega;
-        float c = 2f * recoilDampingRatio * omega;
-        // Substeps keep a stiff spring stable at low framerates.
-        int n = Mathf.Max(1, Mathf.CeilToInt(dt * 120f));
-        float h = dt / n;
-        for (int i = 0; i < n; i++)
-        {
-            slot.recoilPosVelocity += (-k * slot.recoilPos - c * slot.recoilPosVelocity) * h;
-            slot.recoilPos += slot.recoilPosVelocity * h;
-            slot.recoilRotVelocity += (-k * slot.recoilRot - c * slot.recoilRotVelocity) * h;
-            slot.recoilRot += slot.recoilRotVelocity * h;
-        }
-        slot.recoilPos = Vector3.ClampMagnitude(slot.recoilPos, maxRecoilDistance);
-        slot.recoilRot = Vector3.ClampMagnitude(slot.recoilRot, maxRecoilAngle);
-    }
-
-    void ApplyRecoil(HandSlot slot, Vector3 pivot, Quaternion muzzleRotLocal, ref Vector3 pos, ref Quaternion rot)
-    {
-        if (slot.recoilPos.sqrMagnitude < 1e-10f && slot.recoilRot.sqrMagnitude < 1e-10f) return;
-        // Rotation offset expressed in muzzle space, applied about the socket so the muzzle rises around the hand.
-        Quaternion muzzleRot = rot * muzzleRotLocal;
-        Quaternion d = muzzleRot * Quaternion.Euler(slot.recoilRot) * Quaternion.Inverse(muzzleRot);
-        rot = d * rot;
-        pos = pivot + d * (pos - pivot);
-        // Kickback runs along the rotated barrel; the grip leaves the socket, so the arm IK visibly absorbs it.
-        pos += (rot * muzzleRotLocal) * slot.recoilPos;
+        if (slot.kickback.sqrMagnitude < 1e-10f) return;
+        // The grip leaves the socket, so the arm IK visibly absorbs it.
+        pos += (rot * muzzleRotLocal) * slot.kickback;
     }
 
     bool TryGetHoldPose(HandSide side, Item item, out Vector3 pos, out Quaternion rot)
@@ -392,16 +432,15 @@ public class HandRig : MonoBehaviour
         Vector3 pos = basePos;
         Quaternion rot = baseRot;
         StepAimState(side, slot, Time.deltaTime);
-        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, ref pos, ref rot);
-        // Recoil goes on top of the aimed pose, so the item springs back onto the aim point.
-        StepRecoil(slot, Time.deltaTime);
-        ApplyRecoil(slot, pivot, muzzleRotLocal, ref pos, ref rot);
+        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, slot.offset, ref pos, ref rot);
+        // Kickback slides along the aimed barrel; visual only, it never changes where the muzzle points.
+        ApplyKickback(slot, muzzleRotLocal, ref pos, rot);
 
         // Written directly: MovePosition/MoveRotation would only apply at the next physics step.
         itemT.SetPositionAndRotation(pos, rot);
     }
 
-    void ApplyAim(Vector3 pivot, Vector3 basePos, Quaternion baseRot, Vector3 muzzleOffset, Quaternion muzzleRotLocal, ref Vector3 pos, ref Quaternion rot)
+    void ApplyAim(Vector3 pivot, Vector3 basePos, Quaternion baseRot, Vector3 muzzleOffset, Quaternion muzzleRotLocal, Vector2 offset, ref Vector3 pos, ref Quaternion rot)
     {
         pos = basePos;
         rot = baseRot;
@@ -434,6 +473,16 @@ public class HandRig : MonoBehaviour
             Vector3 muzzlePos = p + r * muzzleOffset;
             Vector3 muzzleFwd = r * (muzzleRotLocal * Vector3.forward);
             Vector3 toAim = target - muzzlePos;
+            // This is target' = muzzlePos + Rotate(dir, offset) * dist in the muzzle's own frame. It is recomputed
+            // each pass so it uses the upright-corrected up. Because it happens inside the solve, bullets fired
+            // along the muzzle land off the aim point by exactly the offset. Negative pitch lifts, positive yaw turns right.
+            // With aim weight 0 or no aimPoint the offset doesn't show; acceptable because firing always aims
+            // (PlayerManager calls Mob.Aim(true) before the trigger, and Aim(false) waits 1 s).
+            if (offset.sqrMagnitude > 1e-10f)
+            {
+                Quaternion muzzleRot = r * muzzleRotLocal;
+                toAim = muzzleRot * Quaternion.Euler(-offset.y, offset.x, 0f) * Quaternion.Inverse(muzzleRot) * toAim;
+            }
             if (toAim.sqrMagnitude < 1e-8f) break;
             // Nearly opposite: the FromToRotation axis is undefined.
             if (Vector3.Dot(muzzleFwd.normalized, toAim.normalized) < -0.999f) break;

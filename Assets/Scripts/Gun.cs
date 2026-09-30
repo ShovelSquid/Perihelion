@@ -27,13 +27,15 @@ public class Gun : Item
     public float maxSpread = 6f; // degrees; bloom cap under sustained fire
     public float bloomPerShot = 1.5f; // degrees added to the holding hand's bloom per shot
     public float bloomRecovery = 4f; // per second; exponential pull back toward baseSpread; framerate independent
+    [Range(0f, 1f)] public float swayAmount = 0.75f; // fraction of the current bloom radius the sway can wander; 0 = no sway
 
     [Header("Recoil Info")]
-    public Vector3 recoilOffset; // muzzle-local tilt added to the straight-back kick direction; every serialized value is zero today
-    public float recoilForce; // overall kick strength; scales kickback and rise
-    public float recoilLerpSpeed;
-    public float recoilKickback = 0.4f; // m/s of kickback velocity per unit of recoilForce, fed to the hand's recoil spring
-    public Vector3 recoilRise = new Vector3(-60f, 0f, 0f); // deg/s of muzzle-local angular kick per unit of recoilForce; negative x lifts the muzzle
+    public Vector3 recoilOffset; // muzzle-local tilt added to the straight-back kickback direction and the loose-gun impulse; every serialized value is zero today
+    public float recoilForce; // overall strength; scales kickback, rise and side
+    public float recoilLerpSpeed; // currently unused; kept for its serialized data
+    public float recoilKickback = 0.4f; // m/s of kickback velocity per unit of recoilForce, fed to the hand's kickback spring
+    public float kickRise = 60f; // deg/s added to the holding hand's aim-offset velocity per unit of recoilForce, along the gun's own up; 60 matches every serialized gun's old rise
+    public float kickSide = 20f; // deg/s per unit of recoilForce, thrown sideways along the direction the aim offset is already drifting
 
     [Header("Effects")]
     public ParticleSystem muzzleFlash;
@@ -78,10 +80,9 @@ public class Gun : Item
     {
         Transform m = Muzzle;
         Vector3 kickDir = (Vector3.back + recoilOffset).normalized;
-        // Held: the gun is kinematic, so kick the hand's recoil spring instead of the body.
+        // Held: the gun is kinematic, so kick the hand's aim offset and kickback spring instead of the body.
         Vector3 linearKick = kickDir * (recoilForce * recoilKickback);
-        Vector3 angularKick = recoilRise * recoilForce;
-        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, angularKick, bloomPerShot)) return;
+        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, kickRise * recoilForce, kickSide * recoilForce, bloomPerShot)) return;
         // Loose dynamic gun: keep the physics impulse (same as the old formula with a zero recoilOffset).
         // A kinematic unheld gun gets no recoil.
         if (rb != null && !rb.isKinematic)
