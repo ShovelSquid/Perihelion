@@ -53,6 +53,8 @@ MonoBehaviour:
   move: {fileID: 0}
   look: {fileID: 0}
   playerInputEnabled: 1
+  scrollStep: 1
+  scrollInverted: 1
 --- !u!114 &6499164811945565829
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -275,7 +277,19 @@ MonoBehaviour:
     m_ActionId: 677862b2-021c-44ab-b4a1-1173bc969fa3
     m_ActionName: 'Player/Primary[/Mouse/leftButton]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8717675306450761669}
+        m_TargetAssemblyTypeName: PlayerManager, Assembly-CSharp
+        m_MethodName: OnSecondary
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: 21c8ccc6-015f-4153-a052-0e293aa786a7
     m_ActionName: 'Player/Secondary[/Mouse/rightButton]'
   - m_PersistentCalls:
@@ -295,11 +309,35 @@ MonoBehaviour:
     m_ActionId: 45e38d14-c696-47c7-8f5c-1db4ec6f4c40
     m_ActionName: 'Player/Reload[/Keyboard/r]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8717675306450761669}
+        m_TargetAssemblyTypeName: PlayerManager, Assembly-CSharp
+        m_MethodName: OnNumber
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: 6105a0ab-c124-4704-a481-ed239ba4082b
     m_ActionName: 'Player/Number[/Keyboard/1,/Keyboard/2,/Keyboard/3,/Keyboard/4,/Keyboard/5,/Keyboard/6,/Keyboard/7,/Keyboard/8,/Keyboard/9,/Keyboard/0]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8717675306450761669}
+        m_TargetAssemblyTypeName: PlayerManager, Assembly-CSharp
+        m_MethodName: OnScroll
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: cdd6b4cb-b779-47a4-b2aa-4fb3a4cf5e9c
     m_ActionName: 'Player/Scroll[/Mouse/scroll/up,/Mouse/scroll/down]'
   m_NeverAutoSwitchControlSchemes: 0

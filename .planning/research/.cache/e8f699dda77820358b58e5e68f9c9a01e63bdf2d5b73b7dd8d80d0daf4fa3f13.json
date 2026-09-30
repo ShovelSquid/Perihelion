@@ -1,0 +1,1 @@
+{"content":"Unity 6000.4 manual: C# 9.0 via Roslyn; init-only setters unsupported; records need a user-declared System.Runtime.CompilerServices.IsExternalInit; do not use records in Unity-serialized types. API compat level is .NET Standard 2.1.","source":"web","provider":"webfetch","confidence":"MEDIUM","fetched_at":"2026-09-15T05:10:31.621Z","ttl":86400000,"kind":"web"}

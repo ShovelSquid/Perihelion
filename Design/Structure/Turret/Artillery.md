@@ -1,0 +1,1 @@
+A turret which launches rockets at far ranges to destroy targets.

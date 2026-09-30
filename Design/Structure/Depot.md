@@ -1,0 +1,1 @@
+A storage building to deposit materials for strategic usage.

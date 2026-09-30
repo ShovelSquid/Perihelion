@@ -1,0 +1,1 @@
+Composed of highly compressed plant matter.

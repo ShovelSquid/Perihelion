@@ -1,0 +1,1 @@
+A collection of units, characters, components, and structures that have their own agenda. 

@@ -1,0 +1,1 @@
+Takes in power and outputs a shield which slows down projectiles, reducing damage.

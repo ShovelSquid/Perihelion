@@ -7,25 +7,26 @@ public class Object : MonoBehaviour
     public Animator anim;
     protected Rigidbody rb;
     protected Inventory body;
-    public Healthbar healthbar;
+    protected FxManager fxManager;
     public Team team;
+    public Healthbar healthbar;
+    public bool invincible = false;
+    public float hp;
+    public int max_hp;
+    public bool destroyed = false;
     public bool useTeamColor = true;
     public Palette colorPalette;
     private Shine shine;
     public float damageflashDuration = 0.1f;
     public ParticleSystem hitParticle;
     public ParticleSystem hitMistParticle;
-    public bool invincible = false;
     public bool still = false; // If true, this object can't be moved or affected by physics
     public bool interactible = false; // If true, player can interact with this object (e.g. press E to interact)
     [HideInInspector]
     public InteractionTrigger interactionTrigger;
     public Outline outline;
-    public float hp;
-    public int max_hp;
     // public float mass = 1f;
     public float density = 1f;
-    public bool destroyed = false;
     public GameObject destroyedVersion; // optional prefab to spawn when building is destroyed (e.g. rubble)
     public List<float> damageThresholds = new List<float>(); // from 1 to 0, in descending order. When hp drops below these percentages, the damage state changes (handled by DamageStates.cs)
     public int damageState = 0; // num correlating to num of list on damage states script for current texture
@@ -40,6 +41,7 @@ public class Object : MonoBehaviour
 
     protected virtual void Awake()
     {
+        fxManager = FindObjectOfType<FxManager>();
         if (body == null) body = GetComponent<Inventory>();
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (anim == null) anim = GetComponent<Animator>();
@@ -213,11 +215,6 @@ public class Object : MonoBehaviour
         {
             rb.AddForceAtPosition(-normal * force * rb.mass, point, ForceMode.Impulse);
         }
-        if (hitMistParticle != null)
-        {
-            var hmp = Instantiate(hitMistParticle, point, Quaternion.LookRotation(normal));
-            // hmp.transform.position = point;
-            // hmp.transform.rotation = Quaternion.LookRotation(normal);
-        }
+        FxManager.PlayOrInstantiate(fxManager, hitMistParticle, point, Quaternion.LookRotation(normal));
     }
 }

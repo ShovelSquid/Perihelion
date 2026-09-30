@@ -1,0 +1,151 @@
+using UnityEngine;
+
+// A per-hand aim cursor that sits on the point the hand's held item actually hits, with four prongs
+// spread by that hand's bloom. Prong visuals (Image or Shapes2D) are set up in the editor.
+// Runs after HandRig (100) has posed the item and after the camera's LateUpdate, and before ScreenAnchor (200) projects the point, so the cursor lands in the same frame.
+[DefaultExecutionOrder(190)]
+// ScreenAnchor only hides through a CanvasGroup on the same object, so without one a hidden cursor would freeze on screen.
+[RequireComponent(typeof(ScreenAnchor))]
+[RequireComponent(typeof(CanvasGroup))]
+public class AimCursor : MonoBehaviour
+{
+    [Header("Source")]
+    public HandRig hands; // the rig whose hand this cursor tracks
+    public HandSide hand = HandSide.Right; // which hand's placed item drives this cursor
+    public float maxDistance = 1000f; // meters; matches AimInput's default ray length
+    public float missDistance = 150f; // meters; depth used when the ray hits nothing; parallax is already negligible here, and it keeps depth jumps short
+    public LayerMask hitMask = Physics.DefaultRaycastLayers; // layers the muzzle ray can land on; exclude the player's own layer if the cursor snaps onto the body
+    [Header("Depth Smoothing")]
+    // Only the cursor's depth along the ray is smoothed, never its direction, so it slides across the
+    // parallax gap at collider edges instead of teleporting while still pointing exactly where the gun does.
+    public float depthInSharpness = 40f; // per second, when the hit gets closer (you just found a wall): near-instant
+    public float depthOutSharpness = 12f; // per second, when the hit gets farther (you slid off an edge): eases out
+    [Header("Parts")]
+    public RectTransform dot; // center mark, always on the hit point
+    public RectTransform prongUp; // pushed up by gap + bloom
+    public RectTransform prongDown; // pushed down by gap + bloom
+    public RectTransform prongLeft; // pushed left by gap + bloom
+    public RectTransform prongRight; // pushed right by gap + bloom
+    public float gap = 4f; // canvas units between the hit point and each prong at zero bloom
+
+    ScreenAnchor anchor;
+    Canvas canvas;
+    bool? partsActive; // null until the first frame, so the first toggle always applies
+    float depth; // smoothed distance from the muzzle to the cursor along the ideal ray
+    bool hasDepth; // false after the cursor was hidden, so the first frame back snaps instead of sliding
+
+    void Awake()
+    {
+        anchor = GetComponent<ScreenAnchor>();
+        canvas = GetComponentInParent<Canvas>();
+        if (hands == null) Debug.LogWarning($"{name}: AimCursor has no HandRig assigned, so it stays hidden.", this);
+    }
+
+    void LateUpdate()
+    {
+        Item item = hands != null ? hands.GetPlacedItem(hand) : null;
+        // Only weapons get a cursor. Nothing placed by this hand (empty, the off hand of a two-handed item,
+        // or a non-gun item): switch the parts off rather than just fading, so unused cursors are truly gone.
+        bool used = item is Gun;
+        SetPartsActive(used);
+        if (!used)
+        {
+            anchor.ClearWorldPoint();
+            hasDepth = false;
+            return;
+        }
+
+        // Explicit null check, not ??, which bypasses Unity's destroyed-object check.
+        Transform muzzle = item.Muzzle;
+        if (muzzle == null) muzzle = item.transform;
+
+        // One ray: the muzzle with the hand's aim offset undone, for the prongs. HandRig applies the offset in
+        // the muzzle frame as Euler(-y, x, 0), so the inverse of that gives the direction the gun would point
+        // without it. The dot is placed by angle, not by a second ray: two rays hitting different depths at a
+        // collider edge project far apart on screen (the muzzle isn't at the camera), which made the dot jump.
+        // Read the hand's recorded aim pose (before visual kickback/flip), the same one Gun fires from,
+        // so the dot follows the shots rather than the thrown-around gun model.
+        Vector3 origin = muzzle.position;
+        Quaternion aimRot = muzzle.rotation;
+        if (hands.TryGetAimPose(hand, out Vector3 aimPos, out Quaternion recorded))
+        {
+            origin = aimPos;
+            aimRot = recorded;
+        }
+        Vector2 offset = hands.GetAimOffset(hand);
+        Vector3 idealDir = aimRot * (Quaternion.Inverse(Quaternion.Euler(-offset.y, offset.x, 0f)) * Vector3.forward);
+
+        float hitDistance = CastDistance(origin, idealDir);
+        if (!hasDepth)
+        {
+            depth = hitDistance;
+            hasDepth = true;
+        }
+        else
+        {
+            float sharpness = hitDistance < depth ? depthInSharpness : depthOutSharpness;
+            depth = Mathf.Lerp(depth, hitDistance, 1f - Mathf.Exp(-sharpness * Time.deltaTime));
+        }
+
+        // The cursor frame sits on the ideal ray; the dot shows where the shot actually lands inside it.
+        Vector3 idealPoint = origin + idealDir * depth;
+        anchor.SetWorldPoint(idealPoint);
+
+        float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));
+        // The dot uses the real shot direction (what Gun fires along), put at the SAME smoothed depth as the
+        // anchor. Sharing one depth removes the edge parallax jump; using the real direction instead of the
+        // requested offset keeps it on the bullets when aim weight, the correction cap or solver undershoot
+        // means the gun turned less than the offset asked for.
+        Vector3 actualPoint = origin + (aimRot * Vector3.forward) * depth;
+        Place(dot, DotOffset(idealPoint, actualPoint));
+        Place(prongUp, Vector2.up * radius);
+        Place(prongDown, Vector2.down * radius);
+        Place(prongLeft, Vector2.left * radius);
+        Place(prongRight, Vector2.right * radius);
+    }
+
+    float CastDistance(Vector3 origin, Vector3 dir)
+    {
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, maxDistance, hitMask, QueryTriggerInteraction.Ignore))
+        {
+            return hit.distance;
+        }
+        return missDistance;
+    }
+
+    // Screen-space gap between the two points, in canvas units, projected through the world camera
+    // (ScreenAnchor.cam) so gun roll is baked in. Both points share one depth, so there's no edge parallax jump.
+    Vector2 DotOffset(Vector3 idealPoint, Vector3 actualPoint)
+    {
+        Camera cam = anchor.cam;
+        if (cam == null) return Vector2.zero;
+        Vector3 a = cam.WorldToScreenPoint(idealPoint);
+        Vector3 b = cam.WorldToScreenPoint(actualPoint);
+        if (a.z <= 0f || b.z <= 0f) return Vector2.zero;
+        Vector2 pixels = new Vector2(b.x - a.x, b.y - a.y);
+        return canvas != null ? pixels / canvas.scaleFactor : pixels;
+    }
+
+    // The parts are toggled, not this object: a disabled cursor would stop its own LateUpdate and could
+    // never switch itself back on when a weapon is equipped.
+    void SetPartsActive(bool active)
+    {
+        if (partsActive == active) return;
+        partsActive = active;
+        SetActive(dot, active);
+        SetActive(prongUp, active);
+        SetActive(prongDown, active);
+        SetActive(prongLeft, active);
+        SetActive(prongRight, active);
+    }
+
+    static void SetActive(RectTransform part, bool active)
+    {
+        if (part != null) part.gameObject.SetActive(active);
+    }
+
+    static void Place(RectTransform part, Vector2 position)
+    {
+        if (part != null) part.anchoredPosition = position;
+    }
+}

@@ -1,0 +1,1 @@
+Takes in fuel or power and outputs physical force for movement.

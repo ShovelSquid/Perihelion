@@ -1,0 +1,1 @@
+A small mobile scout which relays information to sensor towers.
