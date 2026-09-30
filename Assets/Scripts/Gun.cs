@@ -36,6 +36,8 @@ public class Gun : Item
     public float recoilKickback = 0.4f; // m/s of kickback velocity per unit of recoilForce, fed to the hand's kickback spring
     public float kickRise = 60f; // deg/s added to the holding hand's aim-offset velocity per unit of recoilForce, along the gun's own up; 60 matches every serialized gun's old rise
     public float kickSide = 20f; // deg/s per unit of recoilForce, thrown sideways along the direction the aim offset is already drifting
+    public float flipRise = 80f; // deg/s per unit of recoilForce of visual-only muzzle flip along the gun's own up; never moves the shots
+    public float flipSide = 15f; // deg/s per unit of recoilForce of visual-only sideways flip, same drift direction as kickSide
 
     [Header("Effects")]
     public ParticleSystem muzzleFlash;
@@ -82,7 +84,7 @@ public class Gun : Item
         Vector3 kickDir = (Vector3.back + recoilOffset).normalized;
         // Held: the gun is kinematic, so kick the hand's aim offset and kickback spring instead of the body.
         Vector3 linearKick = kickDir * (recoilForce * recoilKickback);
-        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, kickRise * recoilForce, kickSide * recoilForce, bloomPerShot)) return;
+        if (holder != null && holder.hands != null && holder.hands.Kick(this, linearKick, kickRise * recoilForce, kickSide * recoilForce, bloomPerShot, flipRise * recoilForce, flipSide * recoilForce)) return;
         // Loose dynamic gun: keep the physics impulse (same as the old formula with a zero recoilOffset).
         // A kinematic unheld gun gets no recoil.
         if (rb != null && !rb.isKinematic)
@@ -197,8 +199,17 @@ public class Gun : Item
                 int actualShotCount = 0;
                 if (shotCount == Vector2.zero) actualShotCount = 1;
                 else actualShotCount = Random.Range((int)shotCount.x, (int)shotCount.y + 1);
-                // Bullets leave along the real muzzle, so where the hand points the gun is where the shot goes.
+                // Bullets leave along the aimed muzzle recorded by the hand (before its visual kickback and flip),
+                // so the gun can be thrown around on screen while shots still go where the cursor dot is.
+                // A gun that isn't held falls back to its real muzzle.
                 Transform muzzle = Muzzle;
+                Vector3 shotOrigin = muzzle.position;
+                Quaternion shotRot = muzzle.rotation;
+                if (holder != null && holder.hands != null && holder.hands.TryGetAimPose(this, out Vector3 aimPos, out Quaternion aimRot))
+                {
+                    shotOrigin = aimPos;
+                    shotRot = aimRot;
+                }
                 for (int i = 0; i < actualShotCount; i++)
                 {
                     // xy spread baesd off of x and y of spreadAngle
@@ -215,12 +226,12 @@ public class Gun : Item
                         );
                     }
                     // Jitter in the muzzle's own frame, so the spread axes stay put as the gun turns.
-                    Vector3 shotDirection = muzzle.rotation * (Quaternion.Euler(angleOffset.x, angleOffset.y, 0f) * Vector3.forward);
+                    Vector3 shotDirection = shotRot * (Quaternion.Euler(angleOffset.x, angleOffset.y, 0f) * Vector3.forward);
                     // create bullet
                     Projectile p = bulletManager.Get(projectilePrefab);
-                    p.Proj.position = muzzle.position;
+                    p.Proj.position = shotOrigin;
                     p.speed = effectiveProjectileSpeed;
-                    p.direction = muzzle.forward;
+                    p.direction = shotRot * Vector3.forward;
                     p.damage = effectiveDamage;
                     p.Fire(shotDirection);
                 }

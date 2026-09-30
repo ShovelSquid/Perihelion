@@ -34,6 +34,11 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 kickbackVelocity; // m/s, muzzle-local
         [System.NonSerialized] public Vector2 offset; // degrees the muzzle points away from the ideal aim direction, in the muzzle's own frame; x right, y up
         [System.NonSerialized] public Vector2 offsetVelocity; // deg/s
+        [System.NonSerialized] public Vector2 flip; // degrees of visual-only muzzle flip, muzzle frame (x right, y up); never affects aim
+        [System.NonSerialized] public Vector2 flipVelocity; // deg/s
+        [System.NonSerialized] public Vector3 aimMuzzlePos; // muzzle pose after the aim solve, before kickback/flip: where shots actually leave from
+        [System.NonSerialized] public Quaternion aimMuzzleRot = Quaternion.identity;
+        [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
@@ -65,6 +70,12 @@ public class HandRig : MonoBehaviour
     // A new field on purpose, not carried over: the old serialized ratio was heavily underdamped, and kickback should not overshoot.
     [Range(0.1f, 2f)] public float kickbackDampingRatio = 1f; // 1 = critically damped, no overshoot
     [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilDistance")] public float maxKickback = 0.2f; // meters; clamps stacked kickback
+    [Header("Visual Flip")]
+    // Cosmetic muzzle flip about the hand, layered after the aim pose is recorded, so it can be as big as
+    // you like without moving shots or the cursor dot.
+    public float flipFrequency = 7f; // Hz; higher snaps back faster
+    [Range(0.1f, 2f)] public float flipDampingRatio = 0.8f; // below 1 settles with a small, readable bounce
+    public float maxFlip = 45f; // degrees; clamps stacked flips from automatic fire
 
     float aimWeight;
 
@@ -275,6 +286,9 @@ public class HandRig : MonoBehaviour
         slot.kickbackVelocity = Vector3.zero;
         slot.offset = Vector2.zero;
         slot.offsetVelocity = Vector2.zero;
+        slot.flip = Vector2.zero;
+        slot.flipVelocity = Vector2.zero;
+        slot.hasAimPose = false;
         slot.bloom = 0f;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
@@ -284,8 +298,9 @@ public class HandRig : MonoBehaviour
     // frame: rise along the muzzle's up (so a rolled or swaying gun lifts along its own tilt), side along
     // the offset's current sideways drift (none when the offset is still). bloom is degrees added to the
     // hand's spread, scaled by supportBloomScale while the other hand steadies the item; the kicks are not.
+    // flipRise/flipSide are deg/s for the visual-only flip, thrown the same way as rise/side.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 kickbackVelocity, float rise, float side, float bloom)
+    public bool Kick(Item item, Vector3 kickbackVelocity, float rise, float side, float bloom, float flipRise = 0f, float flipSide = 0f)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -297,6 +312,7 @@ public class HandRig : MonoBehaviour
         slot.bloom += bloom * (supported ? supportBloomScale : 1f);
         float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
         slot.offsetVelocity += new Vector2(drift * side, rise);
+        slot.flipVelocity += new Vector2(drift * flipSide, flipRise);
         slot.kickbackVelocity += kickbackVelocity;
         return true;
     }
@@ -334,11 +350,29 @@ public class HandRig : MonoBehaviour
         Vector3 offset = slot.offset;
         Vector3 offsetVelocity = slot.offsetVelocity;
         StepSpring(ref offset, ref offsetVelocity, swayTarget, offsetFrequency, offsetDampingRatio, dt);
-        slot.offset = Vector2.ClampMagnitude(offset, maxAimOffset);
+        // The bloom circle is the leash: a hard kick rides its edge instead of leaving the reticle. Kick grows
+        // bloom before this step runs, so heavy guns still get a wide circle to kick into. Projecting back and
+        // dropping only the outward velocity (not snapping) keeps the spring from buzzing against the edge.
+        float leash = gun != null ? Mathf.Min(slot.bloom, maxAimOffset) : maxAimOffset;
+        float dist = offset.magnitude;
+        if (dist > leash && dist > 1e-6f)
+        {
+            Vector3 dir = offset / dist;
+            offset = dir * leash;
+            float outward = Vector3.Dot(offsetVelocity, dir);
+            if (outward > 0f) offsetVelocity -= dir * outward;
+        }
+        slot.offset = offset;
         slot.offsetVelocity = offsetVelocity;
 
         StepSpring(ref slot.kickback, ref slot.kickbackVelocity, Vector3.zero, kickbackFrequency, kickbackDampingRatio, dt);
         slot.kickback = Vector3.ClampMagnitude(slot.kickback, maxKickback);
+
+        Vector3 flip = slot.flip;
+        Vector3 flipVelocity = slot.flipVelocity;
+        StepSpring(ref flip, ref flipVelocity, Vector3.zero, flipFrequency, flipDampingRatio, dt);
+        slot.flip = Vector2.ClampMagnitude(flip, maxFlip);
+        slot.flipVelocity = flipVelocity;
     }
 
     // Semi-implicit spring pulling x toward target; serves both the aim offset and the kickback.
@@ -382,6 +416,37 @@ public class HandRig : MonoBehaviour
         if (slot.kickback.sqrMagnitude < 1e-10f) return;
         // The grip leaves the socket, so the arm IK visibly absorbs it.
         pos += (rot * muzzleRotLocal) * slot.kickback;
+    }
+
+    // Visual-only muzzle flip, in the muzzle's own frame (same convention as the aim offset: negative
+    // pitch lifts), rotated about the hand so the grip stays put and the arm IK follows the barrel.
+    void ApplyFlip(HandSlot slot, Vector3 pivot, Quaternion muzzleRotLocal, ref Vector3 pos, ref Quaternion rot)
+    {
+        if (slot.flip.sqrMagnitude < 1e-10f) return;
+        Quaternion muzzleRot = rot * muzzleRotLocal;
+        Quaternion d = muzzleRot * Quaternion.Euler(-slot.flip.y, slot.flip.x, 0f) * Quaternion.Inverse(muzzleRot);
+        rot = d * rot;
+        pos = pivot + d * (pos - pivot);
+    }
+
+    // Where this hand's shots actually leave from: the muzzle after the aim solve, before kickback and
+    // flip. False when the hand places nothing or hasn't been posed yet (callers fall back to the muzzle).
+    public bool TryGetAimPose(HandSide side, out Vector3 pos, out Quaternion rot)
+    {
+        HandSlot slot = GetSlot(side);
+        bool ok = slot.places && slot.item != null && slot.hasAimPose;
+        pos = ok ? slot.aimMuzzlePos : default;
+        rot = ok ? slot.aimMuzzleRot : Quaternion.identity;
+        return ok;
+    }
+
+    public bool TryGetAimPose(Item item, out Vector3 pos, out Quaternion rot)
+    {
+        if (item != null && right.item == item && right.places) return TryGetAimPose(HandSide.Right, out pos, out rot);
+        if (item != null && left.item == item && left.places) return TryGetAimPose(HandSide.Left, out pos, out rot);
+        pos = default;
+        rot = Quaternion.identity;
+        return false;
     }
 
     bool TryGetHoldPose(HandSide side, Item item, out Vector3 pos, out Quaternion rot)
@@ -433,8 +498,18 @@ public class HandRig : MonoBehaviour
         Quaternion rot = baseRot;
         StepAimState(side, slot, Time.deltaTime);
         ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, slot.offset, ref pos, ref rot);
+
+        // Record the aim pose here, before any visual layer: Gun fires and AimCursor casts from this,
+        // so kickback and flip can be exaggerated freely without moving the shots.
+        slot.aimMuzzlePos = pos + rot * muzzleOffset;
+        slot.aimMuzzleRot = rot * muzzleRotLocal;
+        slot.hasAimPose = true;
+
         // Kickback slides along the aimed barrel; visual only, it never changes where the muzzle points.
+        Vector3 beforeKickback = pos;
         ApplyKickback(slot, muzzleRotLocal, ref pos, rot);
+        // Flip pivots about the hand, which kickback has just slid back with the item.
+        ApplyFlip(slot, pivot + (pos - beforeKickback), muzzleRotLocal, ref pos, ref rot);
 
         // Written directly: MovePosition/MoveRotation would only apply at the next physics step.
         itemT.SetPositionAndRotation(pos, rot);

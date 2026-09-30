@@ -49,10 +49,18 @@ public class AimCursor : MonoBehaviour
         // Two rays: the actual muzzle (sway + kick included) for the dot, and the same muzzle with the
         // hand's aim offset undone for the prongs. HandRig applies the offset in the muzzle frame as
         // Euler(-y, x, 0), so the inverse of that gives the direction the gun would point without it.
+        // Read the hand's recorded aim pose (before visual kickback/flip), the same one Gun fires from,
+        // so the dot follows the shots rather than the thrown-around gun model.
         Vector3 origin = muzzle.position;
+        Quaternion aimRot = muzzle.rotation;
+        if (hands.TryGetAimPose(hand, out Vector3 aimPos, out Quaternion recorded))
+        {
+            origin = aimPos;
+            aimRot = recorded;
+        }
         Vector2 offset = hands.GetAimOffset(hand);
-        Vector3 actualDir = muzzle.forward;
-        Vector3 idealDir = muzzle.rotation * (Quaternion.Inverse(Quaternion.Euler(-offset.y, offset.x, 0f)) * Vector3.forward);
+        Vector3 actualDir = aimRot * Vector3.forward;
+        Vector3 idealDir = aimRot * (Quaternion.Inverse(Quaternion.Euler(-offset.y, offset.x, 0f)) * Vector3.forward);
         Vector3 actualPoint = CastPoint(origin, actualDir);
         Vector3 idealPoint = CastPoint(origin, idealDir);
 
