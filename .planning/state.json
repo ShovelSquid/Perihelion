@@ -1,0 +1,33 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Foundation and Paper Skeleton",
+      "status": "in_progress"
+    },
+    {
+      "number": "2",
+      "name": "Hangar Depth and Staging",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Missions, Handoff and the Worked Loop",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Headless Prototype Port",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step (verify)",
+    "reason": "Phase 01 of 4 · 0% · ready to verify"
+  },
+  "updated_at": "2026-09-15T07:12:03.376Z"
+}

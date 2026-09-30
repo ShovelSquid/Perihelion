@@ -3,7 +3,7 @@ using UnityEngine;
 public class AimOff : MonoBehaviour
 {
     public Animator anim;
-    public Transform aimTarget;
+    public Transform aimTarget;    
     public Transform aimPivot; // Chest/shoulder bone; falls back to this transform (feet) if unset
 
     [Header("Body Aim (AimX / AimY)")]
@@ -40,10 +40,10 @@ public class AimOff : MonoBehaviour
         armAimX = Remap(yaw, armMaxYaw, armYawCurve);
         armAimY = Remap(pitch, armMaxPitch, armPitchCurve);
 
-        anim.SetFloat("AimX", aimX);
-        anim.SetFloat("AimY", aimY);
-        anim.SetFloat("ArmAimX", armAimX);
-        anim.SetFloat("ArmAimY", armAimY);
+        anim.SetFloat("AimX", Lerp(anim.GetFloat("AimX"), aimX, Time.deltaTime));
+        anim.SetFloat("AimY", Lerp(anim.GetFloat("AimY"), aimY, Time.deltaTime));
+        anim.SetFloat("ArmAimX", Lerp(anim.GetFloat("ArmAimX"), armAimX, Time.deltaTime));
+        anim.SetFloat("ArmAimY", Lerp(anim.GetFloat("ArmAimY"), armAimY, Time.deltaTime));
     }
 
     // Clamp before evaluating so the curve only ever sees its authored -1..1 domain
@@ -51,4 +51,9 @@ public class AimOff : MonoBehaviour
     {
         return curve.Evaluate(Mathf.Clamp(angle / maxAngle, -1f, 1f));
     }
+    float Lerp(float current, float target, float deltaTime)
+    {
+        return Mathf.Lerp(current, target, deltaTime * 10f);
+    }
+
 }

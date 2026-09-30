@@ -1,0 +1,181 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!319 &31900000
+AvatarMask:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: protagRightArm
+  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  m_Elements:
+  - m_Path: 
+    m_Weight: 1
+  - m_Path: Armature
+    m_Weight: 0
+  - m_Path: Armature/Root
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg L/Lower Leg L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg L/Lower Leg L/Foot L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg L/Lower Leg L/Foot L/Toes L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg R
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg R/Lower Leg R
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg R/Lower Leg R/Foot R
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Leg R/Lower Leg R/Foot R/Toes R
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Nape
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Nape/Neck
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Nape/Neck/Head
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Forearm Twist.001
+      L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Forearm Twist.001
+      L/Forearm Twist.002 L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Forearm Twist.001
+      L/Forearm Twist.002 L/Forearm Twist.003 L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Index
+      Base L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Index
+      Base L/Index Mid L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Index
+      Base L/Index Mid L/Index Tip L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Middle
+      Base L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Middle
+      Base L/Middle Mid L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Middle
+      Base L/Middle Mid L/Middle Tip L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Pinky
+      Base L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Pinky
+      Base L/Pinky Mid L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Pinky
+      Base L/Pinky Mid L/Pinky Tip L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Ring
+      Base L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Ring
+      Base L/Ring Mid L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Ring
+      Base L/Ring Mid L/Ring Tip L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Thumb
+      Base L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder L/Arm L/Forearm L/Hand L/Thumb
+      Base L/Thumb Tip L
+    m_Weight: 0
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Forearm Twist.001
+      R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Forearm Twist.001
+      R/Forearm Twist.002 R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Forearm Twist.001
+      R/Forearm Twist.002 R/Forearm Twist.003 R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Index
+      Base R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Index
+      Base R/Index Mid R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Index
+      Base R/Index Mid R/Index Tip R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Middle
+      Base R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Middle
+      Base R/Middle Mid R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Middle
+      Base R/Middle Mid R/Middle Tip R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Pinky
+      Base R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Pinky
+      Base R/Pinky Mid R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Pinky
+      Base R/Pinky Mid R/Pinky Tip R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Ring
+      Base R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Ring
+      Base R/Ring Mid R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Ring
+      Base R/Ring Mid R/Ring Tip R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Thumb
+      Base R
+    m_Weight: 1
+  - m_Path: Armature/Root/Hips/Waist/Chest/Shoulder R/Arm R/Forearm R/Hand R/Thumb
+      Base R/Thumb Tip R
+    m_Weight: 1
+  - m_Path: Armature/Root/IK Elbow L
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Elbow R
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Foot L
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Foot R
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Hand L
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Hand R
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Knee L
+    m_Weight: 0
+  - m_Path: Armature/Root/IK Knee R
+    m_Weight: 0
+  - m_Path: Boy
+    m_Weight: 0
