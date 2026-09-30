@@ -119,6 +119,7 @@ public class LegSolver : MonoBehaviour
 
     void FixedUpdate()
     {
+        UpdateStepping(Time.fixedDeltaTime);
         ApplyLegForces();
         ApplyUprightAndYaw();
     }
@@ -224,6 +225,145 @@ public class LegSolver : MonoBehaviour
         }
 
         hip.AddTorque(torque, ForceMode.Force);
+    }
+
+    void UpdateStepping(float dt)
+    {
+        int swingingCount = 0;
+        int legsCount = legSet.Length;
+        int maxSwinging = Mathf.Max(0, legsCount - minLegsGrounded);
+
+        for (int i = 0; i < legsCount; i++)
+        {
+            Leg leg = legSet[i];
+            if (leg == null || leg.hipSocket == null) continue;
+
+            if (leg.planted)
+            {
+                // Planted foot stays pinned
+                if (leg.footTarget != null) leg.footTarget.position = leg.plantPoint;
+                continue;
+            }
+
+            if (leg.swingProgress < 0f)
+            {
+                // Lost ground without a swing: airborne recovery, ignores the maxSwinging cap
+                BeginSwing(leg);
+            }
+            else
+            {
+                leg.swingProgress += dt / Mathf.Max(stepDuration, 0.01f);
+                float t = Mathf.Min(leg.swingProgress, 1f);
+                if (leg.footTarget != null)
+                {
+                    leg.footTarget.position = Vector3.Lerp(leg.swingFrom, leg.swingTo, t)
+                        + Vector3.up * (Mathf.Sin(t * Mathf.PI) * stepHeight);
+                }
+
+                if (leg.swingProgress >= 1f)
+                {
+                    RaycastHit hit;
+                    if (ProbeGround(leg.swingTo + Vector3.up * stepHeight, Vector3.down, stepHeight + leg.maxLength + probeDistance, out hit))
+                    {
+                        leg.planted = true;
+                        leg.plantPoint = hit.point;
+                        leg.groundNormal = hit.normal;
+                        leg.swingProgress = -1f;
+                        if (leg.footTarget != null) leg.footTarget.position = leg.plantPoint;
+                        continue;
+                    }
+
+                    // No ground at the landing spot: keep searching from here
+                    leg.swingFrom = leg.swingTo;
+                    leg.swingTo = RaibertTarget(leg);
+                    leg.swingProgress = 0f;
+                }
+            }
+            swingingCount++;
+        }
+
+        if (swingingCount >= maxSwinging) return;
+
+        // Lift the single most strained planted leg, if any is past its limit
+        Leg best = null;
+        float bestScore = 0f;
+        for (int i = 0; i < legsCount; i++)
+        {
+            Leg leg = legSet[i];
+            if (leg == null || leg.hipSocket == null || !leg.planted) continue;
+
+            float score;
+            if (leg.lastLength > leg.maxLength)
+            {
+                score = Mathf.Infinity;
+            }
+            else
+            {
+                float stretch = Vector3.ProjectOnPlane(leg.plantPoint - leg.hipSocket.position, leg.groundNormal).magnitude
+                    / Mathf.Max(leg.maxStride, 0.01f);
+                score = Mathf.Max(stretch, leg.gripUsage);
+            }
+
+            if (score > 1f && (best == null || score > bestScore))
+            {
+                best = leg;
+                bestScore = score;
+            }
+        }
+
+        if (best != null) BeginSwing(best);
+    }
+
+    void BeginSwing(Leg leg)
+    {
+        leg.swingFrom = leg.footTarget != null ? leg.footTarget.position : leg.plantPoint;
+        leg.swingTo = RaibertTarget(leg);
+        leg.planted = false;
+        leg.swingProgress = 0f;
+        leg.gripUsage = 0f;
+        leg.lastForce = Vector3.zero;
+    }
+
+    // Raibert heuristic: step to where the body will be half a step ahead
+    Vector3 RaibertTarget(Leg leg)
+    {
+        Vector3 v = targetVelocity.magnitude > 0.1f ? targetVelocity : hip.linearVelocity;
+        Vector3 predicted = leg.hipSocket.position + v * stepDuration * raibertScale;
+
+        RaycastHit hit;
+        if (ProbeGround(predicted + Vector3.up * stepHeight, Vector3.down, stepHeight + leg.maxLength + probeDistance, out hit))
+            return hit.point;
+        return leg.plantPoint; // Foot stays roughly where it was
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        if (legSet == null) return;
+        for (int i = 0; i < legSet.Length; i++)
+        {
+            Leg leg = legSet[i];
+            if (leg == null || leg.hipSocket == null) continue;
+
+            Vector3 socket = leg.hipSocket.position;
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawSphere(socket, 0.05f);
+
+            if (leg.planted)
+            {
+                Gizmos.color = Color.green;
+                Gizmos.DrawLine(socket, leg.plantPoint);
+                Gizmos.DrawWireSphere(leg.plantPoint, 0.08f);
+            }
+            else if (leg.swingProgress >= 0f)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireSphere(leg.swingTo, 0.08f);
+                Gizmos.DrawLine(leg.swingFrom, leg.swingTo);
+            }
+
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(socket, socket + leg.lastForce * gizmoForceScale);
+        }
     }
 
     bool ProbeGround(Vector3 origin, Vector3 dir, float range, out RaycastHit hit)
