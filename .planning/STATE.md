@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-29T23:59:26.312Z"
+last_updated: "2026-09-30T00:07:13.142Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 8a3c4fe054b563bab03467147a53c2ec9a932832
+state_head: ffb5b55603691eba6c10b7df3377b94396c3336c
 progress:
   total_phases: 4
   completed_phases: 0
@@ -101,6 +101,7 @@ None yet.
 | 3 | Upright roll fix with yaw-driven tilt for aimed items | 2026-09-29 | f5280dd | — |
 | 4 | Primary/secondary fire left/right hand items | 2026-09-29 | 4715da8 | — |
 | 5 | Two-handed items fire from primaryHand button only | 2026-09-29 | 8a3c4fe | — |
+| 6 | Root-relative grip pose (grips under item bones) | 2026-09-30 | ffb5b55 | — |
 
 ## Deferred Items
 
