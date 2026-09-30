@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T01:37:58.772Z"
+last_updated: "2026-09-30T01:48:02.507Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 908f82e76dd87d1de539076473f0ee6eafa8375c
+state_head: 04547bdac75951b5adbb518165cdf2884e2dbd37
 progress:
   total_phases: 4
   completed_phases: 0
@@ -107,6 +107,7 @@ None yet.
 | 9 | defaultHand on HandRig, cached support hand | 2026-09-30 | 010ab97 | — |
 | 260929-p4y | Bloom/sway recoil model with per-hand aim cursors | 2026-09-30 | b6e684e | [260929-p4y-bloom-sway-recoil-model-with-per-hand-cu](./quick/260929-p4y-bloom-sway-recoil-model-with-per-hand-cu/) |
 | 11 | AimCursor dot shows actual hit inside unswayed prong frame | 2026-09-30 | 908f82e | — |
+| 12 | Bloom leash on aim offset + visual-only flip layer | 2026-09-30 | 04547bd | — |
 
 ## Deferred Items
 
