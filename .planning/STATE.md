@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T02:15:06.693Z"
+last_updated: "2026-09-30T02:18:47.013Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 589000406269b78c29cc1308eed11d42ca397eba
+state_head: b53e3843e3c1e4d7c04bc7ad0260085b4e1a5cc6
 progress:
   total_phases: 4
   completed_phases: 0
@@ -111,6 +111,7 @@ None yet.
 | 13 | Curve-driven visual recoil return | 2026-09-30 | 9e96db1 | — |
 | 14 | Shot rest point, look drag and look/move bloom floor | 2026-09-30 | 02b0018 | — |
 | 15 | Per-source move/air/look bloom caps | 2026-09-30 | 5890004 | — |
+| 16 | Disable unused aim cursors | 2026-09-30 | b53e384 | — |
 
 ## Deferred Items
 
