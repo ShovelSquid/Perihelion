@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-09-30 - Completed quick task 260930-8le: Add FxManager pooled particle effects
+Last activity: 2026-09-30 - Completed quick task 260930-922: Unify Move.cs ground detection into one per-FixedUpdate check
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -111,6 +111,7 @@ None yet.
 | 13 | Curve-driven visual recoil return | 2026-09-30 | 9e96db1 | — |
 | 14 | Shot rest point, look drag and look/move bloom floor | 2026-09-30 | 02b0018 | — |
 | 260930-8le | Add FxManager pooled particle effects | 2026-09-30 | f5e14a9 | [260930-8le-add-fxmanager-pooled-particle-effects](./quick/260930-8le-add-fxmanager-pooled-particle-effects/) |
+| 260930-922 | Unify Move.cs ground detection into one per-FixedUpdate check | 2026-09-30 | 6f86af0 | [260930-922-unify-move-cs-ground-detection-into-one-](./quick/260930-922-unify-move-cs-ground-detection-into-one-/) |
 | 15 | Per-source move/air/look bloom caps | 2026-09-30 | 5890004 | — |
 | 16 | Disable unused aim cursors | 2026-09-30 | b53e384 | — |
 | 17 | Angular cursor dot and depth-only anchor smoothing | 2026-09-30 | 9b67939 | — |
