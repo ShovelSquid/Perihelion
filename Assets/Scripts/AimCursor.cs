@@ -24,6 +24,7 @@ public class AimCursor : MonoBehaviour
 
     ScreenAnchor anchor;
     Canvas canvas;
+    bool? partsActive; // null until the first frame, so the first toggle always applies
 
     void Awake()
     {
@@ -35,8 +36,11 @@ public class AimCursor : MonoBehaviour
     void LateUpdate()
     {
         Item item = hands != null ? hands.GetPlacedItem(hand) : null;
-        // Nothing placed by this hand (empty, or the off hand of a two-handed item): hide.
-        if (item == null)
+        // Only weapons get a cursor. Nothing placed by this hand (empty, the off hand of a two-handed item,
+        // or a non-gun item): switch the parts off rather than just fading, so unused cursors are truly gone.
+        bool used = item is Gun;
+        SetPartsActive(used);
+        if (!used)
         {
             anchor.ClearWorldPoint();
             return;
@@ -96,6 +100,24 @@ public class AimCursor : MonoBehaviour
         if (a.z <= 0f || b.z <= 0f) return Vector2.zero;
         Vector2 pixels = new Vector2(b.x - a.x, b.y - a.y);
         return canvas != null ? pixels / canvas.scaleFactor : pixels;
+    }
+
+    // The parts are toggled, not this object: a disabled cursor would stop its own LateUpdate and could
+    // never switch itself back on when a weapon is equipped.
+    void SetPartsActive(bool active)
+    {
+        if (partsActive == active) return;
+        partsActive = active;
+        SetActive(dot, active);
+        SetActive(prongUp, active);
+        SetActive(prongDown, active);
+        SetActive(prongLeft, active);
+        SetActive(prongRight, active);
+    }
+
+    static void SetActive(RectTransform part, bool active)
+    {
+        if (part != null) part.gameObject.SetActive(active);
     }
 
     static void Place(RectTransform part, Vector2 position)
