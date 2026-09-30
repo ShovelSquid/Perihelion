@@ -29,7 +29,7 @@ public class LegSolver : MonoBehaviour
     [Header("Body")]
     public Rigidbody hip;
     public Leg[] legSet;
-    public int minLegsGrounded = 2;
+    public int minLegsGrounded = 2; // Bipeds need 1 here, or no leg is ever allowed to lift
     public LayerMask groundLayer = ~0;
     public float probeDistance = 0.5f; // Extra raycast reach beyond maxLength
 
@@ -170,8 +170,10 @@ public class LegSolver : MonoBehaviour
             leg.lastLength = length;
             Vector3 n = hit.normal;
 
-            // Suspension: feet push, never pull
-            float fs = Mathf.Max(0f, (springK * (leg.restLength - length) - damperC * Vector3.Dot(v, n)) * massScale);
+            // Suspension: feet push, never pull. The gravity feedforward carries the body's weight so the spring
+            // only corrects error; without it the hip sags g/springK below restLength and restLength stops meaning ride height.
+            float weightShare = -Vector3.Dot(Physics.gravity, n);
+            float fs = Mathf.Max(0f, (springK * (leg.restLength - length) - damperC * Vector3.Dot(v, n) + weightShare) * massScale);
 
             // Lateral grip (cancels slip, or all horizontal slip = braking when no heading) plus drive along heading
             Vector3 slip = Vector3.ProjectOnPlane(v, n);
