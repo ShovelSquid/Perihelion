@@ -28,6 +28,7 @@ public class Gun : Item
     public float bloomPerShot = 1.5f; // degrees added to the holding hand's bloom per shot
     public float bloomRecovery = 4f; // per second; exponential pull back toward baseSpread; framerate independent
     [Range(0f, 1f)] public float swayAmount = 0.75f; // fraction of the current bloom radius the sway can wander; 0 = no sway
+    public float restRerollInterval = 0.12f; // seconds between new aim targets while firing; give HandRig's offset spring time to arrive (~0.1 s at 6 Hz), 0 = every shot
     // Floor bloom sources: each is rate x amount, capped on its own, then added to baseSpread (and the total capped by maxSpread).
     public float moveBloom = 0.3f; // degrees per m/s of the holder's horizontal speed
     public float maxMoveBloom = 2f; // degrees; most that moving can add
