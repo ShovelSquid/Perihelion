@@ -1,121 +1,124 @@
-// using UnityEngine;
-// using System.Collections.Generic;
+using UnityEngine;
 
-// public class Leg
-// {
-//     public Transform hipSocket;     // where it connects to the hip
-//     public Rigidbody foot;          // the foot rigidbody
-//     public Transform footTarget;    // the foot IK target
-//     public Transform footRestTarget;    // the rest target of the foot pose
-//     public float maxRadius;
-//     public float restRadius;
+// Car-style leg solver: every planted foot behaves like a raycast wheel contact. It pushes the hip
+// Rigidbody at its hip socket with suspension, lateral grip and drive forces, clamped to a friction
+// cone. Feet push, never pull. Swinging (or ground-less) legs contribute zero force.
+public class LegSolver : MonoBehaviour
+{
+    [System.Serializable]
+    public class Leg
+    {
+        public Transform hipSocket; // Where this leg's force is applied on the hip body
+        public Transform footTarget; // Foot IK target this solver writes
+        public Transform footRest; // Optional rest pose reference
+        public float restLength = 0f; // Hip height above the FLOOR (not world y); 0 = derived in Awake
+        public float maxLength = 0f; // Overstretch limit; 0 = restLength * 1.25 in Awake
+        public float maxStride = 1f; // Horizontal foot offset from the socket that counts as fully stretched
 
-//     public float DistanceToRest()
-//     {
-//         // return a score of how far the foot is from the foot rest target.
-//         return Vector3.Distance(footTarget.position, footRestTarget.position);
-//     }
+        [System.NonSerialized] public bool planted;
+        [System.NonSerialized] public Vector3 plantPoint;
+        [System.NonSerialized] public Vector3 groundNormal;
+        [System.NonSerialized] public float swingProgress = -1f; // -1 = not swinging, 0..1 = mid-swing
+        [System.NonSerialized] public Vector3 swingFrom;
+        [System.NonSerialized] public Vector3 swingTo;
+        [System.NonSerialized] public float gripUsage;
+        [System.NonSerialized] public Vector3 lastForce;
+        [System.NonSerialized] public float lastLength;
+    }
 
-//     public float ComfortLevel()
-//     {
-//         // is leg buckling??
-//         // i.e.; is leg behind hip socket relative to current hip velocity?
-//         return DistanceToRest();
-//     }
-// }
+    [Header("Body")]
+    public Rigidbody hip;
+    public Leg[] legSet;
+    public int minLegsGrounded = 2;
+    public LayerMask groundLayer = ~0;
+    public float probeDistance = 0.5f; // Extra raycast reach beyond maxLength
 
-// public class LegSolver : MonoBehaviour
-// {
-//     public Rigidbody hip;
-//     public Vector3 hipVelocity;         // try to keep this ZERO.
-//     public Vector3 hipAngularVelocity;  // likewise, keep this zero.
-//     public float hipTargetHeight;       // target height from FLOOR, NOT from world y. gabbagool.
-//     public Transform hipTarget;
-//     public List<Leg> legs = new List<Leg>();
-//     public int minLegsGrounded;        // the amount of legs needed to be on the ground when moving
+    [Header("Suspension (per unit mass)")]
+    public float springK = 60f;
+    public float damperC = 8f;
 
-//     // need to get offset of rest pose feet to hip to get desired pose
+    [Header("Traction (per unit mass)")]
+    public float lateralGrip = 12f;
+    public float driveGain = 10f;
+    public float mu = 1.2f; // Friction coefficient for the cone
+    public float maxSpeed = 5f;
 
-//     public Awake()
-//     {
-//         float floor = 0;
-//         foreach (Leg leg in legs)
-//         {
-//             floor += leg.foot.position.y;
-//         }
-//         floor /= legs.Count;
-//         hipTargetHeight = hip.position.y - floor;       // get distance between feet height and hip height. that's the ideal height.
-//     }
+    [Header("Upright")]
+    public float uprightK = 20f;
+    public float uprightD = 4f;
+    public float yawK = 10f;
+    public float yawD = 3f;
+    public bool useAverageGroundNormal = true;
 
-//     public Leg BestLegToMove()
-//     {
-//         // every time I write code I feel like I gain xp. it's so bomb yo
-//         Leg l = legs[0];
-//         foreach(Leg leg in legs)
-//         {
-//             if (leg.ComfortLevel() > l.ComfortLevel())
-//             {
-//                 l = leg;
-//             }
-//         }
-//         return l;
-//     }
+    [Header("Stepping")]
+    public float stepDuration = 0.35f;
+    public float stepHeight = 0.4f;
+    public float raibertScale = 0.5f;
 
-//     public void RotateHip()
-//     {
-//         // not sure how this function should work but the hips should be able to rotate.
-//     }
+    [Header("Debug")]
+    public float gizmoForceScale = 0.001f;
 
-//     public void UpdateFootForce(Leg leg)
-//     {
-//         // get other legs/foot forces, hip velocity, and update the foot force to achieve desired hip velocity.
-//     }
+    private Vector3 targetVelocity;
+    private int plantedCount;
+    private Vector3 avgGroundNormal = Vector3.up;
 
-//     public Transform CalculateFootTarget(Leg leg)
-//     {
-//         // get current hip velocity, as well as hip socket. CAN'T cross leg; beware of ray from hip socket to foot of other legs.
-//         // note obstacles in way of path? other legs, walls, etc? recalculate until target is found?
+    void Awake()
+    {
+        if (hip == null) hip = GetComponent<Rigidbody>();
+        if (hip == null)
+        {
+            Debug.LogWarning("LegSolver: no hip Rigidbody assigned or found, disabling.", this);
+            enabled = false;
+            return;
+        }
+        if (legSet == null || legSet.Length == 0)
+        {
+            Debug.LogWarning("LegSolver: legSet is empty, disabling.", this);
+            enabled = false;
+            return;
+        }
 
+        for (int i = 0; i < legSet.Length; i++)
+        {
+            Leg leg = legSet[i];
+            if (leg == null || leg.hipSocket == null) continue;
 
-//         // get desired foot target from raycast from hip socket to area that counters current hip velocity
-//         Vector3 footTarget;
+            leg.swingProgress = -1f;
+            leg.groundNormal = Vector3.up;
 
-//         // generate foot trajectory; path that foot will take, acounting for desired foot movement height, time, etc.
-//             // use bulletmanager?
-//             // also: does it do a trajectory directly to the target, or does it overshoot/correct? 2nd feels more realx
-//         // check if any obstacles (including self legs) are along foot trajectory
-//             // either regen or solve trajectory to be separate? enter state of checking?
-//         l = IsCrossingLegs(leg.hipSocket, footTarget);
-//         if (l != null)
-//         {
-//             // note l and course correct, 
-//         }
-//     }
+            RaycastHit hit;
+            bool found = ProbeGround(leg.hipSocket.position, Vector3.down, 100f, out hit);
+            if (leg.restLength <= 0f)
+            {
+                if (found) leg.restLength = hit.distance;
+                else
+                {
+                    Debug.LogWarning("LegSolver: no ground under " + leg.hipSocket.name + ", using restLength 1.", this);
+                    leg.restLength = 1f;
+                }
+            }
+            if (leg.maxLength <= leg.restLength) leg.maxLength = leg.restLength * 1.25f;
+            leg.lastLength = leg.restLength;
 
-//     public Leg IsCrossingLegs(Vector3 hipSocket, Vector3 footTarget)
-//     {
-//         // check ray from hipsocket to foot target, make sure it doesn't overlap with any other leg rays. type shit
-//     }
+            if (found)
+            {
+                leg.planted = true;
+                leg.plantPoint = hit.point;
+                leg.groundNormal = hit.normal;
+                if (leg.footTarget != null) leg.footTarget.position = leg.plantPoint;
+            }
+        }
+    }
 
-//     public float LegBuckling(Leg leg)
-//     {
-//         // get hip socket position, foot position, and current hip velocity/position.
-//         // if foot is behind hip socket relative to hip/hip velocity, it is buckling.
-//         // I'm not sure if this is the definition of buckling tbh, it's just in an awkward pos.
-//     }
+    // Vector2 is world XZ (x -> X, y -> Z), same convention as Move.SetMoveDirection.
+    public void SetMoveDirection(Vector2 direction)
+    {
+        direction = Vector2.ClampMagnitude(direction, 1f);
+        targetVelocity = new Vector3(direction.x, 0f, direction.y) * maxSpeed;
+    }
 
-
-
-//     // need to determine which foot is best to move
-
-//     // need to determine where to move that foot
-
-//     // need to create an arc of travel from current position to desired position
-
-//     // need to calculate how forces are affected on foot based off of angle and distance
-//             // affects foot desirability to move
-//     // need to calculate not just current position but also velocity
-
-//     // 
-
-// }
+    bool ProbeGround(Vector3 origin, Vector3 dir, float range, out RaycastHit hit)
+    {
+        return Physics.Raycast(origin, dir, out hit, range, groundLayer, QueryTriggerInteraction.Ignore);
+    }
+}
