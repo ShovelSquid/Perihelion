@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T03:49:28.691Z"
+last_updated: "2026-09-30T04:25:07.066Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 01 execution started
-state_head: 4e3800e8d47a02a953bf65bb31ff673860a47794
+state_head: e934beb52e33a84dd1eb0e51231f8e8d7a3da7b5
 progress:
   total_phases: 4
   completed_phases: 0
@@ -124,6 +124,9 @@ None yet.
 | 23 | Rest point reroll interval | 2026-09-30 | c36c138 | — |
 | 24 | Per-hand shot target: gun fires at the dot's raycast hit | 2026-09-30 | 2b63fb4 | — |
 | 25 | Per-shot bloom inside the reticle | 2026-09-30 | 4e3800e | — |
+| 26 | Screen-space healthbars (HitbarManager + SetHealthbarAnchor + ScreenAnchor) | 2026-09-30 | 5bcbbc6 | — |
+| 27 | Object info panels with pluggable widgets | 2026-09-30 | 3d65313 | — |
+| 28 | Per-hand floating gun hit indicators | 2026-09-30 | e934beb | — |
 
 ## Deferred Items
 

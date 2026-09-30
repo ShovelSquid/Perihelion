@@ -26,7 +26,9 @@ public class Healthbar : MonoBehaviour
 
     void Awake()
     {
-        worldUI = GameObject.Find("WorldUI").GetComponent<Canvas>();
+        // Only world-space bars need the WorldUI canvas; screen-space bars from HitbarManager may run in scenes without one.
+        GameObject worldUIObject = GameObject.Find("WorldUI");
+        if (worldUIObject != null) worldUI = worldUIObject.GetComponent<Canvas>();
         colorPropertyId = Shader.PropertyToID(colorProperty);
         if (flashbar != null && flashbar.material != null)
         {

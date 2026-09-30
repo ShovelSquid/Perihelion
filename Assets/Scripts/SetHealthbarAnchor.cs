@@ -34,6 +34,13 @@ public class SetHealthbarAnchor : MonoBehaviour
         mainCamera = Camera.main;
     }
 
+    // Start, not Awake, so the Object's own Awake has already set hp before the manager reads it.
+    private void Start()
+    {
+        if (hitbarManager != null) hitbarManager.AddHitbar(this);
+        else Debug.LogWarning($"{name}: no HitbarManager in the scene, so this object gets no healthbar.", this);
+    }
+
     // LateUpdate so the camera has already moved this frame (CameraController runs in FixedUpdate/LateUpdate),
     // otherwise the bar lags one frame behind and jitters.
     private void LateUpdate()
