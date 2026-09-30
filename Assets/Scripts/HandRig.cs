@@ -163,9 +163,6 @@ public class HandRig : MonoBehaviour
             Debug.LogWarning($"{name}: HandRig {side} slot has no socket, so {item.name} can't be placed in the hand.", this);
         }
 
-        WarnIfGripNotChild(item, item.GripFor(side));
-        if (twoHanded) WarnIfGripNotChild(item, item.GripFor(otherSide));
-
         return true;
     }
 
@@ -194,12 +191,6 @@ public class HandRig : MonoBehaviour
             slot.body.interpolation = slot.savedInterpolation;
         }
         slot.body = null;
-    }
-
-    void WarnIfGripNotChild(Item item, Transform grip)
-    {
-        if (grip == null || grip.parent == item.transform) return;
-        Debug.LogWarning($"{name}: grip {grip.name} on {item.name} is not a direct child of the item; the socket formula assumes direct children at unit scale.", this);
     }
 
     public void Unequip(HandSide side)
@@ -307,10 +298,15 @@ public class HandRig : MonoBehaviour
             rot = socket.rotation;
             return true;
         }
-        // The grip's local offset is inverted onto the socket so the grip lands on the hand;
-        // valid because grips are direct children of the item at unit scale.
-        rot = socket.rotation * Quaternion.Inverse(grip.localRotation);
-        pos = socket.position - rot * grip.localPosition;
+        // The grip's offset from the item root is inverted onto the socket so the grip lands on the hand.
+        // Measured in world space against the root (not localPosition/localRotation), so the grip can sit
+        // under any bone of the item's own armature; rotation-only frame, so the root's scale can't distort it.
+        Transform root = item.transform;
+        Quaternion invRoot = Quaternion.Inverse(root.rotation);
+        Quaternion gripRotRel = invRoot * grip.rotation;
+        Vector3 gripPosRel = invRoot * (grip.position - root.position);
+        rot = socket.rotation * Quaternion.Inverse(gripRotRel);
+        pos = socket.position - rot * gripPosRel;
         return true;
     }
 
