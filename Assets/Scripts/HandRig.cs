@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 using UnityEngine.Animations.Rigging;
 
 // Right must stay first (value 0) so existing serialized Item data defaults to right-handed.
@@ -10,7 +11,7 @@ public enum HandSide
 }
 
 // Owns both hands: which item each hand holds, that item's pose (hand socket, then the muzzle aim
-// correction toward the aim point rotated by the hand's sway/recoil offset, then kickback), and the
+// correction toward the hand's real aim point, then kickback), and the
 // TwoBoneIK targets. This is the only script that writes IK targets.
 // Runs after the default-order scripts so it reads the aim point AimInput moved this frame and any
 // recoil fired this frame. The Animator and rig still evaluate after every Update regardless of order.
@@ -32,17 +33,22 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public float bloom; // degrees; this hand's current spread radius; floored at the held gun's baseSpread
         [System.NonSerialized] public Vector3 kickback; // meters, muzzle-local position offset along the barrel (displayed)
         [System.NonSerialized] public Vector3 kickbackPeak; // meters; what the last shot pushed kickback to, scaled down by the return curve
-        [System.NonSerialized] public Vector2 offset; // degrees the muzzle points away from the ideal aim direction, in the muzzle's own frame; x right, y up
-        [System.NonSerialized] public Vector2 offsetVelocity; // deg/s
         [System.NonSerialized] public Vector2 flip; // degrees of visual-only muzzle flip, muzzle frame (x right, y up); never affects aim
         [System.NonSerialized] public Vector2 flipPeak; // degrees; what the last shot pushed flip to, scaled down by the return curve
         [System.NonSerialized] public float recoverTime; // seconds since the last kick; drives the gun's recoilReturn curve
         [System.NonSerialized] public Vector3 aimMuzzlePos; // muzzle pose after the aim solve, before kickback/flip: where shots actually leave from
         [System.NonSerialized] public Quaternion aimMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
-        [System.NonSerialized] public Vector3 idealMuzzlePos; // muzzle pose from the same solve with zero offset: where the gun points without sway/kick
-        [System.NonSerialized] public Quaternion idealMuzzleRot = Quaternion.identity;
-        [System.NonSerialized] public Vector2 restPoint; // unit disk; where the last shot threw the dot, scaled by bloom and eased back to center
+        [System.NonSerialized] public Hitbox target; // part this hand is locked on, or null
+        [System.NonSerialized] public float targetScore; // the locked part's last score; lower wins
+        [System.NonSerialized] public Vector3 idealPoint; // world; the locked part's point nearest the cone axis, or the centre aim target
+        [System.NonSerialized] public Vector3 anchorPoint; // world; eases toward idealPoint so the real point travels across depth
+        [System.NonSerialized] public bool hasAnchor; // false until anchorPoint has snapped to its first ideal point
+        [System.NonSerialized] public Vector3 realOffset; // meters around anchorPoint: sway and kicks
+        [System.NonSerialized] public Vector3 realVelocity; // m/s
+        [System.NonSerialized] public Vector3 realPoint; // world; anchorPoint + realOffset; what the muzzle aims at and the dot is drawn from
+        [System.NonSerialized] public bool hasAimPoints; // false until ideal and real points have been computed
+        [System.NonSerialized] public float lockBlend; // 0 = off target, 1 = locked; blends the sway tightness
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
@@ -69,20 +75,21 @@ public class HandRig : MonoBehaviour
     public float rollPerYaw = 0.1f; // degrees of roll per degree the muzzle points left/right of the character's forward; negative flips direction
     public float maxAimRoll = 15f; // degrees; caps the yaw-driven roll
     [Header("Sway and Recoil")]
-    public float offsetFrequency = 6f; // Hz; how quickly the aim offset follows the sway target and recovers from kicks
-    [Range(0.1f, 2f)] public float offsetDampingRatio = 1f; // 1 = critically damped, no overshoot
+    public float offsetFrequency = 6f; // Hz; how quickly the spring pulls the real aim point to its sway target and back after kicks
+    [Range(0.1f, 2f)] public float offsetDampingRatio = 0.5f; // 1 = critically damped, no overshoot; below 1 overshoots after a kick
     public float swayFrequency = 0.5f; // noise units per second; how fast the sway target wanders
-    [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps stacked kicks from automatic fire
+    [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps how far sway plus stacked kicks carry the real point from its anchor, converted at the target distance
     [UnityEngine.Serialization.FormerlySerializedAs("supportRecoilScale")] [Range(0f, 1f)] public float supportBloomScale = 0.5f; // bloom-per-shot multiplier while a free hand steadies a one-handed item
     [Range(0f, 1f)] public float supportSwayScale = 0.5f; // sway-radius multiplier while a free hand steadies a one-handed item
     [Header("Look and Movement")]
     public Transform lookSource; // whose rotation counts as "looking"; defaults to Camera.main
     public Rigidbody moveBody; // whose speed counts as "moving" (airborne included, since it's speed-based); defaults to this object's Rigidbody
     public float lookSmoothing = 12f; // per second; smooths the measured look rate so single-frame mouse spikes don't jolt the dot
-    public float fullDragLookSpeed = 180f; // deg/s of look at which lookDragCurve reaches its end
-    // Look speed (0..1 of fullDragLookSpeed) to drag strength (0..1, times the gun's lookDrag, as a fraction
-    // of the bloom radius). The spring provides the lag in time; this only shapes how far the dot trails.
-    public AnimationCurve lookDragCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+    [Header("Aim Assist")]
+    public float assistLookSharpness = 15f; // per second; smooths the look direction the part chooser measures from, so flicking across a gap doesn't drop the target
+    public float assistRange = 150f; // meters; hitboxes farther than this are ignored
+    public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part
+    public float targetBlendSharpness = 8f; // per second; how fast sway tightness moves between off-target and on-target
     [Header("Visual Kick")]
     // Cosmetic kickback slide and muzzle flip, layered after the aim pose is recorded, so they can be as big
     // as you like without moving shots or the cursor dot. Each shot sets a peak; the held gun's recoilReturn
@@ -92,12 +99,17 @@ public class HandRig : MonoBehaviour
     public float maxFlip = 45f; // degrees; clamps stacked flips from automatic fire
 
     float aimWeight;
-    Vector3 aimTarget; // smoothed-depth copy of aimPoint the guns actually aim at
+    Vector3 aimTarget; // smoothed-depth copy of aimPoint; the centre aim target hands fall back to when they have no part
     float aimDistance; // smoothed camera-to-aimPoint distance
     bool hasAimDistance;
     Vector2 lookRate; // smoothed deg/s, x = yaw (right +), y = pitch (up +)
     Vector3 lastLookForward;
     bool hasLastLook;
+    Vector3 lookReference; // smoothed "general look" point at the eased aim depth; the hands' cone axes point at it
+    Vector3 assistLookDir; // smoothed eye-to-aimPoint direction behind lookReference
+    bool hasAssistLook;
+    Object self; // this rig's own damageable, so its hitboxes are skipped even if a ragdoll is unparented
+    static readonly RaycastHit[] losHits = new RaycastHit[16]; // shared line-of-sight buffer; nothing allocated per frame
 
     public bool IsEmpty
     {
@@ -110,6 +122,7 @@ public class HandRig : MonoBehaviour
         aimWeight = idleAimWeight;
         if (lookSource == null && Camera.main != null) lookSource = Camera.main.transform;
         if (moveBody == null) moveBody = GetComponent<Rigidbody>();
+        self = GetComponent<Object>();
         // Seeded per hand and per rig, so the two hands and different characters sway out of sync.
         right.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
         left.noiseSeed = UnityEngine.Random.Range(0f, 1000f);
@@ -156,12 +169,36 @@ public class HandRig : MonoBehaviour
         return slot.places && slot.item != null ? slot.bloom : 0f;
     }
 
-    // Degrees this hand's muzzle points off the aim point (muzzle frame, x right, y up), or zero when it
-    // places nothing. For UI and debugging.
+    // Degrees this hand's real aim point sits off its ideal aim point, seen from the aimed muzzle (ideal
+    // aim frame, x right, y up), or zero when it places nothing. For UI and debugging.
     public Vector2 GetAimOffset(HandSide side)
     {
         HandSlot slot = GetSlot(side);
-        return slot.places && slot.item != null ? slot.offset : Vector2.zero;
+        if (!slot.places || slot.item == null || !slot.hasAimPose || !slot.hasAimPoints) return Vector2.zero;
+        Vector3 realDir = slot.realPoint - slot.aimMuzzlePos;
+        if (realDir.sqrMagnitude < 1e-6f) return Vector2.zero;
+        Vector3 local = Quaternion.Inverse(LookFromMuzzle(slot, slot.idealPoint)) * realDir;
+        float x = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
+        float y = Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg;
+        return new Vector2(x, y);
+    }
+
+    // Where this hand is locked: the part its ideal aim point sits on, or null. For UI and debugging.
+    public Hitbox GetTarget(HandSide side)
+    {
+        return GetSlot(side).target;
+    }
+
+    // This hand's ideal aim point (the chosen part, or the centre target) and real aim point (ideal plus
+    // follow lag, sway and kicks; where the muzzle actually points). False when the hand places nothing
+    // or hasn't been posed yet. Cursors read it.
+    public bool TryGetAimPoints(HandSide side, out Vector3 ideal, out Vector3 real)
+    {
+        HandSlot slot = GetSlot(side);
+        bool ok = slot.places && slot.item != null && slot.hasAimPose && slot.hasAimPoints;
+        ideal = ok ? slot.idealPoint : default;
+        real = ok ? slot.realPoint : default;
+        return ok;
     }
 
     static HandSide Other(HandSide side)
@@ -306,27 +343,33 @@ public class HandRig : MonoBehaviour
     {
         slot.kickback = Vector3.zero;
         slot.kickbackPeak = Vector3.zero;
-        slot.offset = Vector2.zero;
-        slot.offsetVelocity = Vector2.zero;
         slot.flip = Vector2.zero;
         slot.flipPeak = Vector2.zero;
         slot.recoverTime = 0f;
-        slot.restPoint = Vector2.zero;
         slot.hasAimPose = false;
         slot.bloom = 0f;
+        slot.target = null;
+        slot.targetScore = 0f;
+        slot.lockBlend = 0f;
+        slot.realOffset = Vector3.zero;
+        slot.realVelocity = Vector3.zero;
+        slot.hasAnchor = false;
+        slot.hasAimPoints = false;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
 
     // Kicks the aim state of the slot placing this item. kickback is meters in the muzzle's local
     // frame (back is -z). bloom is degrees added to the hand's spread, scaled by supportBloomScale while
-    // the other hand steadies the item. The aim offset is not thrown: the shot only picks a new rest point
-    // and the offset spring carries the dot there, so every place the dot visibly goes is somewhere a later
-    // shot can land. The punch you see comes from the visual flip instead: flipRise along the muzzle's up
-    // (so a rolled or swaying gun lifts along its own tilt), flipSide along the offset's current sideways
+    // the other hand steadies the item. aimKickRise and aimKickSide push the hand's real aim point off its
+    // anchor, in degrees converted to meters at the target distance (rise along the muzzle's up, side a random
+    // amount left or right), and the offset spring pulls it back, overshooting when underdamped. Since the
+    // muzzle aims at the real point, wherever the dot is thrown is where the next shot goes. The visual flip
+    // adds the punch on top: flipRise along the muzzle's up
+    // (so a rolled or swaying gun lifts along its own tilt), flipSide along the real point's current sideways
     // drift, in degrees. Kickback and flip stack on what is currently shown and restart the return curve,
     // so automatic fire stays up until you stop.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 kickback, float bloom, float flipRise = 0f, float flipSide = 0f)
+    public bool Kick(Item item, Vector3 kickback, float bloom, float flipRise = 0f, float flipSide = 0f, float aimKickRise = 0f, float aimKickSide = 0f)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -336,21 +379,27 @@ public class HandRig : MonoBehaviour
         if (slot == null) return false;
         bool supported = other.supporting == item;
         slot.bloom += bloom * (supported ? supportBloomScale : 1f);
-        float drift = Mathf.Abs(slot.offsetVelocity.x) > 0.01f ? Mathf.Sign(slot.offsetVelocity.x) : 0f;
-        // Where the shot sends the dot: anywhere in the bloom circle, evenly by area (insideUnitCircle is
-        // area-uniform, so it doesn't cluster at the center).
-        slot.restPoint = UnityEngine.Random.insideUnitCircle;
+        float sideVelocity = Vector3.Dot(slot.realVelocity, slot.aimMuzzleRot * Vector3.right);
+        float drift = Mathf.Abs(sideVelocity) > 0.01f ? Mathf.Sign(sideVelocity) : 0f;
+        if (slot.hasAimPose && slot.hasAimPoints)
+        {
+            float dist = Mathf.Max(0.1f, Vector3.Distance(slot.aimMuzzlePos, slot.anchorPoint));
+            slot.realOffset += (slot.aimMuzzleRot * Vector3.up) * DegToMetres(aimKickRise, dist)
+                + (slot.aimMuzzleRot * Vector3.right) * DegToMetres(aimKickSide, dist) * UnityEngine.Random.Range(-1f, 1f);
+        }
         slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
         slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);
         slot.recoverTime = 0f;
         return true;
     }
 
-    // Advances the slot's angular aim state (bloom, sway target, aim offset) and its kickback by dt.
-    void StepAimState(HandSide side, HandSlot slot, float dt)
+    // Advances the slot's aim state (bloom, ideal point, real point with its sway and kick spring) and its
+    // kickback by dt. coneOrigin is where this hand's shots leave from, so the part chooser and the
+    // degree-to-meter conversions measure from the muzzle.
+    void StepAimState(HandSide side, HandSlot slot, float dt, Vector3 coneOrigin)
     {
         Gun gun = slot.item as Gun;
-        // Non-gun items have no spread or sway, but both springs still step so a kick never sticks.
+        // Non-gun items have no spread, but the springs still step so a kick never sticks.
         float recovery = gun != null ? 1f - Mathf.Exp(-Mathf.Max(0f, gun.bloomRecovery) * dt) : 1f;
         if (gun == null)
         {
@@ -375,45 +424,57 @@ public class HandRig : MonoBehaviour
             // Floor at baseSpread (not the moving floor) so a fresh equip starts sized but shots can still sit above it.
             slot.bloom = Mathf.Clamp(slot.bloom, Mathf.Max(0f, gun.baseSpread), ceiling);
         }
-        // The thrown-to point eases back to center at the same rate bloom recovers, so the dot re-centers as the reticle tightens.
-        slot.restPoint = Vector2.Lerp(slot.restPoint, Vector2.zero, recovery);
-
         bool supported = GetSlot(Other(side)).supporting == slot.item;
         slot.noiseTime += dt * swayFrequency;
-        Vector2 n = new Vector2(
-            Mathf.PerlinNoise(slot.noiseSeed, slot.noiseTime) * 2f - 1f,
-            Mathf.PerlinNoise(slot.noiseSeed + 37.1f, slot.noiseTime) * 2f - 1f);
-        n = Vector2.ClampMagnitude(n, 1f);
-        // Target = where the last shot threw the dot + sway around it + drag trailing the look, all as
-        // fractions of the bloom radius; the leash below keeps the sum inside the circle.
-        Vector2 swayTarget = Vector2.zero;
-        if (gun != null)
-        {
-            Vector2 sway = n * (gun.swayAmount * (supported ? supportSwayScale : 1f));
-            // Trail behind the turn: turning right leaves the dot left, looking up leaves it low.
-            float lookT = fullDragLookSpeed > 0f ? Mathf.Clamp01(lookRate.magnitude / fullDragLookSpeed) : 0f;
-            float dragAmount = lookDragCurve != null && lookDragCurve.length > 0 ? lookDragCurve.Evaluate(lookT) : lookT;
-            Vector2 drag = lookRate.sqrMagnitude > 1e-6f ? -lookRate.normalized * (dragAmount * gun.lookDrag) : Vector2.zero;
-            swayTarget = (slot.restPoint + sway + drag) * slot.bloom;
-        }
 
-        Vector3 offset = slot.offset;
-        Vector3 offsetVelocity = slot.offsetVelocity;
-        StepSpring(ref offset, ref offsetVelocity, swayTarget, offsetFrequency, offsetDampingRatio, dt);
-        // The bloom circle is the leash: a hard kick rides its edge instead of leaving the reticle. Kick grows
-        // bloom before this step runs, so heavy guns still get a wide circle to kick into. Projecting back and
-        // dropping only the outward velocity (not snapping) keeps the spring from buzzing against the edge.
-        float leash = gun != null ? Mathf.Min(slot.bloom, maxAimOffset) : maxAimOffset;
-        float dist = offset.magnitude;
-        if (dist > leash && dist > 1e-6f)
+        if (UpdateIdealPoint(slot, coneOrigin) && slot.item != null)
         {
-            Vector3 dir = offset / dist;
-            offset = dir * leash;
-            float outward = Vector3.Dot(offsetVelocity, dir);
-            if (outward > 0f) offsetVelocity -= dir * outward;
+            Item item = slot.item;
+            // The anchor trails the ideal point, so a target switch slides the real point across depth
+            // instead of teleporting it.
+            if (!slot.hasAnchor)
+            {
+                slot.anchorPoint = slot.idealPoint;
+                slot.hasAnchor = true;
+            }
+            else
+            {
+                slot.anchorPoint = Vector3.Lerp(slot.anchorPoint, slot.idealPoint, 1f - Mathf.Exp(-Mathf.Max(0f, item.idealFollowSpeed) * dt));
+            }
+            slot.lockBlend = Mathf.Lerp(slot.lockBlend, slot.target != null ? 1f : 0f, 1f - Mathf.Exp(-targetBlendSharpness * dt));
+
+            // Tight while locked on a part, loose with nothing to settle on.
+            float tight = Mathf.Lerp(item.offTargetLooseness, 1f - item.onTargetAccuracy, slot.lockBlend);
+            float swayDeg = item.usesAiming ? item.swayRadius * tight * (supported ? supportSwayScale : 1f) : 0f;
+            float dist = Mathf.Max(0.1f, Vector3.Distance(coneOrigin, slot.anchorPoint));
+
+            // Sway is authored in degrees and converted at the target distance, so it looks the same on screen near or far.
+            Vector3 n = new Vector3(
+                Mathf.PerlinNoise(slot.noiseSeed, slot.noiseTime) * 2f - 1f,
+                Mathf.PerlinNoise(slot.noiseSeed + 37.1f, slot.noiseTime) * 2f - 1f,
+                Mathf.PerlinNoise(slot.noiseSeed + 71.3f, slot.noiseTime) * 2f - 1f);
+            Vector3 swayTarget = Vector3.ClampMagnitude(n, 1f) * DegToMetres(swayDeg, dist);
+
+            Vector3 realOff = slot.realOffset;
+            Vector3 realVel = slot.realVelocity;
+            StepSpring(ref realOff, ref realVel, swayTarget, offsetFrequency, offsetDampingRatio, dt);
+            // maxAimOffset is the leash: stacked kicks from automatic fire ride its edge instead of flying off.
+            // Projecting back and dropping only the outward velocity (not snapping) keeps the spring from
+            // buzzing against the edge.
+            float leash = DegToMetres(maxAimOffset, dist);
+            float offsetDist = realOff.magnitude;
+            if (offsetDist > leash && offsetDist > 1e-6f)
+            {
+                Vector3 dir = realOff / offsetDist;
+                realOff = dir * leash;
+                float outward = Vector3.Dot(realVel, dir);
+                if (outward > 0f) realVel -= dir * outward;
+            }
+            slot.realOffset = realOff;
+            slot.realVelocity = realVel;
+            slot.realPoint = slot.anchorPoint + slot.realOffset;
+            slot.hasAimPoints = true;
         }
-        slot.offset = offset;
-        slot.offsetVelocity = offsetVelocity;
 
         // Visual kick envelope: peak * curve(t / returnTime). The curve owns the shape (hold, then ease home);
         // the display chases it at visualAttackSharpness so the jump to a new peak still reads as a snap.
@@ -437,7 +498,7 @@ public class HandRig : MonoBehaviour
         return 1f - u;
     }
 
-    // Semi-implicit spring pulling x toward target; serves the aim offset.
+    // Semi-implicit spring pulling x toward target; serves the real aim point's offset.
     static void StepSpring(ref Vector3 x, ref Vector3 v, Vector3 target, float frequency, float dampingRatio, float dt)
     {
         if (dt <= 0f) return;
@@ -472,7 +533,7 @@ public class HandRig : MonoBehaviour
     }
 
     // Slides the item along its aimed barrel by the kickback offset. Position only: the angular part
-    // of recoil is the aim offset, applied inside ApplyAim.
+    // of recoil is the real aim point's kick, which ApplyAim aims at.
     void ApplyKickback(HandSlot slot, Quaternion muzzleRotLocal, ref Vector3 pos, Quaternion rot)
     {
         if (slot.kickback.sqrMagnitude < 1e-10f) return;
@@ -480,8 +541,8 @@ public class HandRig : MonoBehaviour
         pos += (rot * muzzleRotLocal) * slot.kickback;
     }
 
-    // Visual-only muzzle flip, in the muzzle's own frame (same convention as the aim offset: negative
-    // pitch lifts), rotated about the hand so the grip stays put and the arm IK follows the barrel.
+    // Visual-only muzzle flip, in the muzzle's own frame (negative pitch lifts, positive yaw turns right),
+    // rotated about the hand so the grip stays put and the arm IK follows the barrel.
     void ApplyFlip(HandSlot slot, Vector3 pivot, Quaternion muzzleRotLocal, ref Vector3 pos, ref Quaternion rot)
     {
         if (slot.flip.sqrMagnitude < 1e-10f) return;
@@ -558,18 +619,14 @@ public class HandRig : MonoBehaviour
         Vector3 pivot = slot.socket.position;
         Vector3 pos = basePos;
         Quaternion rot = baseRot;
-        StepAimState(side, slot, Time.deltaTime);
-        // A second solve with zero offset gives where the gun points without sway or kick, after the same
-        // aim weight and cap, so the cursor's center is measured rather than guessed from the offset.
-        Vector3 idealPos = basePos;
-        Quaternion idealRot = baseRot;
-        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, Vector2.zero, ref idealPos, ref idealRot);
-        slot.idealMuzzlePos = idealPos + idealRot * muzzleOffset;
-        slot.idealMuzzleRot = idealRot * muzzleRotLocal;
+        // Last frame's aimed muzzle is where shots leave from, so the cone is measured from there; before the
+        // first pose, the unaimed muzzle stands in.
+        Vector3 coneOrigin = slot.hasAimPose ? slot.aimMuzzlePos : basePos + baseRot * muzzleOffset;
+        StepAimState(side, slot, Time.deltaTime, coneOrigin);
 
-        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, slot.offset, ref pos, ref rot);
+        ApplyAim(pivot, basePos, baseRot, muzzleOffset, muzzleRotLocal, slot.hasAimPoints ? slot.realPoint : aimTarget, ref pos, ref rot);
 
-        // Record the aim pose here, before any visual layer: Gun fires and AimCursor casts from this,
+        // Record the aim pose here, before any visual layer: Gun fires from this and the aim cone is measured from it,
         // so kickback and flip can be exaggerated freely without moving the shots.
         slot.aimMuzzlePos = pos + rot * muzzleOffset;
         slot.aimMuzzleRot = rot * muzzleRotLocal;
@@ -585,13 +642,15 @@ public class HandRig : MonoBehaviour
         itemT.SetPositionAndRotation(pos, rot);
     }
 
-    void ApplyAim(Vector3 pivot, Vector3 basePos, Quaternion baseRot, Vector3 muzzleOffset, Quaternion muzzleRotLocal, Vector2 offset, ref Vector3 pos, ref Quaternion rot)
+    // Turns the item about the hand so its muzzle points at target (the hand's real aim point).
+    // With aim weight 0 or no aimPoint the real point doesn't show; acceptable because firing always aims
+    // (PlayerManager calls Mob.Aim(true) before the trigger, and Aim(false) waits 1 s).
+    void ApplyAim(Vector3 pivot, Vector3 basePos, Quaternion baseRot, Vector3 muzzleOffset, Quaternion muzzleRotLocal, Vector3 target, ref Vector3 pos, ref Quaternion rot)
     {
         pos = basePos;
         rot = baseRot;
         if (aimPoint == null || aimWeight <= 0.0001f) return;
 
-        Vector3 target = aimTarget;
         Vector3 fromPivot = target - pivot;
         if (fromPivot.sqrMagnitude < 1e-6f) return;
 
@@ -618,16 +677,6 @@ public class HandRig : MonoBehaviour
             Vector3 muzzlePos = p + r * muzzleOffset;
             Vector3 muzzleFwd = r * (muzzleRotLocal * Vector3.forward);
             Vector3 toAim = target - muzzlePos;
-            // This is target' = muzzlePos + Rotate(dir, offset) * dist in the muzzle's own frame. It is recomputed
-            // each pass so it uses the upright-corrected up. Because it happens inside the solve, bullets fired
-            // along the muzzle land off the aim point by exactly the offset. Negative pitch lifts, positive yaw turns right.
-            // With aim weight 0 or no aimPoint the offset doesn't show; acceptable because firing always aims
-            // (PlayerManager calls Mob.Aim(true) before the trigger, and Aim(false) waits 1 s).
-            if (offset.sqrMagnitude > 1e-10f)
-            {
-                Quaternion muzzleRot = r * muzzleRotLocal;
-                toAim = muzzleRot * Quaternion.Euler(-offset.y, offset.x, 0f) * Quaternion.Inverse(muzzleRot) * toAim;
-            }
             if (toAim.sqrMagnitude < 1e-8f) break;
             // Nearly opposite: the FromToRotation axis is undefined.
             if (Vector3.Dot(muzzleFwd.normalized, toAim.normalized) < -0.999f) break;
@@ -723,6 +772,7 @@ public class HandRig : MonoBehaviour
         if (lookSource == null)
         {
             aimTarget = aimPoint.position;
+            lookReference = aimTarget;
             return;
         }
         Vector3 eye = lookSource.position;
@@ -731,6 +781,7 @@ public class HandRig : MonoBehaviour
         if (distance < 1e-4f)
         {
             aimTarget = aimPoint.position;
+            lookReference = aimTarget;
             return;
         }
         if (!hasAimDistance)
@@ -744,12 +795,184 @@ public class HandRig : MonoBehaviour
             aimDistance = Mathf.Lerp(aimDistance, distance, 1f - Mathf.Exp(-sharpness * dt));
         }
         // Exact direction, eased depth: the crosshair stays on target while the gun slides across edges.
-        aimTarget = eye + toPoint / distance * aimDistance;
+        Vector3 dir = toPoint / distance;
+        aimTarget = eye + dir * aimDistance;
+
+        // The part chooser measures from a smoothed "general look", not the exact crosshair direction, so
+        // flicking across a gap between parts doesn't drop the lock for a frame.
+        if (!hasAssistLook)
+        {
+            assistLookDir = dir;
+            hasAssistLook = true;
+        }
+        else
+        {
+            assistLookDir = Vector3.Slerp(assistLookDir, dir, 1f - Mathf.Exp(-assistLookSharpness * dt));
+        }
+        lookReference = eye + assistLookDir * aimDistance;
     }
 
-    // Where this hand's gun points with no sway or kick (same solve, zero offset). For the cursor's center.
-    // Everything a shot needs to pick its direction inside the reticle: the aimed muzzle (sway, drag and rest
-    // point included, i.e. the dot), the zero-offset muzzle (the reticle's center) and the current bloom radius.
+    // Picks this hand's ideal aim point: the best part hitbox inside its bloom cone, sticky so the lock
+    // doesn't flicker between parts, else the centre aim target. The cone starts at the hand's shot origin
+    // and points at the smoothed look reference. False when there is no aim point at all.
+    bool UpdateIdealPoint(HandSlot slot, Vector3 coneOrigin)
+    {
+        if (aimPoint == null)
+        {
+            slot.target = null;
+            slot.hasAimPoints = false;
+            return false;
+        }
+        Item item = slot.item;
+        Vector3 axis = lookReference - coneOrigin;
+        if (item == null || !item.usesAiming || axis.sqrMagnitude < 1e-6f)
+        {
+            slot.target = null;
+            slot.idealPoint = aimTarget;
+            return true;
+        }
+        axis.Normalize();
+        float coneAngle = slot.bloom;
+
+        // The current lock is re-scored first; it is dropped if it left the cone, died or got blocked.
+        Hitbox current = slot.target;
+        Vector3 currentPoint = default;
+        float currentScore = 0f;
+        if (current != null && !EvaluatePart(current, coneOrigin, axis, coneAngle, out currentPoint, out currentScore))
+        {
+            current = null;
+        }
+
+        Hitbox best = null;
+        Vector3 bestPoint = default;
+        float bestScore = float.PositiveInfinity;
+        // By index: the registry is a plain list, and Hitbox enable/disable can't run mid-scan.
+        IReadOnlyList<Hitbox> parts = Hitbox.Active;
+        for (int i = 0; i < parts.Count; i++)
+        {
+            Hitbox part = parts[i];
+            if (part == current) continue;
+            if (!EvaluatePart(part, coneOrigin, axis, coneAngle, out Vector3 point, out float score)) continue;
+            if (score < bestScore)
+            {
+                best = part;
+                bestPoint = point;
+                bestScore = score;
+            }
+        }
+
+        // A challenger only takes the lock by beating the current part by the item's stickiness fraction.
+        if (current == null || (best != null && bestScore < currentScore * (1f - item.stickiness)))
+        {
+            current = best;
+            currentPoint = bestPoint;
+            currentScore = bestScore;
+        }
+
+        slot.target = current;
+        slot.targetScore = current != null ? currentScore : 0f;
+        slot.idealPoint = current != null ? currentPoint : aimTarget;
+        return true;
+    }
+
+    // Whether part is a valid candidate for a hand cone (origin, unit axis, half-angle in degrees), and if
+    // so its point nearest the cone axis and its score. Cheap distance and bounds tests run before any
+    // ClosestPoint or raycast, since every hand scans every registered part each frame.
+    bool EvaluatePart(Hitbox part, Vector3 origin, Vector3 axis, float coneAngle, out Vector3 point, out float score)
+    {
+        point = default;
+        score = float.PositiveInfinity;
+        if (part == null || !part.isActiveAndEnabled) return false;
+        Collider col = part.PartCollider;
+        if (col == null || !col.enabled) return false;
+        if (part.owner != null && (part.owner.destroyed || part.owner == self)) return false;
+        if (part.transform.IsChildOf(transform)) return false;
+
+        Bounds bounds = col.bounds;
+        Vector3 toCentre = bounds.center - origin;
+        float centreDist = toCentre.magnitude;
+        if (centreDist > assistRange) return false;
+        // Bounding-sphere angular test: skip parts whose whole bounds sit outside the cone.
+        if (centreDist > 1e-4f)
+        {
+            float angularRadius = Mathf.Asin(Mathf.Clamp01(bounds.extents.magnitude / centreDist)) * Mathf.Rad2Deg;
+            if (Vector3.Angle(axis, toCentre) - angularRadius > coneAngle) return false;
+        }
+
+        // Nearest point to the aim ray, in two passes: the centre's projection onto the ray pulled onto the
+        // collider, then that point's projection pulled on again, which settles close to the true nearest point.
+        point = col.ClosestPoint(origin + axis * Mathf.Max(0f, Vector3.Dot(toCentre, axis)));
+        point = col.ClosestPoint(origin + axis * Mathf.Max(0f, Vector3.Dot(point - origin, axis)));
+
+        float angleOffCentre = Vector3.Angle(axis, point - origin);
+        if (angleOffCentre > coneAngle) return false;
+        if (!HasLineOfSight(origin, point, col)) return false;
+
+        score = ScorePart(part, angleOffCentre, coneAngle, Vector3.Distance(origin, point));
+        return !float.IsNaN(score) && !float.IsInfinity(score);
+    }
+
+    // True when nothing but the rig itself (body or held items) sits between origin and the part's point.
+    // RaycastNonAlloc results are unsorted, so the nearest non-own hit is picked by hand.
+    bool HasLineOfSight(Vector3 origin, Vector3 point, Collider partCollider)
+    {
+        Vector3 delta = point - origin;
+        float dist = delta.magnitude;
+        if (dist < 1e-4f) return true;
+        int count = Physics.RaycastNonAlloc(origin, delta / dist, losHits, dist + 0.05f, assistMask, QueryTriggerInteraction.Ignore);
+        Collider nearest = null;
+        float nearestDist = float.PositiveInfinity;
+        for (int i = 0; i < count; i++)
+        {
+            Collider c = losHits[i].collider;
+            if (c == null || IsOwnCollider(c)) continue;
+            if (losHits[i].distance < nearestDist)
+            {
+                nearestDist = losHits[i].distance;
+                nearest = c;
+            }
+        }
+        return nearest == null || nearest == partCollider;
+    }
+
+    bool IsOwnCollider(Collider c)
+    {
+        Transform t = c.transform;
+        if (t.IsChildOf(transform)) return true;
+        if (right.item != null && t.IsChildOf(right.item.transform)) return true;
+        if (left.item != null && t.IsChildOf(left.item.transform)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Cost of locking this hand onto part; lower wins, like angleOffCentre / part.aimWeight.
+    /// Return float.PositiveInfinity to skip a part entirely (e.g. teammates or broken parts).
+    /// angleOffCentre is degrees off the hand's cone axis; coneAngle is the current bloom half-angle, for
+    /// normalising; distance is meters from the shot origin to the part's nearest point.
+    /// </summary>
+    float ScorePart(Hitbox part, float angleOffCentre, float coneAngle, float distance)
+    {
+        // TODO(human): weigh angleOffCentre, part.aimWeight, distance and anything else you want (team, part.IsBroken, ...) into one cost.
+        return angleOffCentre;
+    }
+
+    static float DegToMetres(float degrees, float distance)
+    {
+        return distance * Mathf.Tan(Mathf.Clamp(degrees, 0f, 89f) * Mathf.Deg2Rad);
+    }
+
+    // Turns from the aimed muzzle toward a world point, keeping the muzzle's up; the muzzle's own rotation
+    // when there are no aim points yet or the point sits on the muzzle.
+    Quaternion LookFromMuzzle(HandSlot slot, Vector3 point)
+    {
+        Vector3 dir = point - slot.aimMuzzlePos;
+        if (!slot.hasAimPoints || dir.sqrMagnitude < 1e-6f) return slot.aimMuzzleRot;
+        return Quaternion.LookRotation(dir, slot.aimMuzzleRot * Vector3.up);
+    }
+
+    // Everything a shot needs to pick its direction inside the reticle: the aimed muzzle (where shots leave
+    // from), the rotation from it toward the real point (the dot, which shots go toward), the rotation toward
+    // the ideal point (the reticle's centre) and the current bloom radius.
     public bool TryGetShotCone(Item item, out Vector3 origin, out Quaternion aimRot, out Quaternion idealRot, out float bloom)
     {
         HandSlot slot = null;
@@ -757,18 +980,19 @@ public class HandRig : MonoBehaviour
         else if (item != null && left.item == item && left.places) slot = left;
         bool ok = slot != null && slot.hasAimPose;
         origin = ok ? slot.aimMuzzlePos : default;
-        aimRot = ok ? slot.aimMuzzleRot : Quaternion.identity;
-        idealRot = ok ? slot.idealMuzzleRot : Quaternion.identity;
+        aimRot = ok ? LookFromMuzzle(slot, slot.realPoint) : Quaternion.identity;
+        idealRot = ok ? LookFromMuzzle(slot, slot.idealPoint) : Quaternion.identity;
         bloom = ok ? slot.bloom : 0f;
         return ok;
     }
 
+    // Where this hand's gun would point with no sway or kick: the aimed muzzle turned toward the ideal point.
     public bool TryGetIdealPose(HandSide side, out Vector3 pos, out Quaternion rot)
     {
         HandSlot slot = GetSlot(side);
         bool ok = slot.places && slot.item != null && slot.hasAimPose;
-        pos = ok ? slot.idealMuzzlePos : default;
-        rot = ok ? slot.idealMuzzleRot : Quaternion.identity;
+        pos = ok ? slot.aimMuzzlePos : default;
+        rot = ok ? LookFromMuzzle(slot, slot.idealPoint) : Quaternion.identity;
         return ok;
     }
 

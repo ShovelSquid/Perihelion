@@ -38,6 +38,14 @@ public class Item : MonoBehaviour
     // public float holdLerpSpeed;
     // public float aimLerpSpeed;
 
+    [Header("Aim")]
+    public bool usesAiming = true; // the placing hand picks an ideal aim point and sways a real point for this item; false just aims at the centre target
+    public float swayRadius = 0.4f; // degrees the real aim point wanders around the ideal point
+    [Range(0f, 1f)] public float onTargetAccuracy = 0.6f; // while locked on a part, the sway radius shrinks to (1 - this) of swayRadius
+    public float offTargetLooseness = 2.5f; // sway radius multiplier while the hand has no target
+    public float idealFollowSpeed = 12f; // per second; how fast the real point's anchor eases toward the ideal point, so it travels across depth when the target changes
+    [Range(0f, 0.9f)] public float stickiness = 0.2f; // a new part must beat the current part's score by this fraction to take the lock
+
     [Header("Item Info")]
     // begin bunch of bullshit
     public int stack;
