@@ -99,12 +99,17 @@ public class BulletManager : MonoBehaviour
 
     private void OnBulletHit(Projectile bullet, RaycastHit hit)
     {
-        Object obj = hit.collider.GetComponentInParent<Object>();
+        // Only the struck collider itself counts as a part, so a prop or weapon collider
+        // parented under a bone isn't charged to that bone's part.
+        Hitbox hitbox = hit.collider.GetComponent<Hitbox>();
+        Object obj = hitbox != null ? hitbox.owner : hit.collider.GetComponentInParent<Object>();
         Rigidbody rb = hit.collider.GetComponentInParent<Rigidbody>();
 
+        // The hitbox forwards its damage to the owner, so don't charge the owner twice.
+        if (hitbox != null) hitbox.Damage(bullet.damage);
         if (obj != null)
         {
-            obj.Damage(bullet.damage);
+            if (hitbox == null) obj.Damage(bullet.damage);
             obj.HitPhysics(hit.point, hit.normal, bullet.speed * bullet.mass);
         }
         else if (rb != null)
