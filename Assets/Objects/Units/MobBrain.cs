@@ -30,6 +30,9 @@ public class MobBrain : MonoBehaviour
     private bool targetCacheDirty;
     private readonly List<Collider> targetColliders = new List<Collider>(); // the target Object's non-trigger colliders, rebuilt only when the target changes or one is destroyed
     private readonly RaycastHit[] sightHits = new RaycastHit[32]; // shared sight buffer; nothing allocated per frame
+    private float reactionTimer;
+    private readonly Item[] pressed = new Item[2]; // per hand, indexed by (int)HandSide; the item whose trigger this brain is holding, or null
+    private readonly float[] burstTimer = new float[2]; // per hand; seconds left in the current hold or rest
 
     [Header("Target")]
     public Transform target;
@@ -52,6 +55,10 @@ public class MobBrain : MonoBehaviour
     public float aimHeight = 1f; // meters above target.position to aim at when the target has no colliders
     public LayerMask sightMask = Physics.DefaultRaycastLayers; // layers that block sight; the mob's own and the target's colliders never do
     public float turnSpeed = 360f; // degrees per second the body turns toward the target while standing
+    public float reactionTime = 0.4f; // seconds after engaging before the first trigger press, so the hands' aim settles
+    public float burstDuration = 0.5f; // seconds each burst holds the trigger; automatic guns fire throughout, semi-auto guns once
+    public float burstCooldown = 1f; // seconds the trigger stays released between bursts
+    public float burstJitter = 0.3f; // seconds of random plus or minus on each cooldown
 
     void Awake()
     {
@@ -120,17 +127,22 @@ public class MobBrain : MonoBehaviour
             && HasSight(eye.position, aimCentre);
         if (canEngage && !engaged) Engage();
         else if (!canEngage && engaged) Disengage();
+        if (engaged) UpdateTriggers(Time.deltaTime);
     }
 
     void Engage()
     {
         engaged = true;
+        reactionTimer = reactionTime;
+        burstTimer[0] = 0f;
+        burstTimer[1] = 0f;
         // Aim calls are edges only, because Mob.Aim(false) restarts a 1 s coroutine each call.
         mob.Aim(true);
     }
 
     void Disengage()
     {
+        ReleaseTriggers();
         if (!engaged) return;
         engaged = false;
         // Pathing resumes by itself: Update's hold distance falls back to stopDistance.
@@ -228,6 +240,64 @@ public class MobBrain : MonoBehaviour
         return l != null && l != r && t.IsChildOf(l.transform);
     }
 
+    void UpdateTriggers(float dt)
+    {
+        // No trigger until the hands' aim has settled after engaging.
+        if (reactionTimer > 0f)
+        {
+            reactionTimer -= dt;
+            return;
+        }
+        StepHand(HandSide.Right, dt);
+        StepHand(HandSide.Left, dt);
+    }
+
+    void StepHand(HandSide side, float dt)
+    {
+        int i = (int)side;
+        Item item = TriggerItem(side);
+        // The hand's item changed under a held trigger (unequip, swap, destroyed); let go of the old one first.
+        if (pressed[i] != item) ReleaseHand(i);
+        if (item == null) return;
+        burstTimer[i] -= dt;
+        if (burstTimer[i] > 0f) return;
+        if (pressed[i] == null)
+        {
+            item.SlapTrigger(true);
+            pressed[i] = item;
+            burstTimer[i] = burstDuration;
+        }
+        else
+        {
+            ReleaseHand(i);
+            burstTimer[i] = Mathf.Max(0f, burstCooldown + Random.Range(-burstJitter, burstJitter));
+        }
+    }
+
+    // Mirrors PlayerManager.TriggerItem. Only runs while engaged, and engaged requires hands.
+    Item TriggerItem(HandSide side)
+    {
+        Item held = hands.GetItem(side);
+        // A two-handed item sits in both slots but only answers its defaultHand, as with PlayerManager's buttons.
+        if (held != null && held.IsTwoHanded && hands.defaultHand != side) return null;
+        // The mob only pulls triggers on what it aims.
+        if (held != null && !held.usesAiming) return null;
+        return held;
+    }
+
+    // The Unity null check skips destroyed items.
+    void ReleaseHand(int i)
+    {
+        if (pressed[i] != null) pressed[i].SlapTrigger(false);
+        pressed[i] = null;
+    }
+
+    void ReleaseTriggers()
+    {
+        ReleaseHand(0);
+        ReleaseHand(1);
+    }
+
     void FixedUpdate()
     {
         // Move only turns the body while it has move input, so turning here only without it
@@ -242,6 +312,7 @@ public class MobBrain : MonoBehaviour
     // start a coroutine on the now-inactive object, so aim is lowered on the rig directly.
     void OnDisable()
     {
+        ReleaseTriggers();
         if (!engaged) return;
         engaged = false;
         if (hands != null) hands.SetAiming(false);
