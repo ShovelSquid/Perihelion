@@ -78,17 +78,25 @@ public class Move : MonoBehaviour
     public float groundProbeRadius = 0.9f; // Fraction of the collider's horizontal radius used by the ground sphere probe
     public float groundProbeSkin = 0.05f; // How far inside the collider bottom the probe starts
     public float jumpGroundLockout = 0.1f; // Seconds after a jump during which ground is ignored
+    public float minLandAirTime = 0.15f; // Shorter airborne spells don't play the landing anim/sound/fx
 
-    private readonly List<Vector3> wallNormals = new List<Vector3>();
+    // Persistent per-collider contact state, kept by Enter/Stay/Exit. Unlike a per-step flag it survives
+    // the Rigidbody sleeping, which stops OnCollisionStay and used to leave inAir stuck true after landing.
+    private readonly Dictionary<Collider, Vector3> groundContacts = new Dictionary<Collider, Vector3>(); // collider -> floor normal
+    private readonly Dictionary<Collider, Vector3> wallContacts = new Dictionary<Collider, Vector3>();   // collider -> wall normal
+    private readonly List<Collider> staleContacts = new List<Collider>();
     private Vector3 groundNormal = Vector3.up;
-    private bool grounded;
+    public bool OnWall => wallContacts.Count > 0; // for wall running / wall jumps
     private float jumpLockUntil;
     private Vector3 lastGroundNormal = Vector3.up;
+    private float airStartTime;
+    private FxManager fxManager;
 
     void Start()
     {
         mob = GetComponent<Mob>();
         rb = GetComponent<Rigidbody>();
+        fxManager = FindObjectOfType<FxManager>();
         airJumps = maxAirJumps;
         InAir();
     }
@@ -111,12 +119,9 @@ public class Move : MonoBehaviour
                 if (xzVelo.magnitude < 0.1f) moving = false;
                 else rb.AddForce(new Vector3(-xzVelo.x, 0, -xzVelo.y).normalized * math.remap(0f, maxGroundSpeed, 0f, groundDeceleration, xzVelo.magnitude), ForceMode.Acceleration);
             }
-            // The early return skips the end-of-step clear below.
-            wallNormals.Clear();
-            grounded = false;
             return;
         }
-        if (grounded && groundNormal.y > 0.5f)
+        if (groundContacts.Count > 0)
         {
             rb.AddForce(-Vector3.ProjectOnPlane(Physics.gravity, groundNormal), ForceMode.Acceleration);
         }
@@ -153,7 +158,7 @@ public class Move : MonoBehaviour
             else
             {
                 Vector3 inputDir = new Vector3(moveDirection.x, 0, moveDirection.y).normalized;
-                foreach (var n in wallNormals)
+                foreach (var n in wallContacts.Values)
                 {
                     float into = -Vector3.Dot(inputDir, n);
                     if (into > 0f) inputDir += n * into;
@@ -178,24 +183,35 @@ public class Move : MonoBehaviour
             mob.anim.SetFloat("Up", math.clamp(math.remap(maxFallSpeed, maxJumpSpeed, -1f, 1f, rb.linearVelocity.y), -1f, 1f));
             fallSpeed = math.abs(rb.linearVelocity.y);
         }
-        wallNormals.Clear();
-        grounded = false;
     }
 
     bool CanJump() => !mob.dead && (!inAir || airJumps > 0);
 
-    void OnCollisionStay(Collision collision)
+    void OnCollisionEnter(Collision collision) => RecordContacts(collision);
+    void OnCollisionStay(Collision collision) => RecordContacts(collision);
+
+    void OnCollisionExit(Collision collision)
+    {
+        groundContacts.Remove(collision.collider);
+        wallContacts.Remove(collision.collider);
+    }
+
+    // Re-classifies one collider from its current contact points. Called every physics step while awake,
+    // so a collider we were standing on becomes a wall (or vice versa) as the contact geometry changes.
+    void RecordContacts(Collision collision)
     {
         if ((groundLayer.value & (1 << collision.gameObject.layer)) == 0) return;
-        foreach (var c in collision.contacts)
-        {
-            if (c.normal.y > 0.5f)
-            {
-                grounded = true;
-                groundNormal = c.normal;
-            }
-            else if (c.normal.y < 0.4f) wallNormals.Add(c.normal);
-        }
+        Collider col = collision.collider;
+        // TODO(human): classify this collider's contacts into groundContacts / wallContacts.
+    }
+
+    // Exit isn't guaranteed when a collider is destroyed or disabled while we touch it.
+    void PruneContacts(Dictionary<Collider, Vector3> contacts)
+    {
+        staleContacts.Clear();
+        foreach (var col in contacts.Keys)
+            if (col == null || !col.enabled || !col.gameObject.activeInHierarchy) staleContacts.Add(col);
+        foreach (var col in staleContacts) contacts.Remove(col);
     }
 
     void OnTriggerEnter(Collider other)
@@ -221,8 +237,16 @@ public class Move : MonoBehaviour
     // even while idle or in a standing jump.
     private void UpdateGroundState()
     {
-        // Contact term: OnCollisionStay set these during the previous physics step.
-        bool contact = grounded && groundNormal.y > 0.5f;
+        // Contact term: persistent set from Enter/Stay/Exit. Flattest floor wins as the ground normal.
+        PruneContacts(groundContacts);
+        PruneContacts(wallContacts);
+        bool contact = groundContacts.Count > 0;
+        if (contact)
+        {
+            groundNormal = Vector3.down;
+            foreach (var n in groundContacts.Values)
+                if (n.y > groundNormal.y) groundNormal = n;
+        }
 
         // Probe term: sphere derived from the collider bounds, so it does not depend on the pivot
         // sitting at the collider centre. It starts inside the collider (skin above the bottom),
@@ -240,20 +264,28 @@ public class Move : MonoBehaviour
         bool wasAir = inAir;
         inAir = !nowGrounded;
         if (wasAir != inAir) mob.anim.SetBool("inAir", inAir); // write only on change
-        if (wasAir && !inAir) OnLand();
+        if (!wasAir && inAir)
+        {
+            airStartTime = Time.time;
+            // A Land trigger set by an earlier ground flicker stays latched until an air state consumes it,
+            // which would play the landing clip the moment we walk off a ledge.
+            mob.anim.ResetTrigger("Land");
+        }
+        if (wasAir && !inAir) OnLand(Time.time - airStartTime);
     }
 
     // Single landing handler (airborne -> grounded).
-    private void OnLand()
+    private void OnLand(float airTime)
     {
-        if (!mob.dead)
+        // Ignore one-step ground flickers (edge contacts, probe grazing a corner); they aren't real landings.
+        if (!mob.dead && airTime >= minLandAirTime)
         {
             mob.anim.SetTrigger("Land");
             PlayLandingSound();
             if (jumpFXPoint != null && groundJumpParticle != null)
             {
                 jumpFXPoint.rotation = Quaternion.LookRotation((rb.linearVelocity.normalized + transform.up).normalized);
-                Instantiate(groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
+                FxManager.PlayOrInstantiate(fxManager, groundJumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
             }
             // Capture fall damage before fallSpeed is reset below.
             if (fallSpeed > mob.fallDamageSpeedMin) mob.FallDamage(fallSpeed, lastGroundNormal.y);
@@ -274,6 +306,8 @@ public class Move : MonoBehaviour
         {
             inAir = true;
             mob.anim.SetBool("inAir", true);
+            airStartTime = Time.time;
+            mob.anim.ResetTrigger("Land");
         }
         jump = false;
         mob.anim.SetTrigger("Jump");
@@ -299,7 +333,7 @@ public class Move : MonoBehaviour
         if (jumpParticle != null && jumpFXPoint != null)
         {
             jumpFXPoint.rotation = Quaternion.LookRotation(jumpVector.normalized);
-            Instantiate(jumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
+            FxManager.PlayOrInstantiate(fxManager, jumpParticle, jumpFXPoint.position, jumpFXPoint.rotation);
         }
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
         rb.AddForce(Vector3.up * (1 - horizontalWeight) * (jumpforce * jumpForceUpMult), ForceMode.Impulse);
