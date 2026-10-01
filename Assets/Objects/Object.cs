@@ -37,6 +37,19 @@ public class Object : MonoBehaviour
     public float deathForceMult;
     public float hitRadius = 1f;
     public float endTime = 5f;
+    [Header("Aim Assist")]
+    public string hitboxLayerName = "Hitbox"; // non-trigger child colliders on this layer are aim-assist parts; colliders with a Hitbox component count on any layer; empty = Hitbox components only
+
+    private List<AimPart> aimParts; // this object's aimable colliders, collected once in Awake; stays null when there are none
+    private bool aimPartsRegistered;
+    private static bool warnedNoHitboxLayer; // one missing-layer warning per play session
+
+    // Domain reload can be disabled in play mode options, so the warning flag is reset by hand.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetHitboxLayerWarning()
+    {
+        warnedNoHitboxLayer = false;
+    }
 
 
     protected virtual void Awake()
@@ -55,6 +68,7 @@ public class Object : MonoBehaviour
         if (shine == null) shine = GetComponent<Shine>();
         damageStates = GetComponent<DamageStates>();
         hp = max_hp;
+        CollectAimParts();
     }
 
     protected virtual void Start()
@@ -69,6 +83,52 @@ public class Object : MonoBehaviour
         //     colorPalette.colorName = team.colorName;
         //     colorPalette.ColorObject(team.colorName);
         // }
+    }
+
+    // Runs right after Awake, and again when a hidden object is shown.
+    protected virtual void OnEnable()
+    {
+        if (aimParts == null || aimPartsRegistered) return;
+        for (int i = 0; i < aimParts.Count; i++) AimPart.Register(aimParts[i]);
+        aimPartsRegistered = true;
+    }
+
+    // Die deactivates this object and Destroy disables it first, so dead or destroyed objects leave the registry here.
+    protected virtual void OnDisable()
+    {
+        if (!aimPartsRegistered) return;
+        for (int i = 0; i < aimParts.Count; i++) AimPart.Unregister(aimParts[i]);
+        aimPartsRegistered = false;
+    }
+
+    // Finds this object's aimable colliders: non-trigger colliders on the hitbox layer, plus any collider
+    // with a Hitbox component. Inactive children are included so parts switched on later still count.
+    private void CollectAimParts()
+    {
+        int layer = string.IsNullOrEmpty(hitboxLayerName) ? -1 : LayerMask.NameToLayer(hitboxLayerName);
+        if (layer < 0 && !string.IsNullOrEmpty(hitboxLayerName) && !warnedNoHitboxLayer)
+        {
+            Debug.LogWarning("Layer \"" + hitboxLayerName + "\" doesn't exist, so aim assist only finds colliders with a Hitbox component. Add it under Project Settings > Tags and Layers.", this);
+            warnedNoHitboxLayer = true;
+        }
+
+        Collider[] colliders = GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider col = colliders[i];
+            Hitbox hitbox = col.GetComponent<Hitbox>();
+            bool onLayer = layer >= 0 && col.gameObject.layer == layer && !col.isTrigger;
+            if (!onLayer && hitbox == null) continue;
+            // Colliders on or under a held Item never count.
+            if (col.GetComponentInParent<Item>(true) != null) continue;
+            // A nested Object collects its own parts.
+            if (col.GetComponentInParent<Object>(true) != this) continue;
+
+            // Hitbox.Awake may not have run yet, and an explicitly set owner wins so aim and bullets agree.
+            Object owner = hitbox != null && hitbox.owner != null ? hitbox.owner : this;
+            if (aimParts == null) aimParts = new List<AimPart>();
+            aimParts.Add(new AimPart(col, hitbox, owner));
+        }
     }
 
     public virtual void Interact()

@@ -4,8 +4,9 @@ using UnityEngine;
 // One body part. Goes on each body-part collider (skinned characters get regular
 // colliders on their bones) and maps that collider to part data (name, own health
 // pool, armor, aim weight) and the owning Object. BulletManager resolves a Hitbox on
-// the struck collider before falling back to Object, and HandRig's aim assist reads
-// the static Active registry to find parts inside each hand's cone.
+// the struck collider before falling back to Object, and the owning Object registers
+// this collider with its Hitbox as an AimPart for HandRig's aim assist. The component
+// is optional: plain colliders on the Hitbox layer are aimable too.
 public class Hitbox : MonoBehaviour
 {
     [Header("Part")]
@@ -19,13 +20,6 @@ public class Hitbox : MonoBehaviour
 
     private Collider partCollider;
 
-    private static readonly List<Hitbox> active = new List<Hitbox>();
-
-    public static IReadOnlyList<Hitbox> Active
-    {
-        get { return active; }
-    }
-
     public Collider PartCollider
     {
         get { return partCollider; }
@@ -34,14 +28,6 @@ public class Hitbox : MonoBehaviour
     public bool IsBroken
     {
         get { return health <= 0f; }
-    }
-
-    // Domain reload can be disabled in play mode options, which keeps statics alive
-    // between sessions; clear the registry so destroyed parts from the last run don't linger.
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetRegistry()
-    {
-        active.Clear();
     }
 
     void Awake()
@@ -57,17 +43,6 @@ public class Hitbox : MonoBehaviour
             Debug.LogWarning("Hitbox on " + gameObject.name + " uses a non-convex MeshCollider; ClosestPoint needs box, sphere, capsule or convex mesh colliders.", this);
     }
 
-    // Object.Die deactivates the owner, which disables its hitboxes, so dead characters leave the registry on their own.
-    void OnEnable()
-    {
-        if (!active.Contains(this)) active.Add(this);
-    }
-
-    void OnDisable()
-    {
-        active.Remove(this);
-    }
-
     // Armor comes off first, the rest lowers this part's pool and is passed to the owner,
     // whose own invincible/destroyed guards still apply. Returns the damage actually dealt.
     public float Damage(float amount)
@@ -77,5 +52,59 @@ public class Hitbox : MonoBehaviour
         health = Mathf.Max(0f, health - effective);
         if (owner != null) owner.Damage(effective);
         return effective;
+    }
+}
+
+// One aimable collider, registered by the Object that owns it and scanned by HandRig's aim assist.
+public class AimPart
+{
+    public readonly Collider collider; // the part's collider; aim points are found on it
+    public readonly Hitbox hitbox; // optional part data; null for a plain collider on the Hitbox layer
+    public readonly Object owner; // whose layer sets aim priority
+
+    private static readonly List<AimPart> active = new List<AimPart>();
+    private static readonly Dictionary<Collider, AimPart> byCollider = new Dictionary<Collider, AimPart>(); // fast "is this collider a part" lookup for line of sight
+
+    public static IReadOnlyList<AimPart> Active
+    {
+        get { return active; }
+    }
+
+    public AimPart(Collider collider, Hitbox hitbox, Object owner)
+    {
+        this.collider = collider;
+        this.hitbox = hitbox;
+        this.owner = owner;
+    }
+
+    public static void Register(AimPart part)
+    {
+        if (part == null) return;
+        active.Add(part);
+        // ReferenceEquals, not ==, so a collider destroyed later still matches its own key on Unregister.
+        if (!ReferenceEquals(part.collider, null)) byCollider[part.collider] = part;
+    }
+
+    public static void Unregister(AimPart part)
+    {
+        if (part == null) return;
+        active.Remove(part);
+        if (!ReferenceEquals(part.collider, null) && byCollider.TryGetValue(part.collider, out AimPart mapped) && mapped == part)
+            byCollider.Remove(part.collider);
+    }
+
+    // True when col is a currently registered aim part of any Object.
+    public static bool IsRegistered(Collider col)
+    {
+        return !ReferenceEquals(col, null) && byCollider.ContainsKey(col);
+    }
+
+    // Domain reload can be disabled in play mode options, which keeps statics alive
+    // between sessions; clear the registry so destroyed parts from the last run don't linger.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRegistry()
+    {
+        active.Clear();
+        byCollider.Clear();
     }
 }

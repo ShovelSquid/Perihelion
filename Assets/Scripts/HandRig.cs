@@ -39,7 +39,7 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 aimMuzzlePos; // muzzle pose after the aim solve, before kickback/flip: where shots actually leave from
         [System.NonSerialized] public Quaternion aimMuzzleRot = Quaternion.identity;
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
-        [System.NonSerialized] public Hitbox target; // part this hand is locked on, or null
+        [System.NonSerialized] public AimPart target; // part this hand is locked on (collider, optional Hitbox, owner), or null
         [System.NonSerialized] public float targetScore; // the locked part's last score; lower wins
         [System.NonSerialized] public Vector3 idealPoint; // world; the locked part's point nearest the cone axis, or the centre aim target
         [System.NonSerialized] public Vector3 anchorPoint; // world; eases toward idealPoint so the real point travels across depth
@@ -51,6 +51,14 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public float lockBlend; // 0 = off target, 1 = locked; blends the sway tightness
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
+    }
+
+    // A class, not a struct: Unity compiles C# 9, which has no struct field initializers, and weight should start at 1.
+    [System.Serializable]
+    public class LayerWeight
+    {
+        public LayerMask layers; // owner layers this entry covers
+        public float weight = 1f; // aim priority for owners on those layers, passed to ScorePart
     }
 
     [Header("Hands")]
@@ -87,9 +95,11 @@ public class HandRig : MonoBehaviour
     public float lookSmoothing = 12f; // per second; smooths the measured look rate so single-frame mouse spikes don't jolt the dot
     [Header("Aim Assist")]
     public float assistLookSharpness = 15f; // per second; smooths the look direction the part chooser measures from, so flicking across a gap doesn't drop the target
-    public float assistRange = 150f; // meters; hitboxes farther than this are ignored
-    public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part
+    public float assistRange = 150f; // meters; parts farther than this are ignored
+    public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part; the default (DefaultRaycastLayers) includes the Hitbox layer, so limbs block it too
     public float targetBlendSharpness = 8f; // per second; how fast sway tightness moves between off-target and on-target
+    public List<LayerWeight> ownerLayerWeights = new List<LayerWeight>(); // aim priority by the part owner's layer, e.g. Mobs 2, Buildings 1; the first entry whose mask holds the owner's layer wins
+    public float defaultLayerWeight = 1f; // weight for owners on layers no entry lists
     [Header("Visual Kick")]
     // Cosmetic kickback slide and muzzle flip, layered after the aim pose is recorded, so they can be as big
     // as you like without moving shots or the cursor dot. Each shot sets a peak; the held gun's recoilReturn
@@ -108,7 +118,7 @@ public class HandRig : MonoBehaviour
     Vector3 lookReference; // smoothed "general look" point at the eased aim depth; the hands' cone axes point at it
     Vector3 assistLookDir; // smoothed eye-to-aimPoint direction behind lookReference
     bool hasAssistLook;
-    Object self; // this rig's own damageable, so its hitboxes are skipped even if a ragdoll is unparented
+    Object self; // this rig's own damageable, so its own parts are skipped even if a ragdoll is unparented
     static readonly RaycastHit[] losHits = new RaycastHit[16]; // shared line-of-sight buffer; nothing allocated per frame
 
     public bool IsEmpty
@@ -184,7 +194,7 @@ public class HandRig : MonoBehaviour
     }
 
     // Where this hand is locked: the part its ideal aim point sits on, or null. For UI and debugging.
-    public Hitbox GetTarget(HandSide side)
+    public AimPart GetTarget(HandSide side)
     {
         return GetSlot(side).target;
     }
@@ -812,7 +822,7 @@ public class HandRig : MonoBehaviour
         lookReference = eye + assistLookDir * aimDistance;
     }
 
-    // Picks this hand's ideal aim point: the best part hitbox inside its bloom cone, sticky so the lock
+    // Picks this hand's ideal aim point: the best registered part inside its bloom cone, sticky so the lock
     // doesn't flicker between parts, else the centre aim target. The cone starts at the hand's shot origin
     // and points at the smoothed look reference. False when there is no aim point at all.
     bool UpdateIdealPoint(HandSlot slot, Vector3 coneOrigin)
@@ -835,7 +845,7 @@ public class HandRig : MonoBehaviour
         float coneAngle = slot.bloom;
 
         // The current lock is re-scored first; it is dropped if it left the cone, died or got blocked.
-        Hitbox current = slot.target;
+        AimPart current = slot.target;
         Vector3 currentPoint = default;
         float currentScore = 0f;
         if (current != null && !EvaluatePart(current, coneOrigin, axis, coneAngle, out currentPoint, out currentScore))
@@ -843,14 +853,14 @@ public class HandRig : MonoBehaviour
             current = null;
         }
 
-        Hitbox best = null;
+        AimPart best = null;
         Vector3 bestPoint = default;
         float bestScore = float.PositiveInfinity;
-        // By index: the registry is a plain list, and Hitbox enable/disable can't run mid-scan.
-        IReadOnlyList<Hitbox> parts = Hitbox.Active;
+        // By index: the registry is a plain list, and Object enable/disable can't run mid-scan.
+        IReadOnlyList<AimPart> parts = AimPart.Active;
         for (int i = 0; i < parts.Count; i++)
         {
-            Hitbox part = parts[i];
+            AimPart part = parts[i];
             if (part == current) continue;
             if (!EvaluatePart(part, coneOrigin, axis, coneAngle, out Vector3 point, out float score)) continue;
             if (score < bestScore)
@@ -878,15 +888,18 @@ public class HandRig : MonoBehaviour
     // Whether part is a valid candidate for a hand cone (origin, unit axis, half-angle in degrees), and if
     // so its point nearest the cone axis and its score. Cheap distance and bounds tests run before any
     // ClosestPoint or raycast, since every hand scans every registered part each frame.
-    bool EvaluatePart(Hitbox part, Vector3 origin, Vector3 axis, float coneAngle, out Vector3 point, out float score)
+    bool EvaluatePart(AimPart part, Vector3 origin, Vector3 axis, float coneAngle, out Vector3 point, out float score)
     {
         point = default;
         score = float.PositiveInfinity;
-        if (part == null || !part.isActiveAndEnabled) return false;
-        Collider col = part.PartCollider;
-        if (col == null || !col.enabled) return false;
+        if (part == null) return false;
+        Collider col = part.collider;
+        // Unity null check also catches destroyed colliders.
+        if (col == null || !col.enabled || !col.gameObject.activeInHierarchy) return false;
+        // Unity null check turns a destroyed Hitbox into a real null for ScorePart.
+        Hitbox hitbox = part.hitbox != null ? part.hitbox : null;
         if (part.owner != null && (part.owner.destroyed || part.owner == self)) return false;
-        if (part.transform.IsChildOf(transform)) return false;
+        if (col.transform.IsChildOf(transform)) return false;
 
         Bounds bounds = col.bounds;
         Vector3 toCentre = bounds.center - origin;
@@ -906,15 +919,17 @@ public class HandRig : MonoBehaviour
 
         float angleOffCentre = Vector3.Angle(axis, point - origin);
         if (angleOffCentre > coneAngle) return false;
-        if (!HasLineOfSight(origin, point, col)) return false;
+        if (!HasLineOfSight(origin, point, col, part.owner)) return false;
 
-        score = ScorePart(part, angleOffCentre, coneAngle, Vector3.Distance(origin, point));
+        score = ScorePart(col, hitbox, OwnerLayerWeight(part.owner), angleOffCentre, coneAngle, Vector3.Distance(origin, point));
         return !float.IsNaN(score) && !float.IsInfinity(score);
     }
 
     // True when nothing but the rig itself (body or held items) sits between origin and the part's point.
     // RaycastNonAlloc results are unsorted, so the nearest non-own hit is picked by hand.
-    bool HasLineOfSight(Vector3 origin, Vector3 point, Collider partCollider)
+    // The part owner's own non-part colliders (e.g. a movement capsule around its limbs) don't block, but its
+    // other registered parts do, so an arm can still hide the head.
+    bool HasLineOfSight(Vector3 origin, Vector3 point, Collider partCollider, Object partOwner)
     {
         Vector3 delta = point - origin;
         float dist = delta.magnitude;
@@ -926,13 +941,34 @@ public class HandRig : MonoBehaviour
         {
             Collider c = losHits[i].collider;
             if (c == null || IsOwnCollider(c)) continue;
-            if (losHits[i].distance < nearestDist)
-            {
-                nearestDist = losHits[i].distance;
-                nearest = c;
-            }
+            if (losHits[i].distance >= nearestDist) continue;
+            // Ownership is only resolved for hits that would become the nearest, which keeps the parent walks rare.
+            if (c != partCollider && IsOwnerBody(c, partOwner)) continue;
+            nearestDist = losHits[i].distance;
+            nearest = c;
         }
         return nearest == null || nearest == partCollider;
+    }
+
+    // True when c belongs to owner but isn't one of its registered aim parts.
+    static bool IsOwnerBody(Collider c, Object owner)
+    {
+        if (owner == null || AimPart.IsRegistered(c)) return false;
+        return c.GetComponentInParent<Object>() == owner;
+    }
+
+    // Aim priority for a part's owner. Uses the owner's own layer, not the collider's, so limbs on the
+    // Hitbox layer still rank by who they belong to.
+    float OwnerLayerWeight(Object owner)
+    {
+        if (owner == null) return defaultLayerWeight;
+        int layer = owner.gameObject.layer;
+        for (int i = 0; i < ownerLayerWeights.Count; i++)
+        {
+            LayerWeight entry = ownerLayerWeights[i];
+            if (entry != null && (entry.layers.value & (1 << layer)) != 0) return entry.weight;
+        }
+        return defaultLayerWeight;
     }
 
     bool IsOwnCollider(Collider c)
@@ -945,14 +981,17 @@ public class HandRig : MonoBehaviour
     }
 
     /// <summary>
-    /// Cost of locking this hand onto part; lower wins, like angleOffCentre / part.aimWeight.
+    /// Cost of locking this hand onto a part; lower wins, like angleOffCentre / (aimWeight * ownerLayerWeight).
     /// Return float.PositiveInfinity to skip a part entirely (e.g. teammates or broken parts).
+    /// col is the part's collider. hitbox may be null for a plain collider on the Hitbox layer; treat
+    /// aimWeight as the default 1 then. ownerLayerWeight is what ownerLayerWeights gives the owner's layer,
+    /// or defaultLayerWeight (1) when that layer isn't listed.
     /// angleOffCentre is degrees off the hand's cone axis; coneAngle is the current bloom half-angle, for
     /// normalising; distance is meters from the shot origin to the part's nearest point.
     /// </summary>
-    float ScorePart(Hitbox part, float angleOffCentre, float coneAngle, float distance)
+    float ScorePart(Collider col, Hitbox hitbox, float ownerLayerWeight, float angleOffCentre, float coneAngle, float distance)
     {
-        // TODO(human): weigh angleOffCentre, part.aimWeight, distance and anything else you want (team, part.IsBroken, ...) into one cost.
+        // TODO(human): weigh angleOffCentre, ownerLayerWeight, hitbox.aimWeight (1 when hitbox is null), distance and anything else you want (team, hitbox.IsBroken, ...) into one cost.
         return angleOffCentre;
     }
 
