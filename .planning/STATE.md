@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-10-03T03:54:48.293Z"
+last_updated: "2026-10-03T04:27:52.832Z"
 last_activity: 2026-10-02
 last_activity_desc: Phase 01 execution started
-state_head: 4f6c77dbd0dda99c2e6144bf6dbba47d7bce7378
+state_head: 1df701f1033bd63a44cc3475ac95017b998cc569
 progress:
   total_phases: 4
   completed_phases: 0
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-10-02 - Completed quick task 261002-syk: Hover healthbar resolves Hitbox-layer parts via owning Object
+Last activity: 2026-10-02 - Completed quick task 261002-tn0: HandRig cursorFollowSpeed eases the aim cursor frame, dot stays exact
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -133,6 +133,7 @@ None yet.
 | 261002-k3a | Camera-space aim assist cone with assistAngle | 2026-10-02 | 3013567 | [261002-k3a-camera-space-aim-assist-cone-with-assist](./quick/261002-k3a-camera-space-aim-assist-cone-with-assist/) |
 | 261002-p7m | Lock point pull from nearest edge toward part centre | 2026-10-02 | 8e5aba1 | [261002-p7m-lock-point-pull-from-nearest-edge-toward](./quick/261002-p7m-lock-point-pull-from-nearest-edge-toward/) |
 | 261002-syk | Hover healthbar resolves Hitbox-layer parts via owning Object | 2026-10-03 | 4f6c77d | [261002-syk-hover-healthbar-resolves-hitbox-layer-pa](./quick/261002-syk-hover-healthbar-resolves-hitbox-layer-pa/) |
+| 261002-tn0 | HandRig cursorFollowSpeed eases the aim cursor frame, dot stays exact | 2026-10-03 | 1df701f | [261002-tn0-handrig-cursorfollowspeed-eases-the-whol](./quick/261002-tn0-handrig-cursorfollowspeed-eases-the-whol/) |
 
 ## Deferred Items
 
