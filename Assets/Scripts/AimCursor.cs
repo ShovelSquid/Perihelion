@@ -1,7 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-// A per-hand aim cursor whose prong frame sits on the hand's ideal aim point, spread by that hand's
-// bloom, with the dot on the hand's real aim point. Prong visuals (Image or Shapes2D) are set up in the editor.
+// A per-hand aim cursor whose prong frame sits on the hand's ideal aim point, with the dot on the hand's
+// real aim point. Prongs are any number of child RectTransforms at any angle around this object's origin,
+// the centre. Each prong's authored anchoredPosition is its zero-bloom pose, and the hand's bloom pushes it
+// straight outward from the centre along that authored direction. Prong art and facing (Image or Shapes2D)
+// are set up by hand in the editor and are never changed by this script.
 // Runs after HandRig (100) has posed the item and after the camera's LateUpdate, and before ScreenAnchor (200) projects the point, so the cursor lands in the same frame.
 [DefaultExecutionOrder(190)]
 // ScreenAnchor only hides through a CanvasGroup on the same object, so without one a hidden cursor would freeze on screen.
@@ -14,22 +18,62 @@ public class AimCursor : MonoBehaviour
     public HandSide hand = HandSide.Right; // which hand's placed item drives this cursor
     [Header("Parts")]
     public RectTransform dot; // center mark, on the real aim point
-    public RectTransform prongUp; // pushed up by gap + bloom
-    public RectTransform prongDown; // pushed down by gap + bloom
-    public RectTransform prongLeft; // pushed left by gap + bloom
-    public RectTransform prongRight; // pushed right by gap + bloom
-    public float gap = 4f; // canvas units between the ideal point and each prong at zero bloom
+    public List<RectTransform> prongs = new List<RectTransform>(); // each sits where it was authored at zero bloom and is pushed outward from the centre by bloom
     public float maxDotOffset = 300f; // canvas units; keeps a grazing near real point from flinging the dot across the screen
+    // legacy; folded into prongs in Awake so existing scenes keep working until re-wired
+    [HideInInspector] public RectTransform prongUp;
+    [HideInInspector] public RectTransform prongDown;
+    [HideInInspector] public RectTransform prongLeft;
+    [HideInInspector] public RectTransform prongRight;
 
     ScreenAnchor anchor;
     Canvas canvas;
     bool? partsActive; // null until the first frame, so the first toggle always applies
+    // Built once in Awake and never re-read: placing a prong overwrites its anchoredPosition, so reading it
+    // again each frame would compound the push.
+    readonly List<ProngRest> prongRests = new List<ProngRest>();
+
+    struct ProngRest
+    {
+        public RectTransform part;
+        public Vector2 restDir; // unit direction from the centre, taken from the authored position
+        public float restDist; // canvas units from the centre at zero bloom
+    }
 
     void Awake()
     {
         anchor = GetComponent<ScreenAnchor>();
         canvas = GetComponentInParent<Canvas>();
         if (hands == null) Debug.LogWarning($"{name}: AimCursor has no HandRig assigned, so it stays hidden.", this);
+        FoldLegacyProng(prongUp);
+        FoldLegacyProng(prongDown);
+        FoldLegacyProng(prongLeft);
+        FoldLegacyProng(prongRight);
+        // Cache after folding, so the legacy prongs get a rest pose too.
+        CacheProngRests();
+    }
+
+    // An old four-prong cursor keeps its prongs: each assigned one joins the list once.
+    void FoldLegacyProng(RectTransform legacy)
+    {
+        if (legacy != null && !prongs.Contains(legacy)) prongs.Add(legacy);
+    }
+
+    void CacheProngRests()
+    {
+        prongRests.Clear();
+        foreach (RectTransform part in prongs)
+        {
+            if (part == null) continue;
+            Vector2 rest = part.anchoredPosition;
+            // A prong authored on the centre has no direction to be pushed along, so it is left where it is.
+            if (rest.sqrMagnitude < 0.0001f)
+            {
+                Debug.LogWarning($"{name}: AimCursor prong {part.name} is authored on the centre, so it has no outward direction and stays put.", part);
+                continue;
+            }
+            prongRests.Add(new ProngRest { part = part, restDir = rest.normalized, restDist = rest.magnitude });
+        }
     }
 
     void LateUpdate()
@@ -58,12 +102,10 @@ public class AimCursor : MonoBehaviour
         // can briefly stretch that offset past maxDotOffset.
         anchor.SetWorldPoint(ideal);
 
-        float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));
+        // Canvas units every prong moves outward from its authored rest; zero bloom leaves each prong where it was authored.
+        float bloomPush = anchor.AngleToCanvasUnits(hands.GetBloom(hand));
         Place(dot, DotOffset(ideal, real));
-        Place(prongUp, Vector2.up * radius);
-        Place(prongDown, Vector2.down * radius);
-        Place(prongLeft, Vector2.left * radius);
-        Place(prongRight, Vector2.right * radius);
+        foreach (ProngRest r in prongRests) Place(r.part, r.restDir * (r.restDist + bloomPush));
     }
 
     // Screen-space gap between the two points, in canvas units, projected through the world camera
@@ -88,10 +130,7 @@ public class AimCursor : MonoBehaviour
         if (partsActive == active) return;
         partsActive = active;
         SetActive(dot, active);
-        SetActive(prongUp, active);
-        SetActive(prongDown, active);
-        SetActive(prongLeft, active);
-        SetActive(prongRight, active);
+        foreach (RectTransform prong in prongs) SetActive(prong, active);
     }
 
     static void SetActive(RectTransform part, bool active)
