@@ -395,16 +395,17 @@ public class HandRig : MonoBehaviour
 
     // Kicks the aim state of the slot placing this item. kickback is meters in the muzzle's local
     // frame (back is -z). bloom is degrees added to the hand's spread, scaled by supportBloomScale while
-    // the other hand steadies the item. aimKickRise and aimKickSide push the hand's real aim point off its
-    // anchor, in degrees converted to meters at the target distance (rise along the muzzle's up, side a random
-    // amount left or right), and the offset spring pulls it back, overshooting when underdamped. Since the
-    // muzzle aims at the real point, wherever the dot is thrown is where the next shot goes. The visual flip
-    // adds the punch on top: flipRise along the muzzle's up
+    // the other hand steadies the item. aimKick throws the hand's real aim point across the reticle in
+    // screen axes (x right, y up, seen from the eye), measured in bloom radii after this shot's bloom is
+    // added, so 1 throws the dot a full reticle radius whatever the gun's spread. The bloom-radius leash
+    // keeps stacked kicks on the reticle's edge, and the offset spring swings the dot back across,
+    // overshooting when underdamped. Shots go exactly at the real point, so wherever the dot is thrown is
+    // where the next shot goes. The visual flip adds the punch on top: flipRise along the muzzle's up
     // (so a rolled or swaying gun lifts along its own tilt), flipSide along the real point's current sideways
     // drift, in degrees. Kickback and flip stack on what is currently shown and restart the return curve,
     // so automatic fire stays up until you stop.
     // Returns false when this rig isn't placing the item.
-    public bool Kick(Item item, Vector3 kickback, float bloom, float flipRise = 0f, float flipSide = 0f, float aimKickRise = 0f, float aimKickSide = 0f)
+    public bool Kick(Item item, Vector3 kickback, float bloom, float flipRise = 0f, float flipSide = 0f, Vector2 aimKick = default)
     {
         if (item == null) return false;
         HandSlot slot = null;
@@ -418,9 +419,10 @@ public class HandRig : MonoBehaviour
         float drift = Mathf.Abs(sideVelocity) > 0.01f ? Mathf.Sign(sideVelocity) : 0f;
         if (slot.hasAimPose && slot.hasAimPoints)
         {
-            float dist = Mathf.Max(0.1f, Vector3.Distance(slot.aimMuzzlePos, slot.anchorPoint));
-            slot.realOffset += (slot.aimMuzzleRot * Vector3.up) * DegToMetres(aimKickRise, dist)
-                + (slot.aimMuzzleRot * Vector3.right) * DegToMetres(aimKickSide, dist) * UnityEngine.Random.Range(-1f, 1f);
+            // Same eye frame as the sway, so one bloom radius lands on the reticle edge. The aimed muzzle is
+            // the fallback eye because it equals StepAimState's coneOrigin once the hand is posed.
+            ReticleFrame(slot, slot.aimMuzzlePos, out _, out Vector3 screenRight, out Vector3 screenUp, out float dist);
+            slot.realOffset += (screenRight * aimKick.x + screenUp * aimKick.y) * DegToMetres(slot.bloom, dist);
         }
         slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
         slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);

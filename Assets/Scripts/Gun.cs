@@ -42,8 +42,18 @@ public class Gun : Item
     public float kickbackDistance = 0.01f; // meters of visual slide back along the barrel per unit of recoilForce; never moves the shots
     public float flipAngle = 1.5f; // degrees per unit of recoilForce of visual-only muzzle flip along the gun's own up; never moves the shots
     public float flipSideAngle = 0.3f; // degrees per unit of recoilForce of visual-only sideways flip, along the direction the real aim point is already drifting
-    public float aimKickRise = 0.4f; // degrees per shot the hand's real aim point is pushed along the muzzle's up; the offset spring pulls it back
-    public float aimKickSide = 0.15f; // degrees per shot of random sideways push on the hand's real aim point
+    public Vector2 recoilDirection = new Vector2(0f, 1f); // ideal per-shot throw of the dot in screen axes (x right, y up), in bloom radii; length is strength
+    public float recoilKick = 0.6f; // scales recoilDirection plus the random part; 1 throws a full bloom radius per shot
+    // A class, not a struct: Unity compiles C# 9, which has no struct field initializers.
+    [System.Serializable]
+    public class RecoilWeights
+    {
+        public float up = 0.25f;
+        public float down = 0f;
+        public float left = 0.5f;
+        public float right = 0.5f;
+    }
+    public RecoilWeights recoilRandom = new RecoilWeights(); // most random push added toward each screen direction, in bloom radii
     // Shape of the visual kick's return, 0..1 in time over recoilReturnTime, 1 = full kick, 0 = home.
     // Default holds the kick for 40% of the time, then eases home.
     public AnimationCurve recoilReturn = new AnimationCurve(
@@ -110,7 +120,12 @@ public class Gun : Item
         Vector3 kickDir = (Vector3.back + recoilOffset).normalized;
         // Held: the gun is kinematic, so kick the hand's real aim point and visual kick instead of the body.
         Vector3 kickback = kickDir * (recoilForce * kickbackDistance);
-        if (holder != null && holder.hands != null && holder.hands.Kick(this, kickback, bloomPerShot, flipAngle * recoilForce, flipSideAngle * recoilForce, aimKickRise, aimKickSide)) return;
+        // The gun's ideal throw plus a weighted random part, in bloom radii, so recoil reaches across the whole
+        // reticle instead of fixed angles.
+        Vector2 aimKick = recoilKick * (recoilDirection + new Vector2(
+            Random.Range(-recoilRandom.left, recoilRandom.right),
+            Random.Range(-recoilRandom.down, recoilRandom.up)));
+        if (holder != null && holder.hands != null && holder.hands.Kick(this, kickback, bloomPerShot, flipAngle * recoilForce, flipSideAngle * recoilForce, aimKick)) return;
         // Loose dynamic gun: keep the physics impulse (same as the old formula with a zero recoilOffset).
         // A kinematic unheld gun gets no recoil.
         if (rb != null && !rb.isKinematic)
