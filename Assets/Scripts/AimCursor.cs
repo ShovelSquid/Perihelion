@@ -18,13 +18,10 @@ public class AimCursor : MonoBehaviour
     public HandSide hand = HandSide.Right; // which hand's placed item drives this cursor
     [Header("Parts")]
     public RectTransform dot; // center mark, on the real aim point
-    public List<RectTransform> prongs = new List<RectTransform>(); // each sits where it was authored at zero bloom and is pushed outward from the centre by bloom
+    public string dotName = "Dot"; // when dot is unassigned, the direct child with this exact name becomes the dot
+    public string prongPrefix = "Prong"; // direct children whose name starts with this become prongs automatically; the prongs list adds any named differently
+    public List<RectTransform> prongs = new List<RectTransform>(); // auto-filled in Awake from prongPrefix children; list prongs named differently here. Each sits where it was authored at zero bloom and is pushed outward by bloom
     public float maxDotOffset = 300f; // canvas units; keeps a grazing near real point from flinging the dot across the screen
-    // legacy; folded into prongs in Awake so existing scenes keep working until re-wired
-    [HideInInspector] public RectTransform prongUp;
-    [HideInInspector] public RectTransform prongDown;
-    [HideInInspector] public RectTransform prongLeft;
-    [HideInInspector] public RectTransform prongRight;
 
     ScreenAnchor anchor;
     Canvas canvas;
@@ -45,18 +42,39 @@ public class AimCursor : MonoBehaviour
         anchor = GetComponent<ScreenAnchor>();
         canvas = GetComponentInParent<Canvas>();
         if (hands == null) Debug.LogWarning($"{name}: AimCursor has no HandRig assigned, so it stays hidden.", this);
-        FoldLegacyProng(prongUp);
-        FoldLegacyProng(prongDown);
-        FoldLegacyProng(prongLeft);
-        FoldLegacyProng(prongRight);
-        // Cache after folding, so the legacy prongs get a rest pose too.
+        // The dot is settled first so prong discovery can leave it out even when its name matches the prefix.
+        FindDot();
+        FindProngs();
+        // Cache after discovery, so found prongs get a rest pose too.
         CacheProngRests();
     }
 
-    // An old four-prong cursor keeps its prongs: each assigned one joins the list once.
-    void FoldLegacyProng(RectTransform legacy)
+    // An assigned dot always wins; otherwise the direct child named exactly dotName becomes the dot.
+    void FindDot()
     {
-        if (legacy != null && !prongs.Contains(legacy)) prongs.Add(legacy);
+        if (dot != null || string.IsNullOrEmpty(dotName)) return;
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            if (child.name == dotName)
+            {
+                dot = child as RectTransform;
+                return;
+            }
+        }
+    }
+
+    // Direct children only: art nested inside a prong (for example "Prong Glow") moves with its prong and must
+    // not become a prong of its own. GetChild also returns inactive children, so hidden prongs are still found.
+    void FindProngs()
+    {
+        if (string.IsNullOrEmpty(prongPrefix)) return;
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            RectTransform child = transform.GetChild(i) as RectTransform;
+            if (child == null || child == dot) continue;
+            if (child.name.StartsWith(prongPrefix, System.StringComparison.Ordinal) && !prongs.Contains(child)) prongs.Add(child);
+        }
     }
 
     void CacheProngRests()
