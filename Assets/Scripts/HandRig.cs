@@ -41,7 +41,9 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public bool hasAimPose; // false until the slot has been posed at least once
         [System.NonSerialized] public AimPart target; // part this hand is locked on (collider, optional Hitbox, owner), or null
         [System.NonSerialized] public float targetScore; // the locked part's last score; lower wins
-        [System.NonSerialized] public Vector3 idealPoint; // world; the locked part's point nearest the cone axis, or the centre aim target
+        [System.NonSerialized] public Vector3 lookDir; // world, unit; this hand's own look direction, chasing the crosshair at its lead or trail rate; its cone axis
+        [System.NonSerialized] public bool hasLookDir; // false until lookDir has snapped to its first crosshair direction
+        [System.NonSerialized] public Vector3 idealPoint; // world; the locked part's point nearest the cone axis, or this hand's look point at the eased aim depth
         [System.NonSerialized] public Vector3 anchorPoint; // world; eases toward idealPoint so the real point travels across depth
         [System.NonSerialized] public bool hasAnchor; // false until anchorPoint has snapped to its first ideal point
         [System.NonSerialized] public Vector3 cursorPoint; // world; eases toward idealPoint at cursorFollowSpeed; where the aim cursor's frame is drawn, display only
@@ -95,11 +97,13 @@ public class HandRig : MonoBehaviour
     public Transform lookSource; // whose rotation counts as "looking"; defaults to Camera.main
     public Rigidbody moveBody; // whose speed counts as "moving" (airborne included, since it's speed-based); defaults to this object's Rigidbody
     public float lookSmoothing = 12f; // per second; smooths the measured look rate so single-frame mouse spikes don't jolt the dot
+    [Header("Hand Lead and Trail")]
+    public float leadSharpness = 25f; // per second; how fast the hand on the side the view turns toward follows the crosshair
+    public float trailSharpness = 8f; // per second; how fast the other hand follows, so it lags; pitch-only turns use the midpoint
     [Header("Aim Assist")]
-    public float assistLookSharpness = 15f; // per second; smooths the look direction the part chooser measures from, so flicking across a gap doesn't drop the target
-    public float handSplitAngle = 1.5f; // degrees each hand's aim turns toward its own side (right +, left -) around the eye's up while dual-wielding; 0 = no split
+    public float assistLookSharpness = 15f; // per second; smooths the centre look direction the shared part chooser measures from, so flicking across a gap doesn't drop the target
     public float convergeAngle = 3f; // degrees off the crosshair inside which the best centre part is shared by both hands while dual-wielding
-    public float convergeExitScale = 1.3f; // the shared zone is left only past convergeAngle * this, so a part on the edge doesn't flip the hands between shared and split every frame
+    public float convergeExitScale = 1.3f; // the shared zone is left only past convergeAngle * this, so ShouldConverge can hold a part that drifted just past convergeAngle
     public float cursorFollowSpeed = 20f; // per second; eases the aim cursor's frame toward the hand's ideal point so lock-on snaps glide; 0 or less means no easing (the frame sits on the ideal point, unlike idealFollowSpeed where 0 freezes the anchor); display only, the dot and shots stay exact
     public float assistRange = 150f; // meters; parts farther than this are ignored
     public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part; the default (DefaultRaycastLayers) includes the Hitbox layer, so limbs block it too
@@ -115,13 +119,14 @@ public class HandRig : MonoBehaviour
     public float maxFlip = 45f; // degrees; clamps stacked flips from automatic fire
 
     float aimWeight;
-    Vector3 aimTarget; // smoothed-depth copy of aimPoint; the centre aim target hands fall back to when they have no part
+    Vector3 aimTarget; // smoothed-depth copy of aimPoint; the centre aim target, used by hands without a look direction
     float aimDistance; // smoothed camera-to-aimPoint distance
     bool hasAimDistance;
+    Vector3 aimDir; // exact eye-to-aimPoint unit direction; each hand's lookDir chases it
     Vector2 lookRate; // smoothed deg/s, x = yaw (right +), y = pitch (up +)
     Vector3 lastLookForward;
     bool hasLastLook;
-    Vector3 lookReference; // smoothed "general look" point at the eased aim depth; the hands' cone axes point at it
+    Vector3 lookReference; // smoothed "general look" point at the eased aim depth; the shared part chooser's axis points at it
     Vector3 assistLookDir; // smoothed eye-to-aimPoint direction behind lookReference
     bool hasAssistLook;
     AimPart sharedTarget; // the part both dual-wielded hands lock this frame, or null; set once per frame by UpdateSharedTarget
@@ -134,7 +139,7 @@ public class HandRig : MonoBehaviour
         get { return right.item == null && left.item == null; }
     }
 
-    // Each hand places its own one-handed item, so the hands aim slightly apart and can lock different parts.
+    // Each hand places its own one-handed item, so the hands can lock different parts unless they share the centre one.
     bool IsDualWielding
     {
         get { return right.places && left.places && right.item != null && left.item != null && right.item != left.item; }
@@ -387,6 +392,7 @@ public class HandRig : MonoBehaviour
         slot.hasAnchor = false;
         slot.hasCursor = false;
         slot.hasAimPoints = false;
+        slot.hasLookDir = false;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
 
@@ -459,7 +465,7 @@ public class HandRig : MonoBehaviour
         bool supported = GetSlot(Other(side)).supporting == slot.item;
         slot.noiseTime += dt * swayFrequency;
 
-        if (UpdateIdealPoint(side, slot, coneOrigin) && slot.item != null)
+        if (UpdateIdealPoint(side, slot, dt, coneOrigin) && slot.item != null)
         {
             Item item = slot.item;
             // The anchor trails the ideal point, so a target switch slides the real point across depth
@@ -840,6 +846,7 @@ public class HandRig : MonoBehaviour
         }
         // Exact direction, eased depth: the crosshair stays on target while the gun slides across edges.
         Vector3 dir = toPoint / distance;
+        aimDir = dir;
         aimTarget = eye + dir * aimDistance;
 
         // The part chooser measures from a smoothed "general look", not the exact crosshair direction, so
@@ -856,18 +863,33 @@ public class HandRig : MonoBehaviour
         lookReference = eye + assistLookDir * aimDistance;
     }
 
-    // This hand's aim direction while dual-wielding: dir turned toward the hand's own side by handSplitAngle.
-    // The turn is around the eye's up, not the character's, so the split reads as screen-left/right however
-    // the camera is pitched or rolled. dir is unchanged when not dual-wielding or without a look source.
-    Vector3 SplitDir(HandSide side, Vector3 dir)
+    // Steps this hand's own look direction toward the exact crosshair direction. The hand on the side the view
+    // turns toward leads at leadSharpness and the other trails at trailSharpness; pitch-only motion uses the midpoint.
+    // Both settle on aimDir, so the hands meet at the crosshair once the view stops. Returns false without a look
+    // source or aim distance, and the hand then uses the centre axis.
+    bool StepHandLook(HandSide side, HandSlot slot, float dt)
     {
-        if (!IsDualWielding || lookSource == null) return dir;
-        float sign = side == HandSide.Right ? 1f : -1f;
-        return Quaternion.AngleAxis(sign * handSplitAngle, lookSource.up) * dir;
+        if (lookSource == null || !hasAimDistance)
+        {
+            slot.hasLookDir = false;
+            return false;
+        }
+        if (!slot.hasLookDir)
+        {
+            slot.lookDir = aimDir;
+            slot.hasLookDir = true;
+            return true;
+        }
+        Vector3 delta = aimDir - slot.lookDir;
+        float turn = 0f; // +1 when the view turns toward this hand's side, -1 when away
+        if (delta.sqrMagnitude > 1e-8f) turn = Vector3.Dot(delta.normalized, lookSource.right) * (side == HandSide.Right ? 1f : -1f);
+        float sharpness = Mathf.Lerp(trailSharpness, leadSharpness, 0.5f + 0.5f * turn);
+        slot.lookDir = Vector3.Slerp(slot.lookDir, aimDir, 1f - Mathf.Exp(-sharpness * dt));
+        return true;
     }
 
     // Runs once per frame before either hand is posed: finds the best part near the crosshair, scored from the
-    // unsplit look axis, and whether both hands share it. The scan reaches the exit edge (convergeAngle times
+    // centre look axis, and whether both hands share it. The scan reaches the exit edge (convergeAngle times
     // convergeExitScale), not just convergeAngle, so ShouldConverge can hold a part that drifted between the two.
     // Line of sight is checked from the eye here; each hand re-checks its own when it takes the part.
     void UpdateSharedTarget()
@@ -898,23 +920,23 @@ public class HandRig : MonoBehaviour
     }
 
     // Decides whether both hands share the best part near the crosshair this frame. centrePart is the best part
-    // scored from the unsplit look axis (null when none is within convergeAngle * convergeExitScale), angleOffCentre
+    // scored from the centre look axis (null when none is within convergeAngle * convergeExitScale), angleOffCentre
     // its degrees off the crosshair, wasConverged last frame's answer. Return true to lock both hands on centrePart.
     bool ShouldConverge(AimPart centrePart, float angleOffCentre, bool wasConverged)
     {
-        // TODO(human): enter the shared zone inside convergeAngle, leave it only past convergeAngle * convergeExitScale.
-        return false;
+        // Always share: the lead/trail look already spreads the hands while the view turns, and sharing the centre part lands them on one point.
+        return true;
     }
 
     // Picks this hand's ideal aim point: the best registered part inside its assist cone, sticky so the lock
-    // doesn't flicker between parts, else the centre aim target. The cone starts at the eye (lookSource) and
-    // points at the smoothed look reference, so "inside the circle on screen" is what selects; measuring from
-    // the muzzle instead put an offset gun's axis beside every off-crosshair target. coneOrigin is the hand's
+    // doesn't flicker between parts, else this hand's look point. The cone starts at the eye (lookSource) and
+    // points along this hand's lead/trail look direction, so "inside the circle on screen" is what selects; measuring
+    // from the muzzle instead put an offset gun's axis beside every off-crosshair target. coneOrigin is the hand's
     // shot origin, used for line of sight, and stands in for the eye when there is no look source.
-    // While dual-wielding, the cone axis and the no-lock fallback are turned toward this hand's side (SplitDir),
-    // and the part both hands share (sharedTarget) is tried first, from the unsplit axis.
+    // The no-lock fallback is that look direction at the eased aim depth. While dual-wielding, the part both
+    // hands share (sharedTarget) is tried first, from the centre axis.
     // False when there is no aim point at all.
-    bool UpdateIdealPoint(HandSide side, HandSlot slot, Vector3 coneOrigin)
+    bool UpdateIdealPoint(HandSide side, HandSlot slot, float dt, Vector3 coneOrigin)
     {
         if (aimPoint == null)
         {
@@ -925,9 +947,10 @@ public class HandRig : MonoBehaviour
         Item item = slot.item;
         Vector3 eye = lookSource != null ? lookSource.position : coneOrigin;
         Vector3 centreAxis = lookReference - eye;
-        Vector3 axis = SplitDir(side, centreAxis);
-        // Exactly aimTarget when not dual-wielding, so single and two-handed items aim as before.
-        Vector3 fallback = IsDualWielding && lookSource != null ? eye + SplitDir(side, aimTarget - eye) : aimTarget;
+        // The cone and the no-lock fallback follow this hand's lead/trail look; without one they use the centre axis and aim target.
+        bool hasLook = StepHandLook(side, slot, dt);
+        Vector3 axis = hasLook ? slot.lookDir : centreAxis;
+        Vector3 fallback = hasLook ? eye + slot.lookDir * aimDistance : aimTarget;
         if (item == null || !item.usesAiming || axis.sqrMagnitude < 1e-6f)
         {
             slot.target = null;
@@ -938,7 +961,7 @@ public class HandRig : MonoBehaviour
         // Bloom alone rests at a fraction of a degree, so assistAngle keeps the cone usable on a calm gun.
         float coneAngle = slot.bloom + Mathf.Max(0f, item.assistAngle);
 
-        // The shared part is measured from the unsplit axis, with a cone that holds it anywhere in the shared zone.
+        // The shared part is measured from the centre axis, with a cone that holds it anywhere in the shared zone.
         // This hand's own line of sight is still checked, so if it can't see the part it scans on its own.
         if (IsDualWielding && sharedTarget != null)
         {
