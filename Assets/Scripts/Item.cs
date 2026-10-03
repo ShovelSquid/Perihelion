@@ -45,6 +45,7 @@ public class Item : MonoBehaviour
     public float offTargetLooseness = 2.5f; // sway radius multiplier while the hand has no target
     public float idealFollowSpeed = 12f; // per second; how fast the real point's anchor eases toward the ideal point, so it travels across depth when the target changes
     [Range(0f, 0.9f)] public float stickiness = 0.2f; // a new part must beat the current part's score by this fraction to take the lock
+    public float assistAngle = 2f; // degrees added to bloom for the aim-assist cone, measured from the eye, so a calm gun still catches parts near the crosshair
 
     [Header("Item Info")]
     // begin bunch of bullshit

@@ -404,8 +404,8 @@ public class HandRig : MonoBehaviour
     }
 
     // Advances the slot's aim state (bloom, ideal point, real point with its sway and kick spring) and its
-    // kickback by dt. coneOrigin is where this hand's shots leave from, so the part chooser and the
-    // degree-to-meter conversions measure from the muzzle.
+    // kickback by dt. coneOrigin is where this hand's shots leave from, so the part chooser's line of sight
+    // and the degree-to-meter conversions measure from the muzzle (the chooser's cone itself is from the eye).
     void StepAimState(HandSide side, HandSlot slot, float dt, Vector3 coneOrigin)
     {
         Gun gun = slot.item as Gun;
@@ -629,7 +629,7 @@ public class HandRig : MonoBehaviour
         Vector3 pivot = slot.socket.position;
         Vector3 pos = basePos;
         Quaternion rot = baseRot;
-        // Last frame's aimed muzzle is where shots leave from, so the cone is measured from there; before the
+        // Last frame's aimed muzzle is where shots leave from, so line of sight is measured from there; before the
         // first pose, the unaimed muzzle stands in.
         Vector3 coneOrigin = slot.hasAimPose ? slot.aimMuzzlePos : basePos + baseRot * muzzleOffset;
         StepAimState(side, slot, Time.deltaTime, coneOrigin);
@@ -822,9 +822,12 @@ public class HandRig : MonoBehaviour
         lookReference = eye + assistLookDir * aimDistance;
     }
 
-    // Picks this hand's ideal aim point: the best registered part inside its bloom cone, sticky so the lock
-    // doesn't flicker between parts, else the centre aim target. The cone starts at the hand's shot origin
-    // and points at the smoothed look reference. False when there is no aim point at all.
+    // Picks this hand's ideal aim point: the best registered part inside its assist cone, sticky so the lock
+    // doesn't flicker between parts, else the centre aim target. The cone starts at the eye (lookSource) and
+    // points at the smoothed look reference, so "inside the circle on screen" is what selects; measuring from
+    // the muzzle instead put an offset gun's axis beside every off-crosshair target. coneOrigin is the hand's
+    // shot origin, used for line of sight, and stands in for the eye when there is no look source.
+    // False when there is no aim point at all.
     bool UpdateIdealPoint(HandSlot slot, Vector3 coneOrigin)
     {
         if (aimPoint == null)
@@ -834,7 +837,8 @@ public class HandRig : MonoBehaviour
             return false;
         }
         Item item = slot.item;
-        Vector3 axis = lookReference - coneOrigin;
+        Vector3 eye = lookSource != null ? lookSource.position : coneOrigin;
+        Vector3 axis = lookReference - eye;
         if (item == null || !item.usesAiming || axis.sqrMagnitude < 1e-6f)
         {
             slot.target = null;
@@ -842,13 +846,14 @@ public class HandRig : MonoBehaviour
             return true;
         }
         axis.Normalize();
-        float coneAngle = slot.bloom;
+        // Bloom alone rests at a fraction of a degree, so assistAngle keeps the cone usable on a calm gun.
+        float coneAngle = slot.bloom + Mathf.Max(0f, item.assistAngle);
 
         // The current lock is re-scored first; it is dropped if it left the cone, died or got blocked.
         AimPart current = slot.target;
         Vector3 currentPoint = default;
         float currentScore = 0f;
-        if (current != null && !EvaluatePart(current, coneOrigin, axis, coneAngle, out currentPoint, out currentScore))
+        if (current != null && !EvaluatePart(current, eye, axis, coneAngle, coneOrigin, out currentPoint, out currentScore))
         {
             current = null;
         }
@@ -862,7 +867,7 @@ public class HandRig : MonoBehaviour
         {
             AimPart part = parts[i];
             if (part == current) continue;
-            if (!EvaluatePart(part, coneOrigin, axis, coneAngle, out Vector3 point, out float score)) continue;
+            if (!EvaluatePart(part, eye, axis, coneAngle, coneOrigin, out Vector3 point, out float score)) continue;
             if (score < bestScore)
             {
                 best = part;
@@ -885,10 +890,11 @@ public class HandRig : MonoBehaviour
         return true;
     }
 
-    // Whether part is a valid candidate for a hand cone (origin, unit axis, half-angle in degrees), and if
-    // so its point nearest the cone axis and its score. Cheap distance and bounds tests run before any
-    // ClosestPoint or raycast, since every hand scans every registered part each frame.
-    bool EvaluatePart(AimPart part, Vector3 origin, Vector3 axis, float coneAngle, out Vector3 point, out float score)
+    // Whether part is a valid candidate for a hand cone (eye origin, unit axis, half-angle in degrees), and if
+    // so its point nearest the cone axis and its score. Line of sight and the scored distance come from
+    // shotOrigin, so a part the eye sees but the gun can't hit is skipped. Cheap distance and bounds tests run
+    // before any ClosestPoint or raycast, since every hand scans every registered part each frame.
+    bool EvaluatePart(AimPart part, Vector3 origin, Vector3 axis, float coneAngle, Vector3 shotOrigin, out Vector3 point, out float score)
     {
         point = default;
         score = float.PositiveInfinity;
@@ -919,9 +925,9 @@ public class HandRig : MonoBehaviour
 
         float angleOffCentre = Vector3.Angle(axis, point - origin);
         if (angleOffCentre > coneAngle) return false;
-        if (!HasLineOfSight(origin, point, col, part.owner)) return false;
+        if (!HasLineOfSight(shotOrigin, point, col, part.owner)) return false;
 
-        score = ScorePart(col, hitbox, OwnerLayerWeight(part.owner), angleOffCentre, coneAngle, Vector3.Distance(origin, point));
+        score = ScorePart(col, hitbox, OwnerLayerWeight(part.owner), angleOffCentre, coneAngle, Vector3.Distance(shotOrigin, point));
         return !float.IsNaN(score) && !float.IsInfinity(score);
     }
 
@@ -986,8 +992,9 @@ public class HandRig : MonoBehaviour
     /// col is the part's collider. hitbox may be null for a plain collider on the Hitbox layer; treat
     /// aimWeight as the default 1 then. ownerLayerWeight is what ownerLayerWeights gives the owner's layer,
     /// or defaultLayerWeight (1) when that layer isn't listed.
-    /// angleOffCentre is degrees off the hand's cone axis; coneAngle is the current bloom half-angle, for
-    /// normalising; distance is meters from the shot origin to the part's nearest point.
+    /// angleOffCentre is degrees off the eye's look axis (how far from the crosshair); coneAngle is the assist
+    /// cone half-angle (bloom + the item's assistAngle), for normalising; distance is meters from the shot
+    /// origin to the part's nearest point.
     /// </summary>
     float ScorePart(Collider col, Hitbox hitbox, float ownerLayerWeight, float angleOffCentre, float coneAngle, float distance)
     {
