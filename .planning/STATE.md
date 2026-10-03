@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-10-03T18:45:45.634Z"
+last_updated: "2026-10-03T19:45:40.058Z"
 last_activity: 2026-10-03
 last_activity_desc: Phase 01 execution started
-state_head: 173699f54d89df3bc156dcd77623d21a23aed58a
+state_head: 96c05dc53d92e636d5644a406c4f9ca794935fd8
 progress:
   total_phases: 4
   completed_phases: 0
@@ -140,6 +140,7 @@ None yet.
 | 261002-vcq | HandRig splits dual-wield aim per hand with a shared converge hook | 2026-10-03 | 7a3aab7 | [261002-vcq-handrig-dual-wield-aim-split-with-per-ha](./quick/261002-vcq-handrig-dual-wield-aim-split-with-per-ha/) |
 | 261003-f1j | Aim rework: object-then-part aim scan, AimOff exp lerp, ShouldConverge true, per-hand lead/trail look | 2026-10-03 | 94d98a9 | [261003-f1j-aim-rework-object-then-part-aim-scan-aim](./quick/261003-f1j-aim-rework-object-then-part-aim-scan-aim/) |
 | 261003-fzm | Bloom-filling aim: real point sways across the whole reticle disk, per-gun recoil vector kicks scaled to bloom, shots go exactly at the dot | 2026-10-03 | 173699f | [261003-fzm-bloom-filling-aim-real-point-sways-acros](./quick/261003-fzm-bloom-filling-aim-real-point-sways-acros/) |
+| 45 | Recoil kick as a spring velocity impulse sized to peak at recoilKick bloom radii, starting the frame after the shot | 2026-10-03 | 96c05dc | — |
 
 ## Deferred Items
 
