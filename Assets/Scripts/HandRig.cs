@@ -50,7 +50,6 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public bool hasCursor; // false until cursorPoint has snapped to its first ideal point
         [System.NonSerialized] public Vector3 realOffset; // meters around anchorPoint, flat in the plane facing the eye: sway across the reticle disk plus kicks; never past the bloom radius
         [System.NonSerialized] public Vector3 realVelocity; // m/s
-        [System.NonSerialized] public Vector3 pendingKick; // m/s; recoil impulse from this frame's shots, added after this frame's spring step so the firing frame still shows the dot on the shot
         [System.NonSerialized] public Vector3 realPoint; // world; anchorPoint + realOffset; what the muzzle aims at, where the dot is drawn, and exactly where shots go
         [System.NonSerialized] public bool hasAimPoints; // false until ideal and real points have been computed
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
@@ -387,7 +386,6 @@ public class HandRig : MonoBehaviour
         slot.targetScore = 0f;
         slot.realOffset = Vector3.zero;
         slot.realVelocity = Vector3.zero;
-        slot.pendingKick = Vector3.zero;
         slot.hasAnchor = false;
         slot.hasCursor = false;
         slot.hasAimPoints = false;
@@ -399,12 +397,10 @@ public class HandRig : MonoBehaviour
     // frame (back is -z). bloom is degrees added to the hand's spread, scaled by supportBloomScale while
     // the other hand steadies the item. aimKick throws the hand's real aim point across the reticle in
     // screen axes (x right, y up, seen from the eye), measured in bloom radii after this shot's bloom is
-    // added, so 1 throws the dot a full reticle radius whatever the gun's spread. The throw is a velocity
-    // impulse on the offset spring, sized so the spring's peak lands there, and it starts the frame after
-    // the shot: the firing frame still shows the dot where the shot went, then the dot flies off it. The
-    // bloom-radius leash keeps stacked kicks on the reticle's edge, and the spring swings the dot back
-    // across, overshooting when underdamped. Shots go exactly at the real point, so wherever the dot is
-    // thrown is where the next shot goes. The visual flip adds the punch on top: flipRise along the muzzle's up
+    // added, so 1 throws the dot a full reticle radius whatever the gun's spread. The bloom-radius leash
+    // keeps stacked kicks on the reticle's edge, and the offset spring swings the dot back across,
+    // overshooting when underdamped. Shots go exactly at the real point, so wherever the dot is thrown is
+    // where the next shot goes. The visual flip adds the punch on top: flipRise along the muzzle's up
     // (so a rolled or swaying gun lifts along its own tilt), flipSide along the real point's current sideways
     // drift, in degrees. Kickback and flip stack on what is currently shown and restart the return curve,
     // so automatic fire stays up until you stop.
@@ -426,8 +422,7 @@ public class HandRig : MonoBehaviour
             // Same eye frame as the sway, so one bloom radius lands on the reticle edge. The aimed muzzle is
             // the fallback eye because it equals StepAimState's coneOrigin once the hand is posed.
             ReticleFrame(slot, slot.aimMuzzlePos, out _, out Vector3 screenRight, out Vector3 screenUp, out float dist);
-            Vector3 throwMetres = (screenRight * aimKick.x + screenUp * aimKick.y) * DegToMetres(slot.bloom, dist);
-            slot.pendingKick += throwMetres / SpringImpulsePeak(offsetFrequency, offsetDampingRatio, Time.deltaTime);
+            slot.realOffset += (screenRight * aimKick.x + screenUp * aimKick.y) * DegToMetres(slot.bloom, dist);
         }
         slot.flipPeak = Vector2.ClampMagnitude(slot.flip + new Vector2(drift * flipSide, flipRise), maxFlip);
         slot.kickbackPeak = Vector3.ClampMagnitude(slot.kickback + kickback, maxKickback);
@@ -523,13 +518,10 @@ public class HandRig : MonoBehaviour
                 if (outward > 0f) realVel -= dir * outward;
             }
             slot.realOffset = realOff;
-            // Added after the step, so this frame's real point (and the dot) stays where the shot went and the
-            // throw only starts moving it next frame.
-            slot.realVelocity = realVel + slot.pendingKick;
+            slot.realVelocity = realVel;
             slot.realPoint = slot.anchorPoint + slot.realOffset;
             slot.hasAimPoints = true;
         }
-        slot.pendingKick = Vector3.zero;
 
         // Visual kick envelope: peak * curve(t / returnTime). The curve owns the shape (hold, then ease home);
         // the display chases it at visualAttackSharpness so the jump to a new peak still reads as a snap.
@@ -568,26 +560,6 @@ public class HandRig : MonoBehaviour
             v += (-k * (x - target) - c * v) * h;
             x += v * h;
         }
-    }
-
-    // Peak displacement the dot shows, frame by frame, after an initial velocity of 1 m/s with the target held
-    // at zero, so a kick can be sized as a velocity that peaks at a chosen distance. Simulated with StepSpring at
-    // the current frame time rather than the continuous closed form: a stiff spring peaks within a couple of
-    // frames, and the frames land well short of the continuous peak.
-    static float SpringImpulsePeak(float frequency, float dampingRatio, float dt)
-    {
-        dt = Mathf.Max(dt, 1e-3f);
-        Vector3 x = Vector3.zero;
-        Vector3 v = Vector3.right;
-        float peak = 0f;
-        // Stops once it turns back; the cap only guards a near-zero frequency.
-        for (int i = 0; i < 240; i++)
-        {
-            StepSpring(ref x, ref v, Vector3.zero, frequency, dampingRatio, dt);
-            if (x.x <= peak) break;
-            peak = x.x;
-        }
-        return Mathf.Max(peak, 1e-4f);
     }
 
     // Support only changes when a hand's contents change, so it is cached here from Equip/Release
