@@ -4,10 +4,10 @@ current_phase: 01
 current_phase_name: Foundation and Paper Skeleton
 status: verifying
 stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-10-03T18:10:27.082Z"
-last_activity: 2026-10-02
+last_updated: "2026-10-03T18:45:45.634Z"
+last_activity: 2026-10-03
 last_activity_desc: Phase 01 execution started
-state_head: 94d98a95880d2d9b6c7faec19fab844fc0ab57ed
+state_head: 173699f54d89df3bc156dcd77623d21a23aed58a
 progress:
   total_phases: 4
   completed_phases: 0
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-10-03 - Completed quick task 261003-f1j: Aim rework: object-then-part aim scan, AimOff exp lerp, ShouldConverge true, per-hand lead/trail look
+Last activity: 2026-10-03 - Completed quick task 261003-fzm: Bloom-filling aim: real point sways across the whole reticle disk, per-gun recoil vector kicks scaled to bloom, shots go exactly at the dot
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -139,6 +139,7 @@ None yet.
 | 261002-uwk | AimCursor finds Prong-prefixed children and the Dot child automatically, legacy prong fields dropped | 2026-10-03 | 51c42ad | [261002-uwk-aimcursor-finds-prong-prefixed-children-](./quick/261002-uwk-aimcursor-finds-prong-prefixed-children-/) |
 | 261002-vcq | HandRig splits dual-wield aim per hand with a shared converge hook | 2026-10-03 | 7a3aab7 | [261002-vcq-handrig-dual-wield-aim-split-with-per-ha](./quick/261002-vcq-handrig-dual-wield-aim-split-with-per-ha/) |
 | 261003-f1j | Aim rework: object-then-part aim scan, AimOff exp lerp, ShouldConverge true, per-hand lead/trail look | 2026-10-03 | 94d98a9 | [261003-f1j-aim-rework-object-then-part-aim-scan-aim](./quick/261003-f1j-aim-rework-object-then-part-aim-scan-aim/) |
+| 261003-fzm | Bloom-filling aim: real point sways across the whole reticle disk, per-gun recoil vector kicks scaled to bloom, shots go exactly at the dot | 2026-10-03 | 173699f | [261003-fzm-bloom-filling-aim-real-point-sways-acros](./quick/261003-fzm-bloom-filling-aim-real-point-sways-acros/) |
 
 ## Deferred Items
 
