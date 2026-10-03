@@ -55,7 +55,9 @@ public class Hitbox : MonoBehaviour
     }
 }
 
-// One aimable collider, registered by the Object that owns it and scanned by HandRig's aim assist.
+// One aimable collider. Hitbox parts are registered here by their owning Object; body colliders
+// are wrapped in an AimPart too but never registered, so IsRegistered keeps meaning "hitbox part".
+// HandRig reaches both through the owner's AimBody.
 public class AimPart
 {
     public readonly Collider collider; // the part's collider; aim points are found on it
@@ -99,6 +101,12 @@ public class AimPart
         return !ReferenceEquals(col, null) && byCollider.ContainsKey(col);
     }
 
+    // Exists (Unity null check, so destroyed colliders fail), enabled, and active in the hierarchy.
+    public static bool IsLive(Collider col)
+    {
+        return col != null && col.enabled && col.gameObject.activeInHierarchy;
+    }
+
     // Domain reload can be disabled in play mode options, which keeps statics alive
     // between sessions; clear the registry so destroyed parts from the last run don't linger.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -106,5 +114,76 @@ public class AimPart
     {
         active.Clear();
         byCollider.Clear();
+    }
+}
+
+// One Object's whole aim footprint. HandRig tests the cone against the whole object first,
+// then scores only its parts, or its body colliders when it has none.
+public class AimBody
+{
+    public readonly Object owner; // the Object that collected this footprint
+    public readonly List<AimPart> bodies; // non-trigger, non-part colliders with a null Hitbox; never in AimPart's registry
+    public readonly List<AimPart> parts; // the same instances the owner registers with AimPart as hitbox parts
+
+    private static readonly List<AimBody> active = new List<AimBody>();
+
+    public static IReadOnlyList<AimBody> Active
+    {
+        get { return active; }
+    }
+
+    public AimBody(Object owner, List<AimPart> bodies, List<AimPart> parts)
+    {
+        this.owner = owner;
+        this.bodies = bodies ?? new List<AimPart>();
+        this.parts = parts ?? new List<AimPart>();
+    }
+
+    public static void Register(AimBody body)
+    {
+        if (body == null) return;
+        active.Add(body);
+    }
+
+    public static void Unregister(AimBody body)
+    {
+        if (body == null) return;
+        active.Remove(body);
+    }
+
+    // Read fresh each call because the owner moves; false when none of its colliders is live.
+    public bool TryGetBounds(out Bounds bounds)
+    {
+        bounds = default;
+        bool any = false;
+        Encapsulate(bodies, ref bounds, ref any);
+        Encapsulate(parts, ref bounds, ref any);
+        return any;
+    }
+
+    private static void Encapsulate(List<AimPart> list, ref Bounds bounds, ref bool any)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            Collider col = list[i].collider;
+            if (!AimPart.IsLive(col)) continue;
+            if (any)
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+            else
+            {
+                bounds = col.bounds;
+                any = true;
+            }
+        }
+    }
+
+    // Domain reload can be disabled in play mode options, which keeps statics alive
+    // between sessions; clear the registry so destroyed objects from the last run don't linger.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRegistry()
+    {
+        active.Clear();
     }
 }

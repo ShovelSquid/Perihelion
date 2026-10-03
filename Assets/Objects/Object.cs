@@ -40,7 +40,7 @@ public class Object : MonoBehaviour
     [Header("Aim Assist")]
     public string hitboxLayerName = "Hitbox"; // non-trigger child colliders on this layer are aim-assist parts; colliders with a Hitbox component count on any layer; empty = Hitbox components only
 
-    private List<AimPart> aimParts; // this object's aimable colliders, collected once in Awake; stays null when there are none
+    private AimBody aimBody; // this object's body colliders and hitbox parts, collected once in Awake; stays null when it has neither
     private bool aimPartsRegistered;
     private static bool warnedNoHitboxLayer; // one missing-layer warning per play session
 
@@ -88,8 +88,10 @@ public class Object : MonoBehaviour
     // Runs right after Awake, and again when a hidden object is shown.
     protected virtual void OnEnable()
     {
-        if (aimParts == null || aimPartsRegistered) return;
-        for (int i = 0; i < aimParts.Count; i++) AimPart.Register(aimParts[i]);
+        if (aimBody == null || aimPartsRegistered) return;
+        // Only the parts join AimPart's registry, because line of sight reads it as "a part that can block".
+        for (int i = 0; i < aimBody.parts.Count; i++) AimPart.Register(aimBody.parts[i]);
+        AimBody.Register(aimBody);
         aimPartsRegistered = true;
     }
 
@@ -97,12 +99,14 @@ public class Object : MonoBehaviour
     protected virtual void OnDisable()
     {
         if (!aimPartsRegistered) return;
-        for (int i = 0; i < aimParts.Count; i++) AimPart.Unregister(aimParts[i]);
+        for (int i = 0; i < aimBody.parts.Count; i++) AimPart.Unregister(aimBody.parts[i]);
+        AimBody.Unregister(aimBody);
         aimPartsRegistered = false;
     }
 
-    // Finds this object's aimable colliders: non-trigger colliders on the hitbox layer, plus any collider
-    // with a Hitbox component. Inactive children are included so parts switched on later still count.
+    // Sorts this object's colliders. Parts are non-trigger colliders on the hitbox layer plus any collider
+    // with a Hitbox component. Every other non-trigger collider is body, which HandRig uses to gate onto
+    // this object before scoring its parts. Inactive children are included so colliders switched on later still count.
     private void CollectAimParts()
     {
         int layer = string.IsNullOrEmpty(hitboxLayerName) ? -1 : LayerMask.NameToLayer(hitboxLayerName);
@@ -112,23 +116,35 @@ public class Object : MonoBehaviour
             warnedNoHitboxLayer = true;
         }
 
+        List<AimPart> parts = null;
+        List<AimPart> bodies = null;
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         for (int i = 0; i < colliders.Length; i++)
         {
             Collider col = colliders[i];
             Hitbox hitbox = col.GetComponent<Hitbox>();
-            bool onLayer = layer >= 0 && col.gameObject.layer == layer && !col.isTrigger;
-            if (!onLayer && hitbox == null) continue;
+            bool isPart = hitbox != null || (layer >= 0 && col.gameObject.layer == layer && !col.isTrigger);
+            // A trigger without a Hitbox is neither part nor body, since it doesn't stop shots.
+            if (!isPart && col.isTrigger) continue;
             // Colliders on or under a held Item never count.
             if (col.GetComponentInParent<Item>(true) != null) continue;
-            // A nested Object collects its own parts.
+            // A nested Object collects its own colliders.
             if (col.GetComponentInParent<Object>(true) != this) continue;
 
-            // Hitbox.Awake may not have run yet, and an explicitly set owner wins so aim and bullets agree.
-            Object owner = hitbox != null && hitbox.owner != null ? hitbox.owner : this;
-            if (aimParts == null) aimParts = new List<AimPart>();
-            aimParts.Add(new AimPart(col, hitbox, owner));
+            if (isPart)
+            {
+                // Hitbox.Awake may not have run yet, and an explicitly set owner wins so aim and bullets agree.
+                Object owner = hitbox != null && hitbox.owner != null ? hitbox.owner : this;
+                if (parts == null) parts = new List<AimPart>();
+                parts.Add(new AimPart(col, hitbox, owner));
+            }
+            else
+            {
+                if (bodies == null) bodies = new List<AimPart>();
+                bodies.Add(new AimPart(col, null, this));
+            }
         }
+        if (parts != null || bodies != null) aimBody = new AimBody(this, bodies, parts);
     }
 
     public virtual void Interact()

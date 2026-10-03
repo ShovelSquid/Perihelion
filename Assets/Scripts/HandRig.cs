@@ -889,22 +889,9 @@ public class HandRig : MonoBehaviour
         axis.Normalize();
         float zone = convergeAngle * Mathf.Max(1f, convergeExitScale);
 
-        AimPart best = null;
-        float bestScore = float.PositiveInfinity;
-        float bestAngle = float.PositiveInfinity; // stays infinite when no part is in the zone
-        IReadOnlyList<AimPart> parts = AimPart.Active;
-        for (int i = 0; i < parts.Count; i++)
-        {
-            AimPart part = parts[i];
-            // Zero lockPull leaves point on the edge EvaluatePart measured, so its angle is the one it tested and scored.
-            if (!EvaluatePart(part, eye, axis, zone, eye, 0f, out Vector3 point, out float score)) continue;
-            if (score < bestScore)
-            {
-                best = part;
-                bestScore = score;
-                bestAngle = Vector3.Angle(axis, point - eye);
-            }
-        }
+        // Zero lockPull leaves bestPoint on the edge EvaluatePart measured, so its angle is the one it tested and scored.
+        AimPart best = FindBest(eye, axis, zone, eye, 0f, null, out Vector3 bestPoint, out _);
+        float bestAngle = best != null ? Vector3.Angle(axis, bestPoint - eye) : float.PositiveInfinity; // infinite when no part is in the zone
 
         converged = ShouldConverge(best, bestAngle, converged);
         sharedTarget = converged ? best : null;
@@ -974,23 +961,8 @@ public class HandRig : MonoBehaviour
             current = null;
         }
 
-        AimPart best = null;
-        Vector3 bestPoint = default;
-        float bestScore = float.PositiveInfinity;
-        // By index: the registry is a plain list, and Object enable/disable can't run mid-scan.
-        IReadOnlyList<AimPart> parts = AimPart.Active;
-        for (int i = 0; i < parts.Count; i++)
-        {
-            AimPart part = parts[i];
-            if (part == current) continue;
-            if (!EvaluatePart(part, eye, axis, coneAngle, coneOrigin, item.lockPull, out Vector3 point, out float score)) continue;
-            if (score < bestScore)
-            {
-                best = part;
-                bestPoint = point;
-                bestScore = score;
-            }
-        }
+        // Challengers come object first; the current lock is skipped since it was just re-scored.
+        AimPart best = FindBest(eye, axis, coneAngle, coneOrigin, item.lockPull, current, out Vector3 bestPoint, out float bestScore);
 
         // A challenger only takes the lock by beating the current part by the item's stickiness fraction.
         if (current == null || (best != null && bestScore < currentScore * (1f - item.stickiness)))
@@ -1006,47 +978,60 @@ public class HandRig : MonoBehaviour
         return true;
     }
 
+    // The best candidate in the cone, object first: each registered AimBody is gated on its whole footprint, then
+    // only its hitbox parts are scored, or its body colliders when it has none. skip is left out because the caller
+    // re-scores its current lock itself. Returns null when nothing qualifies.
+    AimPart FindBest(Vector3 origin, Vector3 axis, float coneAngle, Vector3 shotOrigin, float lockPull, AimPart skip, out Vector3 bestPoint, out float bestScore)
+    {
+        AimPart best = null;
+        bestPoint = default;
+        bestScore = float.PositiveInfinity;
+        // By index: the registry is a plain list, and Object enable/disable can't run mid-scan.
+        IReadOnlyList<AimBody> bodies = AimBody.Active;
+        for (int i = 0; i < bodies.Count; i++)
+        {
+            AimBody body = bodies[i];
+            if (!BodyGate(body, origin, axis, coneAngle)) continue;
+            List<AimPart> candidates = body.parts.Count > 0 ? body.parts : body.bodies;
+            for (int j = 0; j < candidates.Count; j++)
+            {
+                AimPart part = candidates[j];
+                if (part == skip) continue;
+                if (!EvaluatePart(part, origin, axis, coneAngle, shotOrigin, lockPull, out Vector3 point, out float score)) continue;
+                if (score < bestScore)
+                {
+                    best = part;
+                    bestPoint = point;
+                    bestScore = score;
+                }
+            }
+        }
+        return best;
+    }
+
     // Whether part is a valid candidate for a hand cone (eye origin, unit axis, half-angle in degrees), and if
     // so its lock point and score. The lock point is the part's point nearest the cone axis, pulled toward the
     // part's centre by lockPull (0..1). Line of sight and the scored distance come from shotOrigin, so a part
-    // the eye sees but the gun can't hit is skipped. Cheap distance and bounds tests run before any
-    // ClosestPoint or raycast, since every hand scans every registered part each frame.
+    // the eye sees but the gun can't hit is skipped. The cheap distance and bounds tests live in ColliderInCone,
+    // shared with the object gate, and run before any ClosestPoint or raycast.
     bool EvaluatePart(AimPart part, Vector3 origin, Vector3 axis, float coneAngle, Vector3 shotOrigin, float lockPull, out Vector3 point, out float score)
     {
         point = default;
         score = float.PositiveInfinity;
         if (part == null) return false;
         Collider col = part.collider;
-        // Unity null check also catches destroyed colliders.
-        if (col == null || !col.enabled || !col.gameObject.activeInHierarchy) return false;
+        if (!AimPart.IsLive(col)) return false;
         // Unity null check turns a destroyed Hitbox into a real null for ScorePart.
         Hitbox hitbox = part.hitbox != null ? part.hitbox : null;
         if (part.owner != null && (part.owner.destroyed || part.owner == self)) return false;
         if (col.transform.IsChildOf(transform)) return false;
 
-        Bounds bounds = col.bounds;
-        Vector3 toCentre = bounds.center - origin;
-        float centreDist = toCentre.magnitude;
-        if (centreDist > assistRange) return false;
-        // Bounding-sphere angular test: skip parts whose whole bounds sit outside the cone.
-        if (centreDist > 1e-4f)
-        {
-            float angularRadius = Mathf.Asin(Mathf.Clamp01(bounds.extents.magnitude / centreDist)) * Mathf.Rad2Deg;
-            if (Vector3.Angle(axis, toCentre) - angularRadius > coneAngle) return false;
-        }
-
-        // Nearest point to the aim ray, in two passes: the centre's projection onto the ray pulled onto the
-        // collider, then that point's projection pulled on again, which settles close to the true nearest point.
-        point = col.ClosestPoint(origin + axis * Mathf.Max(0f, Vector3.Dot(toCentre, axis)));
-        point = col.ClosestPoint(origin + axis * Mathf.Max(0f, Vector3.Dot(point - origin, axis)));
-
         // The cone test and the score use the edge point, so the pull moves where a lock lands, never which part wins.
-        float angleOffCentre = Vector3.Angle(axis, point - origin);
-        if (angleOffCentre > coneAngle) return false;
+        if (!ColliderInCone(col, origin, axis, coneAngle, out point, out float angleOffCentre)) return false;
 
         // The pulled point must be visible too; if a limb or cover hides it, settle for the edge.
         Vector3 edge = point;
-        if (lockPull > 0f) point = Vector3.Lerp(edge, col.ClosestPoint(bounds.center), Mathf.Clamp01(lockPull));
+        if (lockPull > 0f) point = Vector3.Lerp(edge, ClosestOn(col, col.bounds, col.bounds.center), Mathf.Clamp01(lockPull));
         if (!HasLineOfSight(shotOrigin, point, col, part.owner))
         {
             if (point == edge || !HasLineOfSight(shotOrigin, edge, col, part.owner)) return false;
@@ -1055,6 +1040,71 @@ public class HandRig : MonoBehaviour
 
         score = ScorePart(col, hitbox, OwnerLayerWeight(part.owner), angleOffCentre, coneAngle, Vector3.Distance(shotOrigin, point));
         return !float.IsNaN(score) && !float.IsInfinity(score);
+    }
+
+    // The object-first gate: true when the cone touches any of body's colliders. No line of sight here,
+    // because EvaluatePart checks whatever passes.
+    bool BodyGate(AimBody body, Vector3 origin, Vector3 axis, float coneAngle)
+    {
+        // Unity null check also catches a destroyed owner.
+        if (body == null || body.owner == null || body.owner.destroyed || body.owner == self) return false;
+        if (!body.TryGetBounds(out Bounds bounds)) return false;
+        Vector3 toCentre = bounds.center - origin;
+        float centreDist = toCentre.magnitude;
+        float radius = bounds.extents.magnitude;
+        // Range is measured to the sphere's near side, so a big object whose centre is out of range still
+        // gates in when its parts aren't.
+        if (centreDist - radius > assistRange) return false;
+        if (!SphereInCone(toCentre, centreDist, radius, axis, coneAngle)) return false;
+        // Bodies first, then parts, so a head poking out of the movement capsule still gates its owner in.
+        return AnyInCone(body.bodies, origin, axis, coneAngle) || AnyInCone(body.parts, origin, axis, coneAngle);
+    }
+
+    bool AnyInCone(List<AimPart> list, Vector3 origin, Vector3 axis, float coneAngle)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            Collider col = list[i].collider;
+            if (AimPart.IsLive(col) && ColliderInCone(col, origin, axis, coneAngle, out _, out _)) return true;
+        }
+        return false;
+    }
+
+    // Pure cone geometry for one live collider: false when it is out of range or no part of it is inside the
+    // cone. point is its point nearest the axis, and angle is that point's degrees off it.
+    bool ColliderInCone(Collider col, Vector3 origin, Vector3 axis, float coneAngle, out Vector3 point, out float angle)
+    {
+        point = default;
+        angle = float.PositiveInfinity;
+        Bounds bounds = col.bounds;
+        Vector3 toCentre = bounds.center - origin;
+        float centreDist = toCentre.magnitude;
+        if (centreDist > assistRange) return false;
+        if (!SphereInCone(toCentre, centreDist, bounds.extents.magnitude, axis, coneAngle)) return false;
+
+        // Nearest point to the aim ray, in two passes: the centre's projection onto the ray pulled onto the
+        // collider, then that point's projection pulled on again, which settles close to the true nearest point.
+        point = ClosestOn(col, bounds, origin + axis * Mathf.Max(0f, Vector3.Dot(toCentre, axis)));
+        point = ClosestOn(col, bounds, origin + axis * Mathf.Max(0f, Vector3.Dot(point - origin, axis)));
+        angle = Vector3.Angle(axis, point - origin);
+        return angle <= coneAngle;
+    }
+
+    // Bounding-sphere angular test: false only when the whole sphere sits outside the cone. An eye inside
+    // the sphere always passes.
+    static bool SphereInCone(Vector3 toCentre, float centreDist, float radius, Vector3 axis, float coneAngle)
+    {
+        if (centreDist <= 1e-4f) return true;
+        float angularRadius = Mathf.Asin(Mathf.Clamp01(radius / centreDist)) * Mathf.Rad2Deg;
+        return Vector3.Angle(axis, toCentre) - angularRadius <= coneAngle;
+    }
+
+    // ClosestPoint only supports box, sphere, capsule and convex mesh colliders. Anything else (a non-convex
+    // mesh body, a terrain) uses its world bounds, so the gate and the lock point stay meaningful.
+    static Vector3 ClosestOn(Collider col, Bounds bounds, Vector3 p)
+    {
+        bool supported = col is BoxCollider || col is SphereCollider || col is CapsuleCollider || (col is MeshCollider mesh && mesh.convex);
+        return supported ? col.ClosestPoint(p) : bounds.ClosestPoint(p);
     }
 
     // True when nothing but the rig itself (body or held items) sits between origin and the part's point.
