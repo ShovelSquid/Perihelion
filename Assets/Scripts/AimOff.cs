@@ -5,6 +5,7 @@ public class AimOff : MonoBehaviour
     public Animator anim;
     public Transform aimTarget;    
     public Transform aimPivot; // Chest/shoulder bone; falls back to this transform (feet) if unset
+    public float aimSharpness = 10f; // per second; how fast the aim blend values chase their targets, framerate independent
 
     [Header("Body Aim (AimX / AimY)")]
     public float maxYaw = 90f;   // Degrees the AimX = ±1 clips actually turn
@@ -53,7 +54,7 @@ public class AimOff : MonoBehaviour
     }
     float Lerp(float current, float target, float deltaTime)
     {
-        return Mathf.Lerp(current, target, deltaTime * 10f);
+        return Mathf.Lerp(current, target, 1f - Mathf.Exp(-aimSharpness * deltaTime));
     }
 
 }
