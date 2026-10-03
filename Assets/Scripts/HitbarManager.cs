@@ -118,6 +118,15 @@ public class HitbarManager : MonoBehaviour
         if (cam == null) return null;
         Transform c = cam.transform;
         if (!Physics.Raycast(c.position, c.forward, out RaycastHit hit, aimRange, aimMask, QueryTriggerInteraction.Ignore)) return null;
-        return hit.collider.GetComponentInParent<SetHealthbarAnchor>();
+
+        // A part collider on the Hitbox layer can sit beside the Healthbar child rather than above it,
+        // so resolve the owning Object the way BulletManager does and look down from there.
+        // Explicit != null checks, not ??, so a destroyed owner reads as null through Unity's == overload.
+        Hitbox hitbox = hit.collider.GetComponent<Hitbox>();
+        Object obj = hitbox != null ? hitbox.owner : hit.collider.GetComponentInParent<Object>();
+        SetHealthbarAnchor anchor = obj != null ? obj.GetComponentInChildren<SetHealthbarAnchor>() : null;
+
+        // Fall back to the old parent walk for colliders with no Object, or an Object with no anchor below it.
+        return anchor != null ? anchor : hit.collider.GetComponentInParent<SetHealthbarAnchor>();
     }
 }
