@@ -48,11 +48,10 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public bool hasAnchor; // false until anchorPoint has snapped to its first ideal point
         [System.NonSerialized] public Vector3 cursorPoint; // world; eases toward idealPoint at cursorFollowSpeed; where the aim cursor's frame is drawn, display only
         [System.NonSerialized] public bool hasCursor; // false until cursorPoint has snapped to its first ideal point
-        [System.NonSerialized] public Vector3 realOffset; // meters around anchorPoint: sway and kicks
+        [System.NonSerialized] public Vector3 realOffset; // meters around anchorPoint, flat in the plane facing the eye: sway across the reticle disk plus kicks; never past the bloom radius
         [System.NonSerialized] public Vector3 realVelocity; // m/s
-        [System.NonSerialized] public Vector3 realPoint; // world; anchorPoint + realOffset; what the muzzle aims at and the dot is drawn from
+        [System.NonSerialized] public Vector3 realPoint; // world; anchorPoint + realOffset; what the muzzle aims at, where the dot is drawn, and exactly where shots go
         [System.NonSerialized] public bool hasAimPoints; // false until ideal and real points have been computed
-        [System.NonSerialized] public float lockBlend; // 0 = off target, 1 = locked; blends the sway tightness
         [System.NonSerialized] public float noiseSeed; // per hand, so the hands never sway in sync
         [System.NonSerialized] public float noiseTime; // advances at swayFrequency
     }
@@ -87,12 +86,12 @@ public class HandRig : MonoBehaviour
     public float rollPerYaw = 0.1f; // degrees of roll per degree the muzzle points left/right of the character's forward; negative flips direction
     public float maxAimRoll = 15f; // degrees; caps the yaw-driven roll
     [Header("Sway and Recoil")]
+    // The real point sways inside the reticle disk (bloom degrees seen from the eye) and the bloom radius leashes it, so the dot never leaves the prongs.
     public float offsetFrequency = 6f; // Hz; how quickly the spring pulls the real aim point to its sway target and back after kicks
     [Range(0.1f, 2f)] public float offsetDampingRatio = 0.5f; // 1 = critically damped, no overshoot; below 1 overshoots after a kick
-    public float swayFrequency = 0.5f; // noise units per second; how fast the sway target wanders
-    [UnityEngine.Serialization.FormerlySerializedAs("maxRecoilAngle")] public float maxAimOffset = 25f; // degrees; caps how far sway plus stacked kicks carry the real point from its anchor, converted at the target distance
+    public float swayFrequency = 0.5f; // noise units per second; how fast the sway target wanders across the reticle disk
     [UnityEngine.Serialization.FormerlySerializedAs("supportRecoilScale")] [Range(0f, 1f)] public float supportBloomScale = 0.5f; // bloom-per-shot multiplier while a free hand steadies a one-handed item
-    [Range(0f, 1f)] public float supportSwayScale = 0.5f; // sway-radius multiplier while a free hand steadies a one-handed item
+    [Range(0f, 1f)] public float supportSwayScale = 0.5f; // multiplier on the item's swayFill while a free hand steadies a one-handed item
     [Header("Look and Movement")]
     public Transform lookSource; // whose rotation counts as "looking"; defaults to Camera.main
     public Rigidbody moveBody; // whose speed counts as "moving" (airborne included, since it's speed-based); defaults to this object's Rigidbody
@@ -107,7 +106,6 @@ public class HandRig : MonoBehaviour
     public float cursorFollowSpeed = 20f; // per second; eases the aim cursor's frame toward the hand's ideal point so lock-on snaps glide; 0 or less means no easing (the frame sits on the ideal point, unlike idealFollowSpeed where 0 freezes the anchor); display only, the dot and shots stay exact
     public float assistRange = 150f; // meters; parts farther than this are ignored
     public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part; the default (DefaultRaycastLayers) includes the Hitbox layer, so limbs block it too
-    public float targetBlendSharpness = 8f; // per second; how fast sway tightness moves between off-target and on-target
     public List<LayerWeight> ownerLayerWeights = new List<LayerWeight>(); // aim priority by the part owner's layer, e.g. Mobs 2, Buildings 1; the first entry whose mask holds the owner's layer wins
     public float defaultLayerWeight = 1f; // weight for owners on layers no entry lists
     [Header("Visual Kick")]
@@ -386,7 +384,6 @@ public class HandRig : MonoBehaviour
         slot.bloom = 0f;
         slot.target = null;
         slot.targetScore = 0f;
-        slot.lockBlend = 0f;
         slot.realOffset = Vector3.zero;
         slot.realVelocity = Vector3.zero;
         slot.hasAnchor = false;
@@ -433,7 +430,8 @@ public class HandRig : MonoBehaviour
 
     // Advances the slot's aim state (bloom, ideal point, real point with its sway and kick spring) and its
     // kickback by dt. coneOrigin is where this hand's shots leave from, so the part chooser's line of sight
-    // and the degree-to-meter conversions measure from the muzzle (the chooser's cone itself is from the eye).
+    // is measured from the muzzle; the reticle disk the real point sways in, like the chooser's cone, is
+    // measured from the eye.
     void StepAimState(HandSide side, HandSlot slot, float dt, Vector3 coneOrigin)
     {
         Gun gun = slot.item as Gun;
@@ -490,32 +488,30 @@ public class HandRig : MonoBehaviour
             {
                 slot.cursorPoint = Vector3.Lerp(slot.cursorPoint, slot.idealPoint, 1f - Mathf.Exp(-cursorFollowSpeed * dt));
             }
-            slot.lockBlend = Mathf.Lerp(slot.lockBlend, slot.target != null ? 1f : 0f, 1f - Mathf.Exp(-targetBlendSharpness * dt));
 
-            // Tight while locked on a part, loose with nothing to settle on.
-            float tight = Mathf.Lerp(item.offTargetLooseness, 1f - item.onTargetAccuracy, slot.lockBlend);
-            float swayDeg = item.usesAiming ? item.swayRadius * tight * (supported ? supportSwayScale : 1f) : 0f;
-            float dist = Mathf.Max(0.1f, Vector3.Distance(coneOrigin, slot.anchorPoint));
-
-            // Sway is authored in degrees and converted at the target distance, so it looks the same on screen near or far.
-            Vector3 n = new Vector3(
-                Mathf.PerlinNoise(slot.noiseSeed, slot.noiseTime) * 2f - 1f,
-                Mathf.PerlinNoise(slot.noiseSeed + 37.1f, slot.noiseTime) * 2f - 1f,
-                Mathf.PerlinNoise(slot.noiseSeed + 71.3f, slot.noiseTime) * 2f - 1f);
-            Vector3 swayTarget = Vector3.ClampMagnitude(n, 1f) * DegToMetres(swayDeg, dist);
+            // The reticle is a disk of bloom degrees seen from the eye, so the real point lives in the plane
+            // facing the eye. A sphere would project centre-heavy, and its depth axis would never show on screen.
+            ReticleFrame(slot, coneOrigin, out Vector3 eye, out Vector3 screenRight, out Vector3 screenUp, out float dist);
+            float radius = DegToMetres(slot.bloom, dist);
+            Vector2 d = item.usesAiming ? SwayDisk(slot.noiseSeed, slot.noiseTime) : Vector2.zero;
+            Vector3 swayTarget = (screenRight * d.x + screenUp * d.y) * (radius * item.swayFill * (supported ? supportSwayScale : 1f));
 
             Vector3 realOff = slot.realOffset;
             Vector3 realVel = slot.realVelocity;
             StepSpring(ref realOff, ref realVel, swayTarget, offsetFrequency, offsetDampingRatio, dt);
-            // maxAimOffset is the leash: stacked kicks from automatic fire ride its edge instead of flying off.
-            // Projecting back and dropping only the outward velocity (not snapping) keeps the spring from
-            // buzzing against the edge.
-            float leash = DegToMetres(maxAimOffset, dist);
+            // Flatten onto the eye-facing plane so a camera turn can't leave a depth residue. Velocity is
+            // flattened too, or the spring would push the residue straight back in next frame.
+            Vector3 viewDir = slot.anchorPoint - eye;
+            realOff = Vector3.ProjectOnPlane(realOff, viewDir);
+            realVel = Vector3.ProjectOnPlane(realVel, viewDir);
+            // The full bloom radius (not scaled by the item's sway fill) is the leash, so the dot never leaves
+            // the prongs, and zero bloom pins it to the anchor. Projecting back and dropping only the outward
+            // velocity (not snapping) keeps the spring from buzzing against the edge.
             float offsetDist = realOff.magnitude;
-            if (offsetDist > leash && offsetDist > 1e-6f)
+            if (offsetDist > radius && offsetDist > 1e-6f)
             {
                 Vector3 dir = realOff / offsetDist;
-                realOff = dir * leash;
+                realOff = dir * radius;
                 float outward = Vector3.Dot(realVel, dir);
                 if (outward > 0f) realVel -= dir * outward;
             }
@@ -1206,6 +1202,33 @@ public class HandRig : MonoBehaviour
         return distance * Mathf.Tan(Mathf.Clamp(degrees, 0f, 89f) * Mathf.Deg2Rad);
     }
 
+    // The plane this hand's reticle is drawn in: the eye, its right and up, and the eye-to-anchor distance
+    // that bloom degrees convert at. Sway and kicks share it, so a kick of one bloom radius lands on the edge.
+    void ReticleFrame(HandSlot slot, Vector3 fallbackEye, out Vector3 eye, out Vector3 screenRight, out Vector3 screenUp, out float dist)
+    {
+        eye = lookSource != null ? lookSource.position : fallbackEye;
+        screenRight = lookSource != null ? lookSource.right : slot.aimMuzzleRot * Vector3.right;
+        screenUp = lookSource != null ? lookSource.up : slot.aimMuzzleRot * Vector3.up;
+        dist = Mathf.Max(0.1f, Vector3.Distance(eye, slot.anchorPoint));
+    }
+
+    // A point in the unit disk that covers it evenly over a few seconds. The angle keeps orbiting at a
+    // wandering speed that can briefly reverse. The radius is a triangle wave with a noisy phase, so it spends
+    // equal time at every u in 0..1, and the square root makes that coverage even by area, not centre-heavy.
+    static Vector2 SwayDisk(float seed, float t)
+    {
+        float theta = 2f * Mathf.PI * (t * 0.37f + Mathf.PerlinNoise(seed, t * 0.5f) * 2f);
+        float u = Mathf.Abs(Frac(t * 0.61f + Mathf.PerlinNoise(seed + 37.1f, t * 0.3f)) * 2f - 1f);
+        float r = Mathf.Sqrt(u);
+        return new Vector2(Mathf.Cos(theta), Mathf.Sin(theta)) * r;
+    }
+
+    // Fractional part, wrapping negatives into 0..1 too (unlike x % 1).
+    static float Frac(float x)
+    {
+        return x - Mathf.Floor(x);
+    }
+
     // Turns from the aimed muzzle toward a world point, keeping the muzzle's up; the muzzle's own rotation
     // when there are no aim points yet or the point sits on the muzzle.
     Quaternion LookFromMuzzle(HandSlot slot, Vector3 point)
@@ -1215,9 +1238,9 @@ public class HandRig : MonoBehaviour
         return Quaternion.LookRotation(dir, slot.aimMuzzleRot * Vector3.up);
     }
 
-    // Everything a shot needs to pick its direction inside the reticle: the aimed muzzle (where shots leave
-    // from), the rotation from it toward the real point (the dot, which shots go toward), the rotation toward
-    // the ideal point (the reticle's centre) and the current bloom radius.
+    // Everything a shot needs: the aimed muzzle (where shots leave from) and the rotation from it toward the
+    // real point (the dot), which is the direction every shot takes. The rotation toward the ideal point (the
+    // reticle's centre) and the current bloom radius are reported for UI and debugging.
     public bool TryGetShotCone(Item item, out Vector3 origin, out Quaternion aimRot, out Quaternion idealRot, out float bloom)
     {
         HandSlot slot = null;
