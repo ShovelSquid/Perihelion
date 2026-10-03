@@ -44,6 +44,8 @@ public class HandRig : MonoBehaviour
         [System.NonSerialized] public Vector3 idealPoint; // world; the locked part's point nearest the cone axis, or the centre aim target
         [System.NonSerialized] public Vector3 anchorPoint; // world; eases toward idealPoint so the real point travels across depth
         [System.NonSerialized] public bool hasAnchor; // false until anchorPoint has snapped to its first ideal point
+        [System.NonSerialized] public Vector3 cursorPoint; // world; eases toward idealPoint at cursorFollowSpeed; where the aim cursor's frame is drawn, display only
+        [System.NonSerialized] public bool hasCursor; // false until cursorPoint has snapped to its first ideal point
         [System.NonSerialized] public Vector3 realOffset; // meters around anchorPoint: sway and kicks
         [System.NonSerialized] public Vector3 realVelocity; // m/s
         [System.NonSerialized] public Vector3 realPoint; // world; anchorPoint + realOffset; what the muzzle aims at and the dot is drawn from
@@ -95,6 +97,7 @@ public class HandRig : MonoBehaviour
     public float lookSmoothing = 12f; // per second; smooths the measured look rate so single-frame mouse spikes don't jolt the dot
     [Header("Aim Assist")]
     public float assistLookSharpness = 15f; // per second; smooths the look direction the part chooser measures from, so flicking across a gap doesn't drop the target
+    public float cursorFollowSpeed = 20f; // per second; eases the aim cursor's frame toward the hand's ideal point so lock-on snaps glide; 0 or less means no easing (the frame sits on the ideal point, unlike idealFollowSpeed where 0 freezes the anchor); display only, the dot and shots stay exact
     public float assistRange = 150f; // meters; parts farther than this are ignored
     public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part; the default (DefaultRaycastLayers) includes the Hitbox layer, so limbs block it too
     public float targetBlendSharpness = 8f; // per second; how fast sway tightness moves between off-target and on-target
@@ -199,14 +202,15 @@ public class HandRig : MonoBehaviour
         return GetSlot(side).target;
     }
 
-    // This hand's ideal aim point (the chosen part, or the centre target) and real aim point (ideal plus
-    // follow lag, sway and kicks; where the muzzle actually points). False when the hand places nothing
-    // or hasn't been posed yet. Cursors read it.
+    // ideal is this hand's cursor-frame point: the ideal aim point (the chosen part, or the centre target)
+    // eased at cursorFollowSpeed, for display only. real is the real aim point (ideal plus follow lag, sway
+    // and kicks; where the muzzle actually points). False when the hand places nothing or hasn't been posed
+    // yet. Cursors read it; shot and aim math uses idealPoint and realPoint directly.
     public bool TryGetAimPoints(HandSide side, out Vector3 ideal, out Vector3 real)
     {
         HandSlot slot = GetSlot(side);
         bool ok = slot.places && slot.item != null && slot.hasAimPose && slot.hasAimPoints;
-        ideal = ok ? slot.idealPoint : default;
+        ideal = ok ? slot.cursorPoint : default;
         real = ok ? slot.realPoint : default;
         return ok;
     }
@@ -364,6 +368,7 @@ public class HandRig : MonoBehaviour
         slot.realOffset = Vector3.zero;
         slot.realVelocity = Vector3.zero;
         slot.hasAnchor = false;
+        slot.hasCursor = false;
         slot.hasAimPoints = false;
         // noiseSeed and noiseTime are left alone so re-equips don't restart the sway.
     }
@@ -450,6 +455,17 @@ public class HandRig : MonoBehaviour
             else
             {
                 slot.anchorPoint = Vector3.Lerp(slot.anchorPoint, slot.idealPoint, 1f - Mathf.Exp(-Mathf.Max(0f, item.idealFollowSpeed) * dt));
+            }
+            // Display only: the cursor frame trails the ideal point so a lock-on snap glides on screen.
+            // Nothing reads it but TryGetAimPoints, so shots and the dot stay exact.
+            if (!slot.hasCursor || cursorFollowSpeed <= 0f)
+            {
+                slot.cursorPoint = slot.idealPoint;
+                slot.hasCursor = true;
+            }
+            else
+            {
+                slot.cursorPoint = Vector3.Lerp(slot.cursorPoint, slot.idealPoint, 1f - Mathf.Exp(-cursorFollowSpeed * dt));
             }
             slot.lockBlend = Mathf.Lerp(slot.lockBlend, slot.target != null ? 1f : 0f, 1f - Mathf.Exp(-targetBlendSharpness * dt));
 

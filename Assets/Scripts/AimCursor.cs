@@ -52,8 +52,10 @@ public class AimCursor : MonoBehaviour
             return;
         }
 
-        // The cursor frame sits on the ideal point (the bloom circle centre); the dot shows the real point
-        // inside it, which is where the muzzle actually aims and shots go.
+        // The cursor frame sits on HandRig's eased cursor point (the ideal point trailed at cursorFollowSpeed,
+        // the bloom circle centre); the dot is offset from it onto the real point, which is where the muzzle
+        // actually aims and shots go, so easing the frame never moves the dot. A very low cursorFollowSpeed
+        // can briefly stretch that offset past maxDotOffset.
         anchor.SetWorldPoint(ideal);
 
         float radius = gap + anchor.AngleToCanvasUnits(hands.GetBloom(hand));
