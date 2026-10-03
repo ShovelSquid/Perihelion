@@ -97,6 +97,9 @@ public class HandRig : MonoBehaviour
     public float lookSmoothing = 12f; // per second; smooths the measured look rate so single-frame mouse spikes don't jolt the dot
     [Header("Aim Assist")]
     public float assistLookSharpness = 15f; // per second; smooths the look direction the part chooser measures from, so flicking across a gap doesn't drop the target
+    public float handSplitAngle = 1.5f; // degrees each hand's aim turns toward its own side (right +, left -) around the eye's up while dual-wielding; 0 = no split
+    public float convergeAngle = 3f; // degrees off the crosshair inside which the best centre part is shared by both hands while dual-wielding
+    public float convergeExitScale = 1.3f; // the shared zone is left only past convergeAngle * this, so a part on the edge doesn't flip the hands between shared and split every frame
     public float cursorFollowSpeed = 20f; // per second; eases the aim cursor's frame toward the hand's ideal point so lock-on snaps glide; 0 or less means no easing (the frame sits on the ideal point, unlike idealFollowSpeed where 0 freezes the anchor); display only, the dot and shots stay exact
     public float assistRange = 150f; // meters; parts farther than this are ignored
     public LayerMask assistMask = Physics.DefaultRaycastLayers; // layers that block line of sight to a part; the default (DefaultRaycastLayers) includes the Hitbox layer, so limbs block it too
@@ -121,12 +124,20 @@ public class HandRig : MonoBehaviour
     Vector3 lookReference; // smoothed "general look" point at the eased aim depth; the hands' cone axes point at it
     Vector3 assistLookDir; // smoothed eye-to-aimPoint direction behind lookReference
     bool hasAssistLook;
+    AimPart sharedTarget; // the part both dual-wielded hands lock this frame, or null; set once per frame by UpdateSharedTarget
+    bool converged; // ShouldConverge's answer from last frame, fed back so the shared zone has hysteresis
     Object self; // this rig's own damageable, so its own parts are skipped even if a ragdoll is unparented
     static readonly RaycastHit[] losHits = new RaycastHit[16]; // shared line-of-sight buffer; nothing allocated per frame
 
     public bool IsEmpty
     {
         get { return right.item == null && left.item == null; }
+    }
+
+    // Each hand places its own one-handed item, so the hands aim slightly apart and can lock different parts.
+    bool IsDualWielding
+    {
+        get { return right.places && left.places && right.item != null && left.item != null && right.item != left.item; }
     }
 
     void Awake()
@@ -200,6 +211,12 @@ public class HandRig : MonoBehaviour
     public AimPart GetTarget(HandSide side)
     {
         return GetSlot(side).target;
+    }
+
+    // The part both hands share while dual-wielding near the crosshair, or null. For UI and debugging.
+    public AimPart GetSharedTarget()
+    {
+        return sharedTarget;
     }
 
     // ideal is this hand's cursor-frame point: the ideal aim point (the chosen part, or the centre target)
@@ -442,7 +459,7 @@ public class HandRig : MonoBehaviour
         bool supported = GetSlot(Other(side)).supporting == slot.item;
         slot.noiseTime += dt * swayFrequency;
 
-        if (UpdateIdealPoint(slot, coneOrigin) && slot.item != null)
+        if (UpdateIdealPoint(side, slot, coneOrigin) && slot.item != null)
         {
             Item item = slot.item;
             // The anchor trails the ideal point, so a target switch slides the real point across depth
@@ -782,6 +799,7 @@ public class HandRig : MonoBehaviour
         aimWeight = Mathf.Lerp(aimWeight, target, 1f - Mathf.Exp(-aimBlendSharpness * Time.deltaTime));
         UpdateLookRate(Time.deltaTime);
         UpdateAimTarget(Time.deltaTime);
+        UpdateSharedTarget();
 
         // Both slots are posed before any IK write, so a two-handed item placed by either hand
         // is final before its off-hand IK target is written.
@@ -838,13 +856,78 @@ public class HandRig : MonoBehaviour
         lookReference = eye + assistLookDir * aimDistance;
     }
 
+    // This hand's aim direction while dual-wielding: dir turned toward the hand's own side by handSplitAngle.
+    // The turn is around the eye's up, not the character's, so the split reads as screen-left/right however
+    // the camera is pitched or rolled. dir is unchanged when not dual-wielding or without a look source.
+    Vector3 SplitDir(HandSide side, Vector3 dir)
+    {
+        if (!IsDualWielding || lookSource == null) return dir;
+        float sign = side == HandSide.Right ? 1f : -1f;
+        return Quaternion.AngleAxis(sign * handSplitAngle, lookSource.up) * dir;
+    }
+
+    // Runs once per frame before either hand is posed: finds the best part near the crosshair, scored from the
+    // unsplit look axis, and whether both hands share it. The scan reaches the exit edge (convergeAngle times
+    // convergeExitScale), not just convergeAngle, so ShouldConverge can hold a part that drifted between the two.
+    // Line of sight is checked from the eye here; each hand re-checks its own when it takes the part.
+    void UpdateSharedTarget()
+    {
+        if (!IsDualWielding || aimPoint == null || lookSource == null)
+        {
+            sharedTarget = null;
+            converged = false;
+            return;
+        }
+        Vector3 eye = lookSource.position;
+        Vector3 axis = lookReference - eye;
+        if (axis.sqrMagnitude < 1e-6f)
+        {
+            sharedTarget = null;
+            converged = false;
+            return;
+        }
+        axis.Normalize();
+        float zone = convergeAngle * Mathf.Max(1f, convergeExitScale);
+
+        AimPart best = null;
+        float bestScore = float.PositiveInfinity;
+        float bestAngle = float.PositiveInfinity; // stays infinite when no part is in the zone
+        IReadOnlyList<AimPart> parts = AimPart.Active;
+        for (int i = 0; i < parts.Count; i++)
+        {
+            AimPart part = parts[i];
+            // Zero lockPull leaves point on the edge EvaluatePart measured, so its angle is the one it tested and scored.
+            if (!EvaluatePart(part, eye, axis, zone, eye, 0f, out Vector3 point, out float score)) continue;
+            if (score < bestScore)
+            {
+                best = part;
+                bestScore = score;
+                bestAngle = Vector3.Angle(axis, point - eye);
+            }
+        }
+
+        converged = ShouldConverge(best, bestAngle, converged);
+        sharedTarget = converged ? best : null;
+    }
+
+    // Decides whether both hands share the best part near the crosshair this frame. centrePart is the best part
+    // scored from the unsplit look axis (null when none is within convergeAngle * convergeExitScale), angleOffCentre
+    // its degrees off the crosshair, wasConverged last frame's answer. Return true to lock both hands on centrePart.
+    bool ShouldConverge(AimPart centrePart, float angleOffCentre, bool wasConverged)
+    {
+        // TODO(human): enter the shared zone inside convergeAngle, leave it only past convergeAngle * convergeExitScale.
+        return false;
+    }
+
     // Picks this hand's ideal aim point: the best registered part inside its assist cone, sticky so the lock
     // doesn't flicker between parts, else the centre aim target. The cone starts at the eye (lookSource) and
     // points at the smoothed look reference, so "inside the circle on screen" is what selects; measuring from
     // the muzzle instead put an offset gun's axis beside every off-crosshair target. coneOrigin is the hand's
     // shot origin, used for line of sight, and stands in for the eye when there is no look source.
+    // While dual-wielding, the cone axis and the no-lock fallback are turned toward this hand's side (SplitDir),
+    // and the part both hands share (sharedTarget) is tried first, from the unsplit axis.
     // False when there is no aim point at all.
-    bool UpdateIdealPoint(HandSlot slot, Vector3 coneOrigin)
+    bool UpdateIdealPoint(HandSide side, HandSlot slot, Vector3 coneOrigin)
     {
         if (aimPoint == null)
         {
@@ -854,16 +937,33 @@ public class HandRig : MonoBehaviour
         }
         Item item = slot.item;
         Vector3 eye = lookSource != null ? lookSource.position : coneOrigin;
-        Vector3 axis = lookReference - eye;
+        Vector3 centreAxis = lookReference - eye;
+        Vector3 axis = SplitDir(side, centreAxis);
+        // Exactly aimTarget when not dual-wielding, so single and two-handed items aim as before.
+        Vector3 fallback = IsDualWielding && lookSource != null ? eye + SplitDir(side, aimTarget - eye) : aimTarget;
         if (item == null || !item.usesAiming || axis.sqrMagnitude < 1e-6f)
         {
             slot.target = null;
-            slot.idealPoint = aimTarget;
+            slot.idealPoint = fallback;
             return true;
         }
         axis.Normalize();
         // Bloom alone rests at a fraction of a degree, so assistAngle keeps the cone usable on a calm gun.
         float coneAngle = slot.bloom + Mathf.Max(0f, item.assistAngle);
+
+        // The shared part is measured from the unsplit axis, with a cone that holds it anywhere in the shared zone.
+        // This hand's own line of sight is still checked, so if it can't see the part it scans on its own.
+        if (IsDualWielding && sharedTarget != null)
+        {
+            float sharedCone = coneAngle + convergeAngle * Mathf.Max(1f, convergeExitScale);
+            if (EvaluatePart(sharedTarget, eye, centreAxis.normalized, sharedCone, coneOrigin, item.lockPull, out Vector3 sharedPoint, out float sharedScore))
+            {
+                slot.target = sharedTarget;
+                slot.targetScore = sharedScore;
+                slot.idealPoint = sharedPoint;
+                return true;
+            }
+        }
 
         // The current lock is re-scored first; it is dropped if it left the cone, died or got blocked.
         AimPart current = slot.target;
@@ -902,7 +1002,7 @@ public class HandRig : MonoBehaviour
 
         slot.target = current;
         slot.targetScore = current != null ? currentScore : 0f;
-        slot.idealPoint = current != null ? currentPoint : aimTarget;
+        slot.idealPoint = current != null ? currentPoint : fallback;
         return true;
     }
 
