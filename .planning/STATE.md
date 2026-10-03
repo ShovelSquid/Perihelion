@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 Phase: 01 (Foundation and Paper Skeleton) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-10-02 - Completed quick task 261002-k3a: Camera-space aim assist cone with assistAngle
+Last activity: 2026-10-02 - Completed quick task 261002-p7m: Lock point pull from nearest edge toward part centre
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -131,6 +131,7 @@ None yet.
 | 261001-14s | Optional hitboxes with collider registry and owner-layer aim priority | 2026-10-01 | ac76ab9 | [261001-14s-optional-hitboxes-with-collider-registry](./quick/261001-14s-optional-hitboxes-with-collider-registry/) |
 | 261001-265 | Mob aiming and firing through HandRig | 2026-10-01 | 7cd4841 | [261001-265-mob-aiming-and-firing-through-handrig](./quick/261001-265-mob-aiming-and-firing-through-handrig/) |
 | 261002-k3a | Camera-space aim assist cone with assistAngle | 2026-10-02 | 3013567 | [261002-k3a-camera-space-aim-assist-cone-with-assist](./quick/261002-k3a-camera-space-aim-assist-cone-with-assist/) |
+| 261002-p7m | Lock point pull from nearest edge toward part centre | 2026-10-02 | 8e5aba1 | [261002-p7m-lock-point-pull-from-nearest-edge-toward](./quick/261002-p7m-lock-point-pull-from-nearest-edge-toward/) |
 
 ## Deferred Items
 
