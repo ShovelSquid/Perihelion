@@ -853,7 +853,7 @@ public class HandRig : MonoBehaviour
         AimPart current = slot.target;
         Vector3 currentPoint = default;
         float currentScore = 0f;
-        if (current != null && !EvaluatePart(current, eye, axis, coneAngle, coneOrigin, out currentPoint, out currentScore))
+        if (current != null && !EvaluatePart(current, eye, axis, coneAngle, coneOrigin, item.lockPull, out currentPoint, out currentScore))
         {
             current = null;
         }
@@ -867,7 +867,7 @@ public class HandRig : MonoBehaviour
         {
             AimPart part = parts[i];
             if (part == current) continue;
-            if (!EvaluatePart(part, eye, axis, coneAngle, coneOrigin, out Vector3 point, out float score)) continue;
+            if (!EvaluatePart(part, eye, axis, coneAngle, coneOrigin, item.lockPull, out Vector3 point, out float score)) continue;
             if (score < bestScore)
             {
                 best = part;
@@ -891,10 +891,11 @@ public class HandRig : MonoBehaviour
     }
 
     // Whether part is a valid candidate for a hand cone (eye origin, unit axis, half-angle in degrees), and if
-    // so its point nearest the cone axis and its score. Line of sight and the scored distance come from
-    // shotOrigin, so a part the eye sees but the gun can't hit is skipped. Cheap distance and bounds tests run
-    // before any ClosestPoint or raycast, since every hand scans every registered part each frame.
-    bool EvaluatePart(AimPart part, Vector3 origin, Vector3 axis, float coneAngle, Vector3 shotOrigin, out Vector3 point, out float score)
+    // so its lock point and score. The lock point is the part's point nearest the cone axis, pulled toward the
+    // part's centre by lockPull (0..1). Line of sight and the scored distance come from shotOrigin, so a part
+    // the eye sees but the gun can't hit is skipped. Cheap distance and bounds tests run before any
+    // ClosestPoint or raycast, since every hand scans every registered part each frame.
+    bool EvaluatePart(AimPart part, Vector3 origin, Vector3 axis, float coneAngle, Vector3 shotOrigin, float lockPull, out Vector3 point, out float score)
     {
         point = default;
         score = float.PositiveInfinity;
@@ -923,9 +924,18 @@ public class HandRig : MonoBehaviour
         point = col.ClosestPoint(origin + axis * Mathf.Max(0f, Vector3.Dot(toCentre, axis)));
         point = col.ClosestPoint(origin + axis * Mathf.Max(0f, Vector3.Dot(point - origin, axis)));
 
+        // The cone test and the score use the edge point, so the pull moves where a lock lands, never which part wins.
         float angleOffCentre = Vector3.Angle(axis, point - origin);
         if (angleOffCentre > coneAngle) return false;
-        if (!HasLineOfSight(shotOrigin, point, col, part.owner)) return false;
+
+        // The pulled point must be visible too; if a limb or cover hides it, settle for the edge.
+        Vector3 edge = point;
+        if (lockPull > 0f) point = Vector3.Lerp(edge, col.ClosestPoint(bounds.center), Mathf.Clamp01(lockPull));
+        if (!HasLineOfSight(shotOrigin, point, col, part.owner))
+        {
+            if (point == edge || !HasLineOfSight(shotOrigin, edge, col, part.owner)) return false;
+            point = edge;
+        }
 
         score = ScorePart(col, hitbox, OwnerLayerWeight(part.owner), angleOffCentre, coneAngle, Vector3.Distance(shotOrigin, point));
         return !float.IsNaN(score) && !float.IsInfinity(score);

@@ -46,6 +46,7 @@ public class Item : MonoBehaviour
     public float idealFollowSpeed = 12f; // per second; how fast the real point's anchor eases toward the ideal point, so it travels across depth when the target changes
     [Range(0f, 0.9f)] public float stickiness = 0.2f; // a new part must beat the current part's score by this fraction to take the lock
     public float assistAngle = 2f; // degrees added to bloom for the aim-assist cone, measured from the eye, so a calm gun still catches parts near the crosshair
+    [Range(0f, 1f)] public float lockPull = 0.65f; // where a lock lands on the part: 0 = the edge nearest the crosshair, 1 = the part's centre
 
     [Header("Item Info")]
     // begin bunch of bullshit
